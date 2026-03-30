@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: saaslms
+      POSTGRES_PASSWORD: saaslms
+      POSTGRES_DB: saaslms
+    ports:
+      - "5432:5432"
+    volumes:
+      - saaslms_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saaslms -d saaslms"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  adminer:
+    image: adminer:4
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        DATABASE_URL: postgresql://saaslms:saaslms@postgres:5432/saaslms
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://saaslms:saaslms@postgres:5432/saaslms
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-use-long-random-string}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD:-}
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-}
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  saaslms_pg:

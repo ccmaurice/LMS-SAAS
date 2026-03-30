@@ -20,6 +20,12 @@
 # production
 /build
 
+# Local lesson uploads (set UPLOAD_DIR to override)
+/uploads
+
+# Agent / local planning (per-task scratch file)
+research_notes.md
+
 # misc
 .DS_Store
 *.pem
@@ -30,8 +36,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — never commit secrets; template is tracked for onboarding
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # vercel
 .vercel
@@ -41,3 +52,6 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Local-only secrets (never commit)
+LOCAL-CREDENTIALS.txt

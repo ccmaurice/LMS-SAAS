@@ -7,8 +7,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-canvas: var(--canvas);
+  --color-glow-spot: var(--glow-spot);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -49,8 +51,12 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Clean paper — warm neutral canvas */
+  --canvas: oklch(0.985 0.004 95);
+  --background: oklch(0.995 0.003 95);
+  --foreground: oklch(0.16 0.01 260);
+  --glow-spot: oklch(0.62 0.14 264);
+  --shadow-bento: 0 1px 0 oklch(0 0 0 / 0.04), 0 14px 44px -18px oklch(0.25 0.02 260 / 0.1);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -64,9 +70,9 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: oklch(0.91 0.006 95);
+  --input: oklch(0.91 0.006 95);
+  --ring: oklch(0.55 0.12 264);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -84,9 +90,13 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  /* Deep dark — cool neutral */
+  --canvas: oklch(0.11 0.02 260);
+  --background: oklch(0.13 0.02 260);
+  --foreground: oklch(0.97 0.005 95);
+  --glow-spot: oklch(0.58 0.2 264);
+  --shadow-bento: 0 1px 0 oklch(1 0 0 / 0.06), 0 24px 56px -20px oklch(0 0 0 / 0.65);
+  --card: oklch(0.17 0.02 260);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
@@ -122,9 +132,93 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-canvas text-foreground antialiased;
   }
   html {
     @apply font-sans;
   }
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight;
+  }
+}
+
+@layer components {
+  .surface-bento {
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-bento);
+    @apply border border-border/80 bg-card/85 text-card-foreground backdrop-blur-md dark:border-white/10 dark:bg-card/70;
+  }
+  .surface-glass {
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-bento);
+    @apply border border-border/70 bg-card/55 backdrop-blur-xl dark:border-white/10 dark:bg-card/40;
+  }
+  .bg-app-mesh {
+    background-image: radial-gradient(ellipse 80% 50% at 50% -20%, var(--glow-spot) / 0.14, transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, var(--glow-spot) / 0.08, transparent);
+  }
+  .dark .bg-app-mesh {
+    background-image: radial-gradient(ellipse 80% 50% at 50% -20%, var(--glow-spot) / 0.22, transparent),
+      radial-gradient(ellipse 60% 40% at 100% 0%, var(--glow-spot) / 0.12, transparent);
+  }
+  .bento-course-active {
+    position: relative;
+  }
+  .bento-course-active::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(ellipse 120% 80% at 50% 0%, var(--glow-spot) / 0.2, transparent 65%);
+    animation: bento-glow-pulse 5s ease-in-out infinite;
+  }
+  .dark .bento-course-active::before {
+    background: radial-gradient(ellipse 120% 80% at 50% 0%, var(--glow-spot) / 0.35, transparent 68%);
+  }
+  .surface-table-wrap {
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-bento);
+    @apply overflow-x-auto border border-border/80 bg-card/85 backdrop-blur-md dark:border-white/10 dark:bg-card/70;
+  }
+  .surface-table-wrap table thead {
+    @apply border-b border-border/80 bg-muted/30 dark:border-white/10;
+  }
+  .surface-table-wrap table tbody tr {
+    @apply border-b border-border/60 last:border-0 dark:border-white/10;
+  }
+}
+
+@keyframes bento-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bento-course-active::before {
+    animation: none;
+    opacity: 0.65;
+  }
+}
+
+/* cmdk dialog (⌘K palette) */
+[cmdk-dialog-content] {
+  box-shadow: var(--shadow-bento);
+  @apply rounded-xl border border-border/80 bg-popover/95 text-popover-foreground backdrop-blur-xl dark:border-white/10 dark:bg-popover/90;
+}
+[cmdk-input] {
+  @apply bg-transparent text-sm outline-none;
+}
+[cmdk-item][data-selected="true"] {
+  @apply bg-accent text-accent-foreground;
+}
+[cmdk-group-heading] {
+  @apply px-2 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground;
 }

@@ -1,0 +1,1 @@
+-- This project uses MySQL with Prisma. See scripts/init-saaslms-mysql.sql or docker-compose.yml.

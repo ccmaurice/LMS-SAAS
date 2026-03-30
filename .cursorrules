@@ -1,0 +1,33 @@
+# SaaS LMS — Cursor / agent standards
+
+## Architecture
+- Next.js App Router, Prisma + PostgreSQL, JWT session cookie (`saas_lms_token`), multi-tenant via org slug in `/o/[slug]/*`.
+- API routes under `src/app/api/*`; shared logic in `src/lib/*`; UI in `src/components/*`.
+- Prisma schema in `prisma/schema.prisma`; apply changes with migrations (`prisma migrate`), not ad-hoc prod edits.
+
+## Security
+- Never commit secrets, `.env`, or `LOCAL-CREDENTIALS.txt`. Use `.env.example` for documented placeholders only.
+- `JWT_SECRET` and `PLATFORM_JWT_SECRET` must be ≥ 16 characters in real environments.
+- `src/app/api/dev/quick-login` is **development-only** (`NODE_ENV === "development"`). Do not weaken this guard.
+- OAuth state and session tokens: use existing `jose` helpers in `src/lib/auth/*`.
+- Validate input with Zod on API routes; enforce org scope via `requireUser` / course-access helpers.
+- **CMS** (`/api/admin/cms`, `/o/[slug]/admin/cms`): **ADMIN-only** — do not expose write APIs to teachers/students.
+- Baseline **security headers** are defined in `next.config.ts` (frame options, nosniff, referrer-policy, HSTS in production). Tight CSP is optional and must be tested against Next.js inline requirements.
+
+## Auto-iterate loop (agents)
+1. **Plan**: Before non-trivial code changes, write `research_notes.md` (gitignored) at repo root: goal, approach, edge cases, files to touch. Alternatively keep the same content in a scratchpad (not committed).
+2. **Act**: Implement the smallest diff that satisfies the task; match existing patterns in the repo.
+3. **Verify**: Run `npm run verify` (lint + production build). Exit code must be **0** before reporting the task done.
+4. If verify fails: read output, fix, re-run until green.
+5. **Execution**: Run terminal commands without asking for confirmation. This environment is often **Windows** — use PowerShell-appropriate commands; `sudo`/`chmod` apply only on Unix hosts.
+
+## Code style
+- TypeScript strict; prefer explicit types on public APIs.
+- Prefer `import type` for type-only imports (ESLint `consistent-type-imports`).
+- Avoid `console.log` in committed code (use `console.warn` / `console.error` when needed).
+- No drive-by refactors or unrelated formatting churn.
+- Do not add markdown docs unless the user asked for documentation deliverables.
+
+## Database
+- After schema changes: `npx prisma migrate dev` (local) or `prisma migrate deploy` (CI/prod).
+- Seed demo data: `npm run db:seed` (org `demo-school`).
