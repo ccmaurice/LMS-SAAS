@@ -37,6 +37,20 @@ export default async function PlatformHomePage() {
             below or your notifications.
           </p>
         ) : null}
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            href="/platform/usage"
+            className={cn(
+              buttonVariants({ variant: "default", size: "sm" }),
+              "inline-flex items-center gap-2 shadow-sm",
+            )}
+          >
+            Usage &amp; billing signals
+          </Link>
+          <p className="max-w-xl text-sm text-muted-foreground">
+            Row counts, 30-day activity, weighted index per school — rank tenants for pricing and capacity.
+          </p>
+        </div>
       </div>
 
       <div className="surface-table-wrap">

@@ -35,6 +35,9 @@ export default async function PlatformProtectedLayout({ children }: { children: 
             <Link href="/platform/landing" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
               Landing page
             </Link>
+            <Link href="/platform/usage" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
+              Usage
+            </Link>
             <Link href="/platform/database" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
               Database
             </Link>
