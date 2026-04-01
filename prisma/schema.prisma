@@ -13,6 +13,13 @@ enum Role {
   ADMIN
   TEACHER
   STUDENT
+  PARENT
+}
+
+enum EducationLevel {
+  PRIMARY
+  SECONDARY
+  HIGHER_ED
 }
 
 enum QuestionType {
@@ -20,6 +27,17 @@ enum QuestionType {
   SHORT_ANSWER
   LONG_ANSWER
   TRUE_FALSE
+  DRAG_DROP
+  ESSAY_RICH
+  FORMULA
+}
+
+enum SubmissionModerationState {
+  NONE
+  FIRST_REVIEW
+  SECOND_REVIEW
+  EXTERNAL_REVIEW
+  APPROVED
 }
 
 enum GradingScaleType {
@@ -88,6 +106,12 @@ model Organization {
   customAccentHex       String?
   /// Shown on the platform landing carousel and as default hero art for the public school page (https URL).
   heroImageUrl          String?
+  /// Optional square/wide logo for app shell, transcripts, report cards, certificates, PDFs. When null, hero/CMS image is used.
+  logoImageUrl          String?
+  /// Universal platform: primary / secondary / higher-ed drives grading & terminology defaults.
+  educationLevel        EducationLevel @default(SECONDARY)
+  /// JSON: terminology map, letter bands, GPA config, reportShowRank, feature flags (see education_context schema).
+  organizationSettings  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -101,6 +125,297 @@ model Organization {
   directMessageThreads DirectMessageThread[]
   scoreOverrideLogs     ScoreOverrideLog[]
   promotionSnapshots      StudentPromotionSnapshot[]
+  parentLinks             ParentStudentLink[]       @relation("ParentOrg")
+  learningStandards       LearningStandard[]
+  gradingAuditLogs        GradingAuditLog[]
+  proctoringEvents        ProctoringEvent[]
+  academicTerms           AcademicTerm[]
+  schoolCohorts           SchoolCohort[]
+  facultyDivisions        FacultyDivision[]
+  academicDepartments     AcademicDepartment[]
+}
+
+/// Academic period (term/semester) — attach to courses; mark one as current for school-wide UI.
+model AcademicTerm {
+  id             String    @id @default(cuid())
+  organizationId String
+  code           String
+  label          String
+  startDate      DateTime?
+  endDate        DateTime?
+  sortOrder      Int       @default(0)
+  isCurrent      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  courses      Course[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+/// Primary / secondary homeroom or form group (students assigned by admin).
+model SchoolCohort {
+  id                  String   @id @default(cuid())
+  organizationId      String
+  name                String
+  gradeLabel          String?
+  /// Secondary: optional pathway / stream (e.g. Science, Arts, vocational track).
+  trackLabel          String?
+  academicYearLabel   String   @default("")
+  homeroomTeacherId   String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  homeroomTeacher User?        @relation("HomeroomTeacher", fields: [homeroomTeacherId], references: [id], onDelete: SetNull)
+  members         CohortMembership[]
+  instructors     CohortInstructor[]
+  courseLinks     CourseCohort[]
+  assessmentTargets AssessmentCohort[]
+  messages        CohortMessage[]
+
+  @@index([organizationId])
+}
+
+/// Additional teachers assigned to a class (homeroom teacher is also tracked on SchoolCohort).
+model CohortInstructor {
+  cohortId String
+  userId   String
+
+  cohort SchoolCohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([cohortId, userId])
+  @@index([userId])
+}
+
+/// Course offered to a specific school class (used for assessment targeting & class context).
+model CourseCohort {
+  courseId String
+  cohortId String
+
+  course Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  cohort SchoolCohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, cohortId])
+  @@index([cohortId])
+}
+
+/// When empty, all enrolled students may see the assessment; when set, only students in those classes (who are enrolled).
+model AssessmentCohort {
+  assessmentId String
+  cohortId     String
+
+  assessment Assessment   @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  cohort     SchoolCohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+
+  @@id([assessmentId, cohortId])
+  @@index([cohortId])
+}
+
+/// Teacher → class announcements (read by class members and instructors).
+model CohortMessage {
+  id        String   @id @default(cuid())
+  cohortId  String
+  userId    String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  cohort SchoolCohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([cohortId, createdAt(sort: Desc)])
+}
+
+/// Higher-ed: faculty / school umbrella (e.g. Faculty of Science).
+model FacultyDivision {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  code           String?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  departments  AcademicDepartment[]
+
+  @@index([organizationId])
+}
+
+/// Higher-ed: department or program unit (mirrors class/cohort for messaging & assessment targeting).
+model AcademicDepartment {
+  id                String   @id @default(cuid())
+  organizationId    String
+  facultyDivisionId String?
+  name              String
+  code              String?
+  chairUserId       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  facultyDivision FacultyDivision? @relation(fields: [facultyDivisionId], references: [id], onDelete: SetNull)
+  chair           User?          @relation("DepartmentChair", fields: [chairUserId], references: [id], onDelete: SetNull)
+  instructors     DepartmentInstructor[]
+  studentAffiliations StudentDepartmentAffiliation[]
+  courseLinks     CourseDepartment[]
+  assessmentTargets AssessmentDepartment[]
+  messages        DepartmentMessage[]
+
+  @@index([organizationId])
+  @@index([facultyDivisionId])
+}
+
+model DepartmentInstructor {
+  departmentId String
+  userId       String
+
+  department AcademicDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([departmentId, userId])
+  @@index([userId])
+}
+
+model StudentDepartmentAffiliation {
+  departmentId String
+  userId       String
+  isPrimary    Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  department AcademicDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([departmentId, userId])
+  @@index([userId])
+}
+
+model CourseDepartment {
+  courseId     String
+  departmentId String
+
+  course     Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  department AcademicDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([courseId, departmentId])
+  @@index([departmentId])
+}
+
+model AssessmentDepartment {
+  assessmentId String
+  departmentId String
+
+  assessment Assessment         @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  department AcademicDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([assessmentId, departmentId])
+  @@index([departmentId])
+}
+
+model DepartmentMessage {
+  id           String   @id @default(cuid())
+  departmentId String
+  userId       String
+  body         String   @db.Text
+  createdAt    DateTime @default(now())
+
+  department AcademicDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([departmentId, createdAt(sort: Desc)])
+}
+
+model CohortMembership {
+  cohortId  String
+  userId    String
+  createdAt DateTime @default(now())
+
+  cohort SchoolCohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  user   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([cohortId, userId])
+  @@index([userId])
+}
+
+/// Links a parent user to a student in the same organization.
+model ParentStudentLink {
+  id             String   @id @default(cuid())
+  organizationId String
+  parentUserId   String
+  studentUserId  String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation("ParentOrg", fields: [organizationId], references: [id], onDelete: Cascade)
+  parent       User         @relation("ParentOf", fields: [parentUserId], references: [id], onDelete: Cascade)
+  student      User         @relation("StudentOf", fields: [studentUserId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, parentUserId, studentUserId])
+  @@index([parentUserId])
+  @@index([studentUserId])
+}
+
+/// Competency / standard catalog per org.
+model LearningStandard {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String
+  title          String
+  description    String?  @db.Text
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  questions    QuestionStandard[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model QuestionStandard {
+  questionId String
+  standardId String
+
+  question Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  standard LearningStandard @relation(fields: [standardId], references: [id], onDelete: Cascade)
+
+  @@id([questionId, standardId])
+  @@index([standardId])
+}
+
+/// Client-reported proctoring signals (blur, fullscreen exit, etc.).
+model ProctoringEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  assessmentId   String?
+  submissionId   String?
+  eventType      String
+  payload        Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt(sort: Desc)])
+  @@index([userId])
+}
+
+model GradingAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorId        String
+  entityType     String
+  entityId       String
+  action         String
+  payload        Json?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor        User           @relation("GradingAuditActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([entityId])
+  @@index([organizationId, createdAt(sort: Desc)])
 }
 
 /// Optional profile fields for platform console operators (env-based login).
@@ -166,6 +481,19 @@ model User {
   directMessagesSent DirectMessage[]
   scoreOverridesAsEditor ScoreOverrideLog[] @relation("ScoreOverrideEditor")
   promotionSnapshots     StudentPromotionSnapshot[]
+  parentOfLinks          ParentStudentLink[] @relation("ParentOf")
+  studentOfParentLinks   ParentStudentLink[] @relation("StudentOf")
+  proctoringEvents         ProctoringEvent[]
+  gradingAuditsPerformed   GradingAuditLog[] @relation("GradingAuditActor")
+  cohortMemberships        CohortMembership[]
+  homeroomCohorts          SchoolCohort[]      @relation("HomeroomTeacher")
+  cohortInstructorships    CohortInstructor[]
+  cohortMessagesPosted     CohortMessage[]
+  departmentInstructorships DepartmentInstructor[]
+  studentDepartmentAffiliations StudentDepartmentAffiliation[]
+  chairedDepartments     AcademicDepartment[] @relation("DepartmentChair")
+  departmentMessagesPosted DepartmentMessage[]
+  learningResourcesAuthored  LearningResource[] @relation("LearningResourceAuthor")
 
   @@unique([organizationId, email])
   @@unique([organizationId, googleSub])
@@ -213,19 +541,26 @@ model Course {
   gradeWeightContinuous Float            @default(0.4)
   gradeWeightExam       Float            @default(0.6)
   gradingScale          GradingScaleType @default(PERCENTAGE)
+  /// Higher-ed credit hours (optional; used by transcript/reporting).
+  creditHours           Float?
+  academicTermId        String?
   createdById    String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdBy    User         @relation("CourseAuthor", fields: [createdById], references: [id], onDelete: Restrict)
+  academicTerm AcademicTerm? @relation(fields: [academicTermId], references: [id], onDelete: SetNull)
 
   modules       Module[]
   enrollments   Enrollment[]
   assessments   Assessment[]
   chatMessages  CourseChatMessage[]
+  courseCohorts CourseCohort[]
+  courseDepartments CourseDepartment[]
 
   @@index([organizationId])
+  @@index([academicTermId])
 }
 
 /// Headless CMS strings per organization (no redeploy for copy changes)
@@ -274,11 +609,14 @@ model LearningResource {
   published      Boolean              @default(true)
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
+  createdById    String?
 
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?            @relation("LearningResourceAuthor", fields: [createdById], references: [id], onDelete: SetNull)
   progress     ResourceProgress[]
 
   @@index([organizationId, published])
+  @@index([organizationId, createdById])
 }
 
 model ResourceProgress {
@@ -440,6 +778,7 @@ model Assessment {
   timeLimitMinutes Int?
   published        Boolean        @default(false)
   shuffleQuestions Boolean        @default(false)
+  shuffleOptions   Boolean        @default(false)
   createdById      String
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -448,6 +787,9 @@ model Assessment {
   createdBy   User         @relation("AssessmentAuthor", fields: [createdById], references: [id], onDelete: Restrict)
   questions   Question[]
   submissions Submission[]
+  questionPools AssessmentQuestionPool[]
+  assessmentCohorts AssessmentCohort[]
+  assessmentDepartments AssessmentDepartment[]
 
   @@index([courseId])
 }
@@ -465,11 +807,43 @@ model Question {
   markingScheme   String?      @db.Text
   /// Optional multimodal refs: [{ "kind": "image"|"video"|"audio", "url": "https://..." }]
   mediaAttachments Json?
+  /// Rubric criteria JSON (aligned with reporting_engine / grading UI).
+  rubric             Json?
+  /// Engine metadata for DRAG_DROP / FORMULA / ESSAY_RICH (versioned contract).
+  questionSchema     Json?
 
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   answers    Answer[]
+  poolEntries AssessmentPoolEntry[]
+  standards  QuestionStandard[]
 
   @@index([assessmentId])
+}
+
+/// Draw N questions from a named pool when building a take session.
+model AssessmentQuestionPool {
+  id           String   @id @default(cuid())
+  assessmentId String
+  name         String   @default("Pool")
+  drawCount    Int      @default(1)
+  sortOrder    Int      @default(0)
+
+  assessment Assessment            @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  entries    AssessmentPoolEntry[]
+
+  @@index([assessmentId])
+}
+
+model AssessmentPoolEntry {
+  id         String @id @default(cuid())
+  poolId     String
+  questionId String
+
+  pool     AssessmentQuestionPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  question Question               @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([poolId, questionId])
+  @@index([questionId])
 }
 
 model Submission {
@@ -481,6 +855,7 @@ model Submission {
   status      SubmissionStatus @default(DRAFT)
   totalScore  Float?
   maxScore    Float?
+  moderationState SubmissionModerationState @default(NONE)
 
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -503,6 +878,10 @@ model Answer {
   manualComment String? @db.Text
   gradedById    String?
   manualEditedAt DateTime?
+  /// Per-criterion rubric scores: [{ criterionId, points, maxPoints }]
+  rubricScores   Json?
+  /// Highlights / offsets / voice note URL fragments (see reporting_engine).
+  annotations    Json?
 
   submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)

@@ -84,7 +84,7 @@ export function SchoolsCarousel({ schools }: { schools: SchoolCarouselItem[] }) 
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4 px-1">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Schools on this platform</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight md:text-3xl">Explore every campus</h2>
+          <h2 className="page-title-lg mt-2">Explore every campus</h2>
           <p className="mt-2 max-w-xl text-sm text-muted-foreground">
             Swipe or use arrows — each card opens that school&apos;s public page.
           </p>

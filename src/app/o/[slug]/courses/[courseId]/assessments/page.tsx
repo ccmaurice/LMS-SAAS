@@ -2,8 +2,15 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
-import { assertCourseInOrg } from "@/lib/assessments/access";
-import { getEnrollment, isStaffRole } from "@/lib/courses/access";
+import {
+  assertCourseInOrg,
+  assessmentWhereForStudent,
+  assessmentVisibleToStudentWhere,
+} from "@/lib/assessments/access";
+import { canTeacherManageCourse, getEnrollment, isStaffRole } from "@/lib/courses/access";
+import { getStudentCohortIds } from "@/lib/school/cohort-access";
+import { getStudentDepartmentIds } from "@/lib/school/department-access";
+import type { EducationLevel } from "@/generated/prisma/enums";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -22,18 +29,29 @@ export default async function CourseAssessmentsPage({
 
   const base = `/o/${slug}/courses/${courseId}/assessments`;
 
-  if (isStaffRole(user.role)) {
+  if (isStaffRole(user.role) && canTeacherManageCourse(user, course.createdById)) {
+    const orgLevel = (await prisma.organization.findUnique({
+      where: { id: user.organizationId },
+      select: { educationLevel: true },
+    }))?.educationLevel as EducationLevel | undefined;
+
     const assessments = await prisma.assessment.findMany({
       where: { courseId },
       orderBy: { updatedAt: "desc" },
-      include: { _count: { select: { questions: true, submissions: true } } },
+      include: {
+        _count: {
+          select: { questions: true, submissions: true, assessmentCohorts: true, assessmentDepartments: true },
+        },
+      },
     });
+
+    const isHe = orgLevel === "HIGHER_ED";
 
     return (
       <div className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Assessments</h1>
+            <h1 className="page-title">Assessments</h1>
             <p className="text-muted-foreground">{course.title}</p>
           </div>
           <Link href={`${base}/new`} className={cn(buttonVariants())}>
@@ -47,6 +65,15 @@ export default async function CourseAssessmentsPage({
                 <p className="font-medium">{a.title}</p>
                 <p className="text-sm text-muted-foreground">
                   {a._count.questions} questions · {a._count.submissions} submissions
+                  {isHe
+                    ? a._count.assessmentDepartments > 0
+                      ? ` · ${a._count.assessmentDepartments} department${
+                          a._count.assessmentDepartments === 1 ? "" : "s"
+                        }`
+                      : " · all enrolled"
+                    : a._count.assessmentCohorts > 0
+                      ? ` · ${a._count.assessmentCohorts} class${a._count.assessmentCohorts === 1 ? "" : "es"}`
+                      : " · all enrolled"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -83,15 +110,30 @@ export default async function CourseAssessmentsPage({
     );
   }
 
+  const orgLevel = (await prisma.organization.findUnique({
+    where: { id: user.organizationId },
+    select: { educationLevel: true },
+  }))?.educationLevel as EducationLevel | undefined;
+
+  const studentCohortIds = await getStudentCohortIds(user.id, user.organizationId);
+  const studentDeptIds =
+    orgLevel === "HIGHER_ED" ? await getStudentDepartmentIds(user.id, user.organizationId) : [];
+
   const assessments = await prisma.assessment.findMany({
-    where: { courseId, published: true },
+    where: {
+      courseId,
+      published: true,
+      ...(orgLevel
+        ? assessmentWhereForStudent(orgLevel, studentCohortIds, studentDeptIds)
+        : assessmentVisibleToStudentWhere(studentCohortIds)),
+    },
     orderBy: { title: "asc" },
     include: { _count: { select: { questions: true } } },
   });
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Assessments</h1>
+      <h1 className="page-title">Assessments</h1>
       <p className="text-muted-foreground">{course.title}</p>
       <ul className="space-y-3">
         {assessments.map((a) => (

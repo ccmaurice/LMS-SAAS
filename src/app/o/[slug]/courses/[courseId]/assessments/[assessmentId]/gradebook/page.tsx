@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
-import { isStaffRole } from "@/lib/courses/access";
+import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
 import { GradebookTable } from "@/components/assessments/gradebook-table";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,9 @@ export default async function GradebookPage({
 
   const assessment = await getAssessmentInOrg(assessmentId, user.organizationId);
   if (!assessment || assessment.courseId !== courseId) notFound();
+  if (!canTeacherManageCourse(user, assessment.course.createdById)) {
+    redirect(`/o/${slug}/courses/${courseId}/assessments`);
+  }
 
   const submissions = await prisma.submission.findMany({
     where: { assessmentId },
@@ -35,7 +38,7 @@ export default async function GradebookPage({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Gradebook · {assessment.title}</h1>
+        <h1 className="page-title">Gradebook · {assessment.title}</h1>
         <Link href={`${base}/${assessmentId}/edit`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
           Edit assessment
         </Link>

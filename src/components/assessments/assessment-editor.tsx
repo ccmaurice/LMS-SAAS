@@ -11,6 +11,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import type { Question } from "@/generated/prisma/client";
+import type { EducationLevel } from "@/generated/prisma/enums";
 
 type AssessmentMeta = {
   id: string;
@@ -21,18 +22,43 @@ type AssessmentMeta = {
   timeLimitMinutes: number | null;
   published: boolean;
   shuffleQuestions: boolean;
+  shuffleOptions: boolean;
+};
+
+type LinkedCohort = {
+  id: string;
+  name: string;
+  gradeLabel: string | null;
+  academicYearLabel: string;
+};
+
+type LinkedDepartment = {
+  id: string;
+  name: string;
+  code: string | null;
+  facultyDivisionName: string | null;
 };
 
 export function AssessmentEditor({
   orgSlug,
   courseId,
+  educationLevel,
   initialAssessment,
   initialQuestions,
+  linkedCourseCohorts = [],
+  initialCohortIds = [],
+  linkedCourseDepartments = [],
+  initialDepartmentIds = [],
 }: {
   orgSlug: string;
   courseId: string;
+  educationLevel: EducationLevel;
   initialAssessment: AssessmentMeta;
   initialQuestions: Question[];
+  linkedCourseCohorts?: LinkedCohort[];
+  initialCohortIds?: string[];
+  linkedCourseDepartments?: LinkedDepartment[];
+  initialDepartmentIds?: string[];
 }) {
   const router = useRouter();
   const aid = initialAssessment.id;
@@ -42,6 +68,7 @@ export function AssessmentEditor({
   const [description, setDescription] = useState(initialAssessment.description ?? "");
   const [published, setPublished] = useState(initialAssessment.published);
   const [shuffle, setShuffle] = useState(initialAssessment.shuffleQuestions);
+  const [shuffleOpts, setShuffleOpts] = useState(initialAssessment.shuffleOptions);
   const [timeLimit, setTimeLimit] = useState(initialAssessment.timeLimitMinutes?.toString() ?? "");
   const [kind, setKind] = useState(initialAssessment.kind);
   const [semester, setSemester] = useState<string>(
@@ -49,6 +76,8 @@ export function AssessmentEditor({
   );
   const [questions, setQuestions] = useState(initialQuestions);
   const [busy, setBusy] = useState(false);
+  const [selectedCohorts, setSelectedCohorts] = useState<Set<string>>(() => new Set(initialCohortIds));
+  const [selectedDepartments, setSelectedDepartments] = useState<Set<string>>(() => new Set(initialDepartmentIds));
 
   const [qType, setQType] = useState<"MCQ" | "SHORT_ANSWER" | "LONG_ANSWER" | "TRUE_FALSE">("MCQ");
   const [qPrompt, setQPrompt] = useState("");
@@ -74,9 +103,16 @@ export function AssessmentEditor({
           description: description.trim() || null,
           published,
           shuffleQuestions: shuffle,
+          shuffleOptions: shuffleOpts,
           kind,
           semester: semester === "" ? null : Number(semester),
           timeLimitMinutes: tl != null && !Number.isNaN(tl) ? tl : null,
+          ...(educationLevel === "HIGHER_ED" && linkedCourseDepartments.length > 0
+            ? { departmentIds: [...selectedDepartments] }
+            : {}),
+          ...(educationLevel !== "HIGHER_ED" && linkedCourseCohorts.length > 0
+            ? { cohortIds: [...selectedCohorts] }
+            : {}),
         }),
       });
       router.refresh();
@@ -249,6 +285,81 @@ export function AssessmentEditor({
           <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} />
           Shuffle questions for students
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={shuffleOpts} onChange={(e) => setShuffleOpts(e.target.checked)} />
+          Shuffle MCQ answer options for students
+        </label>
+        {educationLevel === "HIGHER_ED" && linkedCourseDepartments.length > 0 ? (
+          <div className="rounded-md border border-border/80 bg-muted/30 p-3 dark:border-white/10">
+            <p className="text-sm font-medium">Assign to departments</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Leave all unchecked so every enrolled student sees this assessment. Check departments to limit visibility
+              (each must be linked to this course; you must be chair or instructor on that department).
+            </p>
+            <ul className="mt-3 space-y-2">
+              {linkedCourseDepartments.map((d) => (
+                <li key={d.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    id={`dept-${d.id}`}
+                    checked={selectedDepartments.has(d.id)}
+                    onChange={() => {
+                      setSelectedDepartments((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(d.id)) next.delete(d.id);
+                        else next.add(d.id);
+                        return next;
+                      });
+                    }}
+                  />
+                  <label htmlFor={`dept-${d.id}`} className="cursor-pointer">
+                    {d.name}
+                    {d.code ? ` · ${d.code}` : ""}
+                    {d.facultyDivisionName ? ` (${d.facultyDivisionName})` : ""}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : educationLevel !== "HIGHER_ED" && linkedCourseCohorts.length > 0 ? (
+          <div className="rounded-md border border-border/80 bg-muted/30 p-3 dark:border-white/10">
+            <p className="text-sm font-medium">Assign to classes</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Leave all unchecked so every enrolled student sees this assessment. Check specific classes to limit
+              visibility (you must teach each class).
+            </p>
+            <ul className="mt-3 space-y-2">
+              {linkedCourseCohorts.map((c) => (
+                <li key={c.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    id={`cohort-${c.id}`}
+                    checked={selectedCohorts.has(c.id)}
+                    onChange={() => {
+                      setSelectedCohorts((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(c.id)) next.delete(c.id);
+                        else next.add(c.id);
+                        return next;
+                      });
+                    }}
+                  />
+                  <label htmlFor={`cohort-${c.id}`} className="cursor-pointer">
+                    {c.name}
+                    {c.gradeLabel ? ` · ${c.gradeLabel}` : ""}
+                    {c.academicYearLabel ? ` (${c.academicYearLabel})` : ""}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {educationLevel === "HIGHER_ED"
+              ? "Link departments to this course on the course edit page to target this assessment."
+              : "Link classes to this course on the course edit page to target this assessment at specific homerooms."}
+          </p>
+        )}
         <Button type="button" disabled={busy} onClick={() => void saveMeta()}>
           Save settings
         </Button>

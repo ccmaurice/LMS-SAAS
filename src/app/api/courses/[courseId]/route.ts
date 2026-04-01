@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
-import { canEditCourseAsStaff, getCourseInOrganization, getEnrollment, isStaffRole } from "@/lib/courses/access";
+import {
+  canTeacherManageCourse,
+  getCourseInOrganization,
+  getEnrollment,
+  getParentProgressUserIdForCourse,
+} from "@/lib/courses/access";
 
 const patchSchema = z
   .object({
@@ -12,6 +17,8 @@ const patchSchema = z
     gradeWeightContinuous: z.number().min(0).max(1).optional(),
     gradeWeightExam: z.number().min(0).max(1).optional(),
     gradingScale: z.enum(["PERCENTAGE", "LETTER_AF", "NUMERIC_10"]).optional(),
+    creditHours: z.number().min(0).max(32).optional().nullable(),
+    academicTermId: z.union([z.string().min(1), z.null()]).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.gradeWeightContinuous != null && data.gradeWeightExam != null) {
@@ -42,39 +49,71 @@ export async function GET(_req: Request, ctx: { params: Promise<{ courseId: stri
 
   const course = await prisma.course.findFirst({
     where: { id: courseId, organizationId: user.organizationId },
-    include: {
-      ...baseInclude,
-      ...(isStaffRole(user.role)
-        ? { enrollments: { select: { id: true, userId: true, progressPercent: true, enrolledAt: true } } }
-        : {}),
-    },
+    include: baseInclude,
   });
 
   if (!course) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const privilegedStaff = canTeacherManageCourse(user, course.createdById);
   const enrollment = await getEnrollment(user.id, courseId);
-  const staff = isStaffRole(user.role);
+  const parentProgressUserId =
+    user.role === "PARENT"
+      ? await getParentProgressUserIdForCourse(user.id, user.organizationId, courseId)
+      : null;
 
-  if (!staff && !enrollment && !(user.role === "STUDENT" && course.published)) {
+  const studentPreview =
+    !privilegedStaff &&
+    !enrollment &&
+    !parentProgressUserId &&
+    user.role === "STUDENT" &&
+    course.published;
+
+  const otherTeacherPreview =
+    user.role === "TEACHER" &&
+    !privilegedStaff &&
+    !enrollment &&
+    course.published;
+
+  if (
+    user.role === "TEACHER" &&
+    !privilegedStaff &&
+    !enrollment &&
+    !course.published
+  ) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  let lessonProgressIds: string[] = [];
-  if (enrollment) {
-    const progress = await prisma.lessonProgress.findMany({
-      where: { userId: user.id, lesson: { module: { courseId } } },
-      select: { lessonId: true },
-    });
-    lessonProgressIds = progress.map((p) => p.lessonId);
+  const allowed =
+    privilegedStaff ||
+    !!enrollment ||
+    !!parentProgressUserId ||
+    studentPreview ||
+    otherTeacherPreview;
+
+  if (!allowed) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const preview = !staff && !enrollment && user.role === "STUDENT" && course.published;
+  let coursePayload: typeof course & {
+    enrollments?: { id: string; userId: string; progressPercent: number; enrolledAt: Date }[];
+  } = course;
+
+  if (privilegedStaff) {
+    const enrollments = await prisma.enrollment.findMany({
+      where: { courseId },
+      select: { id: true, userId: true, progressPercent: true, enrolledAt: true },
+    });
+    coursePayload = { ...course, enrollments };
+  }
+
+  const preview = studentPreview || otherTeacherPreview;
   const courseOut = preview
     ? {
-        ...course,
-        modules: course.modules.map((m) => ({
+        ...coursePayload,
+        enrollments: undefined,
+        modules: coursePayload.modules.map((m) => ({
           ...m,
           lessons: m.lessons.map((l) => ({
             id: l.id,
@@ -84,13 +123,23 @@ export async function GET(_req: Request, ctx: { params: Promise<{ courseId: stri
           })),
         })),
       }
-    : course;
+    : coursePayload;
+
+  let lessonProgressIds: string[] = [];
+  const progressUserId = enrollment ? user.id : parentProgressUserId;
+  if (progressUserId) {
+    const progress = await prisma.lessonProgress.findMany({
+      where: { userId: progressUserId, lesson: { module: { courseId } } },
+      select: { lessonId: true },
+    });
+    lessonProgressIds = progress.map((p) => p.lessonId);
+  }
 
   return NextResponse.json({
     course: courseOut,
     enrollment,
     lessonProgressIds,
-    canEdit: canEditCourseAsStaff(user.role),
+    canEdit: canTeacherManageCourse(user, course.createdById),
     preview,
   });
 }
@@ -106,7 +155,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ courseId: str
   if (!course) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canEditCourseAsStaff(user.role)) {
+  if (!canTeacherManageCourse(user, course.createdById)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -119,6 +168,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ courseId: str
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+  }
+
+  if (parsed.data.academicTermId !== undefined && parsed.data.academicTermId !== null) {
+    const term = await prisma.academicTerm.findFirst({
+      where: { id: parsed.data.academicTermId, organizationId: user.organizationId },
+    });
+    if (!term) {
+      return NextResponse.json({ error: "Invalid academic term" }, { status: 400 });
+    }
   }
 
   const updated = await prisma.course.update({
@@ -134,6 +192,12 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ courseId: str
       }),
       ...(parsed.data.gradeWeightExam !== undefined && { gradeWeightExam: parsed.data.gradeWeightExam }),
       ...(parsed.data.gradingScale !== undefined && { gradingScale: parsed.data.gradingScale }),
+      ...(parsed.data.creditHours !== undefined && {
+        creditHours: parsed.data.creditHours === null ? null : parsed.data.creditHours,
+      }),
+      ...(parsed.data.academicTermId !== undefined && {
+        academicTermId: parsed.data.academicTermId,
+      }),
     },
     include: {
       modules: {
@@ -157,7 +221,7 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ courseId: s
   if (!course) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canEditCourseAsStaff(user.role)) {
+  if (!canTeacherManageCourse(user, course.createdById)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

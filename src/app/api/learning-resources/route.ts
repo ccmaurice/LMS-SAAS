@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
-import { isStaffRole } from "@/lib/courses/access";
+import { canManageLearningResource } from "@/lib/learning-resources/access";
 import type { LearningResourceKind } from "@/generated/prisma/enums";
 
 const createSchema = z.object({
@@ -18,10 +18,15 @@ export async function GET() {
   const { user, response } = await requireUser();
   if (!user) return response!;
 
-  const where = {
-    organizationId: user.organizationId,
-    ...(isStaffRole(user.role) ? {} : { published: true }),
-  };
+  const where =
+    user.role === "ADMIN"
+      ? { organizationId: user.organizationId }
+      : user.role === "TEACHER"
+        ? {
+            organizationId: user.organizationId,
+            OR: [{ published: true }, { createdById: user.id }],
+          }
+        : { organizationId: user.organizationId, published: true };
 
   const rows = await prisma.learningResource.findMany({
     where,
@@ -37,10 +42,15 @@ export async function GET() {
       published: true,
       storageKey: true,
       createdAt: true,
+      createdById: true,
     },
   });
 
-  const resources = rows.map(({ storageKey, ...r }) => ({ ...r, hasFile: !!storageKey }));
+  const resources = rows.map(({ storageKey, createdById, ...r }) => ({
+    ...r,
+    hasFile: !!storageKey,
+    canEdit: canManageLearningResource(user, { createdById }),
+  }));
 
   return NextResponse.json({ resources });
 }
@@ -76,6 +86,7 @@ export async function POST(req: Request) {
       externalUrl: parsed.data.externalUrl?.trim() || null,
       published: parsed.data.published ?? true,
       sortOrder: parsed.data.sortOrder ?? 0,
+      createdById: user.id,
     },
     select: { id: true, title: true, kind: true },
   });

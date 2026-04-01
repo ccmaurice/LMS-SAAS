@@ -157,7 +157,7 @@ export function PlatformLandingEditor({ initial }: { initial: Initial }) {
           <Link href="/platform" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 text-muted-foreground")}>
             ← Platform console
           </Link>
-          <h1 className="mt-4 text-2xl font-semibold tracking-tight">Marketing landing page</h1>
+          <h1 className="page-title mt-4">Marketing landing page</h1>
           <p className="mt-1 text-muted-foreground">
             Controls the public home page (<code className="rounded bg-muted px-1">/</code>). Logo appears above the kicker
             line.

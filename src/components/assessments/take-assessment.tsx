@@ -10,13 +10,21 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { AssessmentPrompt } from "@/components/assessments/assessment-prompt";
+import { AssessmentProctorHooks } from "@/components/assessments/assessment-proctor-hooks";
 
 type Choice = { id: string; text: string };
 type MediaAtt = { kind: string; url: string };
 
 type QuestionRow = {
   id: string;
-  type: "MCQ" | "SHORT_ANSWER" | "LONG_ANSWER" | "TRUE_FALSE";
+  type:
+    | "MCQ"
+    | "SHORT_ANSWER"
+    | "LONG_ANSWER"
+    | "TRUE_FALSE"
+    | "DRAG_DROP"
+    | "ESSAY_RICH"
+    | "FORMULA";
   prompt: string;
   points: number;
   options?: { choices: Choice[] } | null;
@@ -200,12 +208,15 @@ export function TakeAssessment({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
+      {submissionId && !locked ? (
+        <AssessmentProctorHooks assessmentId={assessmentId} submissionId={submissionId} />
+      ) : null}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href={base} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
             ← Assessments
           </Link>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight">{title}</h1>
+          <h1 className="page-title mt-2">{title}</h1>
         </div>
         {remainingSec != null ? (
           <p className="text-sm tabular-nums text-muted-foreground">
@@ -276,13 +287,26 @@ export function TakeAssessment({
                 onChange={(e) => setAnswer(q.id, e.target.value)}
               />
             ) : null}
-            {q.type === "LONG_ANSWER" ? (
+            {q.type === "LONG_ANSWER" || q.type === "ESSAY_RICH" ? (
               <Textarea
                 className="mt-3"
                 rows={6}
                 value={answers[q.id] ?? ""}
                 onChange={(e) => setAnswer(q.id, e.target.value)}
               />
+            ) : null}
+            {q.type === "DRAG_DROP" || q.type === "FORMULA" ? (
+              <div className="mt-3 space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  This question type is graded manually — use the text area if your teacher asked for a written response.
+                </p>
+                <Textarea
+                  rows={4}
+                  placeholder="Your response"
+                  value={answers[q.id] ?? ""}
+                  onChange={(e) => setAnswer(q.id, e.target.value)}
+                />
+              </div>
             ) : null}
             {q.type === "TRUE_FALSE" ? (
               <div className="mt-3 flex flex-wrap gap-4 text-sm">

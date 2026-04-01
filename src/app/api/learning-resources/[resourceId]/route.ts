@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
-import { getLearningResourceInOrg } from "@/lib/learning-resources/access";
+import { canManageLearningResource, getLearningResourceInOrg } from "@/lib/learning-resources/access";
 import { removeUpload } from "@/lib/uploads/storage";
 
 const patchSchema = z.object({
@@ -23,6 +23,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ resourceId: s
   const existing = await getLearningResourceInOrg(resourceId, user.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!canManageLearningResource(user, existing)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let body: unknown;
@@ -62,6 +65,9 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ resourceId:
   const existing = await getLearningResourceInOrg(resourceId, user.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!canManageLearningResource(user, existing)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   if (existing.storageKey) {

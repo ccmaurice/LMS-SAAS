@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
-import { canEditCourseAsStaff, getModuleInOrganization } from "@/lib/courses/access";
+import { canTeacherManageCourse, getModuleInOrganization } from "@/lib/courses/access";
 
 const patchSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -20,7 +20,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ moduleId: str
   if (!mod) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canEditCourseAsStaff(user.role)) {
+  if (!canTeacherManageCourse(user, mod.course.createdById)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -57,7 +57,7 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ moduleId: s
   if (!mod) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canEditCourseAsStaff(user.role)) {
+  if (!canTeacherManageCourse(user, mod.course.createdById)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

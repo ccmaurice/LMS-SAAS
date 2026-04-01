@@ -93,7 +93,7 @@ export default async function AdminAnalyticsPage({ params }: { params: Promise<{
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Analytics</h1>
+        <h1 className="page-title">Analytics</h1>
         <p className="mt-1 text-muted-foreground">Snapshot of activity in your organization.</p>
       </div>
 

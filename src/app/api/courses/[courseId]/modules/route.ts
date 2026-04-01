@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
-import { canEditCourseAsStaff, getCourseInOrganization } from "@/lib/courses/access";
+import { canTeacherManageCourse, getCourseInOrganization } from "@/lib/courses/access";
 
 const bodySchema = z.object({
   title: z.string().min(1).max(200),
@@ -20,7 +20,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ courseId: stri
   if (!course) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canEditCourseAsStaff(user.role)) {
+  if (!canTeacherManageCourse(user, course.createdById)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
-import { canEditCourseAsStaff, getLessonInOrganization } from "@/lib/courses/access";
+import { canTeacherManageCourse, getLessonInOrganization } from "@/lib/courses/access";
 import { sanitizeDownloadBasename } from "@/lib/uploads/filename";
 import { MAX_LESSON_UPLOAD_BYTES } from "@/lib/uploads/root";
 import { removeUpload, saveUpload } from "@/lib/uploads/storage";
@@ -44,7 +44,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ lessonId: stri
   if (!lesson) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canEditCourseAsStaff(user.role)) {
+  if (!canTeacherManageCourse(user, lesson.module.course.createdById)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

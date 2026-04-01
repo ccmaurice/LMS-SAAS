@@ -12,12 +12,17 @@ export default async function TakeAssessmentPage({
   const { slug, courseId, assessmentId } = await params;
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) redirect("/login");
-  if (isStaffRole(user.role)) {
-    redirect(`/o/${slug}/courses/${courseId}/assessments/${assessmentId}/edit`);
-  }
 
   const assessment = await getAssessmentInOrg(assessmentId, user.organizationId);
   if (!assessment || assessment.courseId !== courseId) redirect(`/o/${slug}/courses/${courseId}/assessments`);
+
+  if (isStaffRole(user.role)) {
+    const privilegedStaff =
+      user.role === "ADMIN" || user.id === assessment.course.createdById;
+    if (privilegedStaff) {
+      redirect(`/o/${slug}/courses/${courseId}/assessments/${assessmentId}/edit`);
+    }
+  }
 
   if (!(await canStudentTakeAssessment(user.id, assessment))) {
     redirect(`/o/${slug}/courses/${courseId}/assessments`);

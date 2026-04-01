@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
+import { canTeacherManageCourse } from "@/lib/courses/access";
 import { recomputeSubmissionTotals } from "@/lib/assessments/score";
 import { notifySubmissionGradedIfNew } from "@/lib/notifications/assessment-graded";
 
 const patchSchema = z.object({
   manualScore: z.number().min(0).max(10_000),
   manualComment: z.string().max(20_000).optional().nullable(),
+  rubricScores: z.unknown().optional().nullable(),
+  annotations: z.unknown().optional().nullable(),
 });
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ answerId: string }> }) {
@@ -23,13 +27,20 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ answerId: str
       submission: { assessment: { course: { organizationId: user.organizationId } } },
     },
     include: {
-      submission: { include: { assessment: { include: { course: { select: { organizationId: true } } } } } },
+      submission: {
+        include: {
+          assessment: { include: { course: { select: { organizationId: true, createdById: true } } } },
+        },
+      },
       question: true,
     },
   });
 
   if (!answer) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!canTeacherManageCourse(user, answer.submission.assessment.course.createdById)) {
+    return NextResponse.json({ error: "Only the course author or an admin can grade this answer" }, { status: 403 });
   }
 
   let body: unknown;
@@ -58,6 +69,16 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ answerId: str
         newManualScore: manualScore,
       },
     });
+    await tx.gradingAuditLog.create({
+      data: {
+        organizationId: orgId,
+        actorId: user.id,
+        entityType: "Answer",
+        entityId: answerId,
+        action: "MANUAL_SCORE",
+        payload: { previousManualScore: prevManual, newManualScore: manualScore },
+      },
+    });
     return tx.answer.update({
       where: { id: answerId },
       data: {
@@ -65,6 +86,12 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ answerId: str
         manualComment: parsed.data.manualComment?.trim() || null,
         gradedById: user.id,
         manualEditedAt: new Date(),
+        ...(parsed.data.rubricScores !== undefined && {
+          rubricScores: parsed.data.rubricScores === null ? Prisma.JsonNull : parsed.data.rubricScores,
+        }),
+        ...(parsed.data.annotations !== undefined && {
+          annotations: parsed.data.annotations === null ? Prisma.JsonNull : parsed.data.annotations,
+        }),
       },
     });
   });

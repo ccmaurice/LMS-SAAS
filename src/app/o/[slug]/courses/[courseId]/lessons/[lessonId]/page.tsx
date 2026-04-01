@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
-import { getEnrollment, isStaffRole } from "@/lib/courses/access";
+import { resolveCourseLearnerAccess } from "@/lib/courses/access";
 import { MarkLessonCompleteButton } from "@/components/courses/mark-lesson-complete";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -19,36 +19,39 @@ export default async function LessonPage({
   }
 
   const lesson = await prisma.lesson.findFirst({
-    where: { id: lessonId, module: { courseId, course: { organizationId: user.organizationId } } },
+    where: { id: lessonId, module: { course: { organizationId: user.organizationId } } },
     include: {
-      module: { select: { id: true, title: true } },
+      module: { select: { id: true, title: true, courseId: true } },
       files: true,
     },
   });
 
   if (!lesson) notFound();
 
+  const canonicalCourseId = lesson.module.courseId;
+  if (courseId !== canonicalCourseId) {
+    permanentRedirect(`/o/${slug}/courses/${canonicalCourseId}/lessons/${lessonId}`);
+  }
+
   const course = await prisma.course.findFirst({
-    where: { id: courseId, organizationId: user.organizationId },
+    where: { id: canonicalCourseId, organizationId: user.organizationId },
     select: { published: true, title: true },
   });
   if (!course) notFound();
 
-  const enrollment = await getEnrollment(user.id, courseId);
-  const staff = isStaffRole(user.role);
-  const preview = !staff && !enrollment && user.role === "STUDENT" && course.published;
+  const gate = await resolveCourseLearnerAccess(user, canonicalCourseId, course.published);
+  if (!gate.canAccess) notFound();
 
-  if (!staff && !enrollment && !(user.role === "STUDENT" && course.published)) {
-    notFound();
-  }
+  const { enrollment, staff, preview, parentViaChild } = gate;
 
+  const progressForUserId = enrollment ? user.id : parentViaChild ? gate.progressUserId : null;
   const completed =
-    enrollment &&
+    progressForUserId &&
     (await prisma.lessonProgress.findUnique({
-      where: { userId_lessonId: { userId: user.id, lessonId } },
+      where: { userId_lessonId: { userId: progressForUserId, lessonId } },
     }));
 
-  const base = `/o/${slug}/courses/${courseId}`;
+  const base = `/o/${slug}/courses/${canonicalCourseId}`;
 
   if (preview) {
     return (
@@ -57,7 +60,7 @@ export default async function LessonPage({
           ← Back to course
         </Link>
         <div className="surface-bento p-6">
-          <h1 className="text-2xl font-semibold tracking-tight">{lesson.title}</h1>
+          <h1 className="page-title">{lesson.title}</h1>
           <p className="mt-2 text-muted-foreground">Enroll in this course to view lesson content and track progress.</p>
           <Link href={base} className={cn(buttonVariants(), "mt-6 inline-flex")}>
             Back to course to enroll
@@ -82,7 +85,7 @@ export default async function LessonPage({
       <div className="surface-bento space-y-6 p-6">
         <div>
           <p className="text-sm text-muted-foreground">{lesson.module.title}</p>
-          <h1 className="text-2xl font-semibold tracking-tight">{lesson.title}</h1>
+          <h1 className="page-title">{lesson.title}</h1>
         </div>
         {lesson.videoUrl ? (
           lesson.videoUrl.includes("/embed/") ? (
@@ -127,6 +130,9 @@ export default async function LessonPage({
           </div>
         ) : null}
         {enrollment ? <MarkLessonCompleteButton lessonId={lessonId} completed={!!completed} /> : null}
+        {parentViaChild && !enrollment ? (
+          <p className="text-sm text-muted-foreground">Lesson progress reflects your linked student&apos;s account.</p>
+        ) : null}
       </div>
     </div>
   );

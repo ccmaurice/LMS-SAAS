@@ -18,12 +18,12 @@ export function OrgPageTransition({ children }: { children: React.ReactNode }) {
   const reduce = useReducedMotion();
 
   if (!mounted || reduce) {
-    return <div className="relative">{children}</div>;
+    return <div className="relative print:!transform-none">{children}</div>;
   }
 
   return (
     <motion.div
-      className="relative"
+      className="relative print:!transform-none print:!opacity-100 print:!translate-y-0"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 380, damping: 32, mass: 0.8 }}

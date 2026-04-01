@@ -148,7 +148,62 @@
   .surface-bento {
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-bento);
+    transition:
+      box-shadow 0.22s ease,
+      border-color 0.22s ease,
+      background-color 0.22s ease;
     @apply border border-border/80 bg-card/85 text-card-foreground backdrop-blur-md dark:border-white/10 dark:bg-card/70;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    @media (prefers-reduced-motion: no-preference) {
+      .surface-bento:hover {
+        border-color: color-mix(in oklch, var(--ring) 28%, var(--border));
+        box-shadow:
+          0 1px 0 oklch(0 0 0 / 0.05),
+          0 18px 48px -16px oklch(0.22 0.02 260 / 0.14);
+      }
+      .dark .surface-bento:hover {
+        border-color: color-mix(in oklch, var(--glow-spot) 35%, transparent);
+        box-shadow:
+          0 1px 0 oklch(1 0 0 / 0.07),
+          0 28px 60px -18px oklch(0 0 0 / 0.72);
+      }
+    }
+  }
+  /** Section labels (Courses, Catalog, etc.) */
+  .section-heading {
+    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+  /** Empty lists and placeholder panels */
+  .empty-state {
+    @apply rounded-xl border border-dashed border-border/90 bg-muted/20 px-6 py-10 text-center text-sm leading-relaxed text-muted-foreground dark:border-white/12 dark:bg-muted/10;
+  }
+  /** Compact empty / zero-state inside panels */
+  .empty-hint {
+    @apply rounded-lg border border-dashed border-border/70 bg-muted/15 px-4 py-8 text-center text-sm leading-relaxed text-muted-foreground dark:border-white/10 dark:bg-muted/10;
+  }
+  /** Standard page H1 (org shell, auth-style marketing blocks) */
+  .page-title {
+    @apply text-balance text-2xl font-semibold tracking-tight;
+  }
+  .page-title-lg {
+    @apply text-balance text-2xl font-semibold tracking-tighter md:text-3xl;
+  }
+  /** Subtitle under .page-title */
+  .page-lead {
+    @apply mt-1 max-w-prose text-pretty text-sm leading-relaxed text-muted-foreground md:text-base;
+  }
+  /** Section H2 on content pages */
+  .page-section-title {
+    @apply text-balance text-lg font-semibold tracking-tight text-foreground md:text-xl;
+  }
+  /** Auth / marketing cards — top accent */
+  .auth-card-shell {
+    @apply relative overflow-hidden;
+  }
+  .auth-card-shell::before {
+    content: "";
+    @apply pointer-events-none absolute inset-x-0 top-0 z-10 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-90;
   }
   .surface-glass {
     border-radius: var(--radius-xl);
@@ -206,6 +261,9 @@
     animation: none;
     opacity: 0.65;
   }
+  .surface-bento {
+    transition: none;
+  }
 }
 
 /* cmdk dialog (⌘K palette) */
@@ -221,4 +279,28 @@
 }
 [cmdk-group-heading] {
   @apply px-2 py-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground;
+}
+
+/* Printing: scrollable / blurred panels often clip or only rasterize the viewport slice (Chrome/Edge). */
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .surface-table-wrap,
+  .surface-bento {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+  /* Backdrop blur is a common cause of blank / partial print previews in Chromium and WebKit. */
+  *,
+  *::before,
+  *::after {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  [data-sonner-toaster] {
+    display: none !important;
+  }
 }

@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
-import { canEditCourseAsStaff, isStaffRole } from "@/lib/courses/access";
+import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
 import { CourseGradingPanel } from "@/components/courses/course-grading-panel";
+import { CourseCohortPanel } from "@/components/courses/course-cohort-panel";
+import { CourseDepartmentPanel } from "@/components/courses/course-department-panel";
 import { CourseEditor, type EditableCourse } from "@/components/courses/course-editor";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -22,20 +24,43 @@ export default async function EditCoursePage({
     redirect(`/o/${slug}/courses/${courseId}`);
   }
 
-  const course = await prisma.course.findFirst({
-    where: { id: courseId, organizationId: user.organizationId },
-    include: {
-      modules: {
-        orderBy: { order: "asc" },
-        include: {
-          lessons: { orderBy: { order: "asc" }, include: { files: true } },
+  const edu = user.organization.educationLevel;
+
+  const [course, terms, allCohorts, allDepartments] = await Promise.all([
+    prisma.course.findFirst({
+      where: { id: courseId, organizationId: user.organizationId },
+      include: {
+        modules: {
+          orderBy: { order: "asc" },
+          include: {
+            lessons: { orderBy: { order: "asc" }, include: { files: true } },
+          },
         },
       },
-    },
-  });
+    }),
+    prisma.academicTerm.findMany({
+      where: { organizationId: user.organizationId },
+      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+      select: { id: true, label: true },
+    }),
+    edu === "HIGHER_ED"
+      ? Promise.resolve([])
+      : prisma.schoolCohort.findMany({
+          where: { organizationId: user.organizationId },
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, gradeLabel: true, academicYearLabel: true },
+        }),
+    edu === "HIGHER_ED"
+      ? prisma.academicDepartment.findMany({
+          where: { organizationId: user.organizationId },
+          orderBy: { name: "asc" },
+          include: { facultyDivision: { select: { name: true } } },
+        })
+      : Promise.resolve([]),
+  ]);
 
   if (!course) notFound();
-  if (!canEditCourseAsStaff(user.role)) {
+  if (!canTeacherManageCourse(user, course.createdById)) {
     redirect(`/o/${slug}/courses/${courseId}`);
   }
 
@@ -66,15 +91,31 @@ export default async function EditCoursePage({
           All courses
         </Link>
       </div>
-      <h1 className="text-2xl font-semibold tracking-tight">Edit course</h1>
+      <h1 className="page-title">Edit course</h1>
       <CourseGradingPanel
         courseId={course.id}
+        terms={terms}
         initial={{
           gradeWeightContinuous: course.gradeWeightContinuous,
           gradeWeightExam: course.gradeWeightExam,
           gradingScale: course.gradingScale,
+          creditHours: course.creditHours,
+          academicTermId: course.academicTermId,
         }}
       />
+      {edu === "HIGHER_ED" ? (
+        <CourseDepartmentPanel
+          courseId={course.id}
+          allDepartments={allDepartments.map((d) => ({
+            id: d.id,
+            name: d.name,
+            code: d.code,
+            facultyDivisionName: d.facultyDivision?.name ?? null,
+          }))}
+        />
+      ) : (
+        <CourseCohortPanel courseId={course.id} allCohorts={allCohorts} />
+      )}
       <CourseEditor orgSlug={slug} initial={initial} />
     </div>
   );

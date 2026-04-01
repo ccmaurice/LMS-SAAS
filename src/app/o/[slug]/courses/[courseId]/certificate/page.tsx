@@ -3,22 +3,45 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { CertificatePrintButton } from "@/components/courses/certificate-print-button";
+import { OrgBrandMark } from "@/components/org/org-brand-mark";
 import { getEnrollment, isStaffRole } from "@/lib/courses/access";
+import { getOrganizationLogoUrl } from "@/lib/org/org-logo";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
 export default async function CourseCertificatePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string; courseId: string }>;
+  searchParams: Promise<{ child?: string }>;
 }) {
   const { slug, courseId } = await params;
+  const sp = await searchParams;
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) {
     redirect("/login");
   }
 
-  const [course, orgPub] = await Promise.all([
+  const parentLinks =
+    user.role === "PARENT"
+      ? await prisma.parentStudentLink.findMany({
+          where: { parentUserId: user.id, organizationId: user.organizationId },
+          select: { studentUserId: true },
+        })
+      : [];
+  const parentChildIds = parentLinks.map((l) => l.studentUserId);
+
+  let subjectUserId = user.id;
+  if (user.role === "PARENT") {
+    if (parentChildIds.length === 0) {
+      notFound();
+    }
+    const want = typeof sp.child === "string" ? sp.child : parentChildIds[0];
+    subjectUserId = parentChildIds.includes(want) ? want : parentChildIds[0];
+  }
+
+  const [course, orgPub, orgBrand] = await Promise.all([
     prisma.course.findFirst({
       where: { id: courseId, organizationId: user.organizationId },
       include: {
@@ -30,13 +53,34 @@ export default async function CourseCertificatePage({
       where: { id: user.organizationId },
       select: { certificatesPublished: true },
     }),
+    prisma.organization.findUnique({
+      where: { id: user.organizationId },
+      select: { id: true, slug: true, heroImageUrl: true, logoImageUrl: true },
+    }),
   ]);
+
+  const orgLogoUrl =
+    orgBrand != null
+      ? await getOrganizationLogoUrl(orgBrand.id, orgBrand.slug, orgBrand.logoImageUrl, orgBrand.heroImageUrl)
+      : null;
 
   if (!course) notFound();
 
   const staff = isStaffRole(user.role);
-  const enrollment = await getEnrollment(user.id, courseId);
-  if (staff || !enrollment) {
+  if (staff) {
+    notFound();
+  }
+
+  const enrollment = await getEnrollment(subjectUserId, courseId);
+  if (!enrollment) {
+    notFound();
+  }
+
+  const subject = await prisma.user.findUnique({
+    where: { id: subjectUserId, organizationId: user.organizationId },
+    select: { id: true, name: true, email: true },
+  });
+  if (!subject) {
     notFound();
   }
 
@@ -50,7 +94,7 @@ export default async function CourseCertificatePage({
   }
 
   const progress = await prisma.lessonProgress.findMany({
-    where: { userId: user.id, lessonId: { in: lessonIds } },
+    where: { userId: subjectUserId, lessonId: { in: lessonIds } },
     select: { lessonId: true, completedAt: true },
   });
   const done = new Map(progress.map((p) => [p.lessonId, p.completedAt]));
@@ -65,13 +109,14 @@ export default async function CourseCertificatePage({
       ? new Date(Math.max(...completedDates.map((d) => d.getTime())))
       : new Date();
 
-  const displayName = user.name?.trim() || user.email;
+  const displayName = subject.name?.trim() || subject.email;
   const base = `/o/${slug}/courses/${courseId}`;
+  const childQuery = user.role === "PARENT" ? `?child=${encodeURIComponent(subjectUserId)}` : "";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex flex-wrap items-center gap-2 print:hidden">
-        <Link href={base} className={cn(buttonVariants({ variant: "outline" }), "text-sm")}>
+        <Link href={`${base}${childQuery}`} className={cn(buttonVariants({ variant: "outline" }), "text-sm")}>
           ← Back to course
         </Link>
         <CertificatePrintButton />
@@ -82,6 +127,9 @@ export default async function CourseCertificatePage({
           "print:border-muted print:shadow-none",
         )}
       >
+        <div className="relative z-10 flex flex-col items-center gap-3">
+          <OrgBrandMark url={orgLogoUrl} size="lg" className="mx-auto max-w-[240px] object-center" />
+        </div>
         <p className="relative z-10 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           Certificate of completion
         </p>
@@ -93,7 +141,9 @@ export default async function CourseCertificatePage({
         <p className="relative z-10 mt-2 text-xl font-semibold text-foreground md:text-2xl">{course.title}</p>
         <div className="relative z-10 mt-10 flex flex-col items-center gap-1 border-t border-border/80 pt-8 text-sm text-muted-foreground dark:border-white/10">
           <p>Issued on {issuedAt.toLocaleDateString(undefined, { dateStyle: "long" })}</p>
-          <p className="text-xs">Credential ID: {user.id.slice(0, 8)}…{courseId.slice(0, 8)}</p>
+          <p className="text-xs">
+            Credential ID: {subject.id.slice(0, 8)}…{courseId.slice(0, 8)}
+          </p>
         </div>
       </article>
       <p className="text-center text-xs text-muted-foreground print:hidden">

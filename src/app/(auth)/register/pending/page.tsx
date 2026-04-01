@@ -13,10 +13,10 @@ export default async function RegisterPendingPage({
   const schoolSlug = slug?.trim() || "";
 
   return (
-    <Card className="surface-glass w-full max-w-md border-0 py-6 ring-0 shadow-none">
-      <CardHeader>
-        <CardTitle>Registration received</CardTitle>
-        <CardDescription>
+    <Card className="auth-card-shell surface-glass w-full max-w-md border-0 py-6 shadow-none ring-1 ring-border/40 dark:ring-white/10">
+      <CardHeader className="space-y-1">
+        <CardTitle className="page-title">Registration received</CardTitle>
+        <CardDescription className="text-pretty leading-relaxed">
           {schoolName} is pending review by a platform operator. You cannot sign in until the school is approved.
         </CardDescription>
       </CardHeader>

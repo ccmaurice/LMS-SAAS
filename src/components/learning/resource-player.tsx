@@ -15,6 +15,7 @@ const reportVideoProgress = debounce((resourceId: string, percent: number, posit
   void fetch(`/api/learning-resources/${resourceId}/progress`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
     body: JSON.stringify({ percent, positionSec }),
   });
 }, 1200);

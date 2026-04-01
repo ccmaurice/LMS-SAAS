@@ -1,5 +1,10 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
+import {
+  countPublishedVisibleAssessmentsForParentDistinct,
+  countPublishedVisibleAssessmentsForStudent,
+} from "@/lib/assessments/access";
 import { isStaffRole } from "@/lib/courses/access";
 import { DashboardBento } from "@/components/dashboard/dashboard-bento";
 import {
@@ -16,24 +21,39 @@ export default async function DashboardPage({
 }) {
   const { slug } = await params;
   const user = await getCurrentUser();
-  if (!user) return null;
+  if (!user) {
+    redirect(`/login?org=${encodeURIComponent(slug)}&redirect=${encodeURIComponent(`/o/${slug}/dashboard`)}`);
+  }
 
   const staff = isStaffRole(user.role);
 
+  const parentChildIds =
+    user.role === "PARENT"
+      ? (
+          await prisma.parentStudentLink.findMany({
+            where: { parentUserId: user.id, organizationId: user.organizationId },
+            select: { studentUserId: true },
+          })
+        ).map((l) => l.studentUserId)
+      : [];
+
   const publishedAssessmentsPromise =
     user.role === "STUDENT"
-      ? prisma.assessment.count({
-          where: {
-            published: true,
-            course: {
-              organizationId: user.organizationId,
-              enrollments: { some: { userId: user.id } },
-            },
-          },
-        })
-      : prisma.assessment.count({
-          where: { published: true, course: { organizationId: user.organizationId } },
-        });
+      ? countPublishedVisibleAssessmentsForStudent(user.id, user.organizationId)
+      : user.role === "PARENT" && parentChildIds.length > 0
+        ? countPublishedVisibleAssessmentsForParentDistinct(user.id, user.organizationId)
+        : user.role === "PARENT"
+          ? Promise.resolve(0)
+          : prisma.assessment.count({
+              where: { published: true, course: { organizationId: user.organizationId } },
+            });
+
+  const assessmentsCardSubtitle =
+    user.role === "STUDENT"
+      ? "Published tests you can take in your enrolled courses (respects class or department targeting)."
+      : user.role === "PARENT"
+        ? "Unique published tests your linked children can access (combined across siblings)."
+        : undefined;
 
   const cmsPromise = prisma.cmsEntry.findMany({
     where: {
@@ -43,6 +63,15 @@ export default async function DashboardPage({
     select: { key: true, value: true },
   });
 
+  const reportCardSubjectId =
+    user.role === "PARENT" ? (parentChildIds[0] ?? null) : user.id;
+  const reportRowsPromise =
+    user.role === "PARENT"
+      ? reportCardSubjectId
+        ? getUserReportCardRows(reportCardSubjectId, user.organizationId, "STUDENT")
+        : Promise.resolve([])
+      : getUserReportCardRows(user.id, user.organizationId, user.role);
+
   const insightsPromise = Promise.all([
     getRecentSchoolMessages(user.organizationId, 6),
     getRecentDiscussionMessages({
@@ -51,7 +80,7 @@ export default async function DashboardPage({
       role: user.role,
       take: 6,
     }),
-    getUserReportCardRows(user.id, user.organizationId, user.role),
+    reportRowsPromise,
     getEligibleCertificates(user.id, user.organizationId, user.role),
   ]);
 
@@ -65,13 +94,19 @@ export default async function DashboardPage({
     [recentSchoolMessages, recentDiscussions, reportRows, certificates],
   ] = await Promise.all([
     prisma.enrollment.findMany({
-      where: { userId: user.id, course: { organizationId: user.organizationId } },
+      where:
+        user.role === "PARENT" && parentChildIds.length > 0
+          ? { userId: { in: parentChildIds }, course: { organizationId: user.organizationId } }
+          : { userId: user.id, course: { organizationId: user.organizationId } },
       include: { course: { select: { id: true, title: true, published: true } } },
       orderBy: { enrolledAt: "desc" },
       take: 6,
     }),
     prisma.enrollment.count({
-      where: { userId: user.id, course: { organizationId: user.organizationId } },
+      where:
+        user.role === "PARENT" && parentChildIds.length > 0
+          ? { userId: { in: parentChildIds }, course: { organizationId: user.organizationId } }
+          : { userId: user.id, course: { organizationId: user.organizationId } },
     }),
     staff
       ? prisma.course.count({ where: { organizationId: user.organizationId, createdById: user.id } })
@@ -125,10 +160,11 @@ export default async function DashboardPage({
       cmsSubtitle={cms["dashboard.subtitle"]}
       enrollmentTotal={enrollmentTotal}
       publishedAssessments={publishedAssessments}
+      assessmentsCardSubtitle={assessmentsCardSubtitle}
       teachingCount={teachingCount}
       draftCourses={draftCourses}
       staff={staff}
-      studentScopedAssessments={user.role === "STUDENT"}
+      studentScopedAssessments={user.role === "STUDENT" || user.role === "PARENT"}
       enrollments={enrollments.map((e) => ({
         id: e.id,
         progressPercent: e.progressPercent,

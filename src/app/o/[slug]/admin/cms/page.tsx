@@ -28,7 +28,7 @@ export default async function AdminCmsPage({ params }: { params: Promise<{ slug:
   return (
     <div className="mx-auto max-w-3xl space-y-10">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Headless CMS</h1>
+        <h1 className="page-title">Headless CMS</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Edit organization copy stored in the database. Only administrators can access this panel.
         </p>

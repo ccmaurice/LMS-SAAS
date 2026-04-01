@@ -16,6 +16,8 @@ export type DashboardBentoProps = {
   cmsSubtitle?: string;
   enrollmentTotal: number;
   publishedAssessments: number;
+  /** Overrides the small caption under the assessment count (e.g. student/parent targeting copy). */
+  assessmentsCardSubtitle?: string;
   teachingCount: number;
   draftCourses: number;
   staff: boolean;
@@ -96,12 +98,14 @@ export function DashboardBento(props: DashboardBentoProps) {
           className="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-glow-spot opacity-50 blur-3xl dark:opacity-70"
           aria-hidden
         />
-        <h1 className="text-2xl font-semibold tracking-tighter md:text-3xl">Dashboard</h1>
+        <h1 className="page-title-lg">Dashboard</h1>
         {props.cmsWelcome ? (
-          <p className="mt-3 text-lg font-medium tracking-tight text-foreground md:text-xl">{props.cmsWelcome}</p>
+          <p className="mt-3 text-balance text-lg font-medium tracking-tight text-foreground md:text-xl">
+            {props.cmsWelcome}
+          </p>
         ) : null}
         {props.cmsSubtitle ? (
-          <p className="mt-2 max-w-2xl whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+          <p className="mt-2 max-w-2xl text-pretty whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
             {props.cmsSubtitle}
           </p>
         ) : null}
@@ -153,7 +157,8 @@ export function DashboardBento(props: DashboardBentoProps) {
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quizzes live</p>
           <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight">{props.publishedAssessments}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            {props.studentScopedAssessments ? "In your enrolled courses" : "Across your organization"}
+            {props.assessmentsCardSubtitle ??
+              (props.studentScopedAssessments ? "In your enrolled courses" : "Across your organization")}
           </p>
         </BentoCard>
         {props.staff ? (

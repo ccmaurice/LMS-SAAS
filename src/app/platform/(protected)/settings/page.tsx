@@ -15,7 +15,7 @@ export default async function PlatformSettingsPage() {
         <Link href="/platform" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 text-muted-foreground")}>
           ← Back to organizations
         </Link>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">Platform settings</h1>
+        <h1 className="page-title mt-4">Platform settings</h1>
         <p className="mt-1 text-muted-foreground">Profile for {op.email}</p>
       </div>
       <section className="surface-bento p-6">

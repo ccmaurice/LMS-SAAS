@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/api/guard";
 import { submissionTimedOut } from "@/lib/assessments/time";
-import { isStaffRole } from "@/lib/courses/access";
+import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
 
 const patchBodySchema = z.object({
   answers: z.record(z.string(), z.string()),
@@ -19,7 +19,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ submissionId: 
     include: {
       assessment: {
         include: {
-          course: { select: { id: true, title: true } },
+          course: { select: { id: true, title: true, createdById: true } },
           questions: { orderBy: { order: "asc" } },
         },
       },
@@ -32,19 +32,36 @@ export async function GET(_req: Request, ctx: { params: Promise<{ submissionId: 
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const owner = submission.userId === user.id;
-  const staff = isStaffRole(user.role);
+  const isSubmitter = submission.userId === user.id;
+  const privilegedStaff =
+    isStaffRole(user.role) && canTeacherManageCourse(user, submission.assessment.course.createdById);
 
-  if (!owner && !staff) {
+  let authorized = isSubmitter || privilegedStaff;
+  if (!authorized && user.role === "PARENT") {
+    const link = await prisma.parentStudentLink.findFirst({
+      where: {
+        parentUserId: user.id,
+        studentUserId: submission.userId,
+        organizationId: user.organizationId,
+      },
+      select: { id: true },
+    });
+    authorized = !!link;
+  }
+
+  if (!authorized) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const revealSolutions = staff || (owner && submission.status !== "DRAFT");
+  /** Guardians may view scores/comments but not MCQ keys, model answers, or marking schemes. */
+  const revealSolutions = privilegedStaff || (isSubmitter && submission.status !== "DRAFT");
+  const showMarksAndComments = privilegedStaff || isSubmitter || user.role === "PARENT";
 
   return NextResponse.json({
     submission: {
       id: submission.id,
       status: submission.status,
+      moderationState: submission.moderationState,
       startedAt: submission.startedAt,
       submittedAt: submission.submittedAt,
       totalScore: submission.totalScore,
@@ -56,15 +73,15 @@ export async function GET(_req: Request, ctx: { params: Promise<{ submissionId: 
         timeLimitMinutes: submission.assessment.timeLimitMinutes,
         course: submission.assessment.course,
       },
-      user: staff ? submission.user : { id: submission.user.id, name: submission.user.name },
+      user: privilegedStaff ? submission.user : { id: submission.user.id, name: submission.user.name },
     },
     answers: submission.answers.map((a) => ({
       id: a.id,
       questionId: a.questionId,
       content: a.content,
       score: a.score,
-      manualScore: staff || owner ? a.manualScore : null,
-      manualComment: staff || owner ? a.manualComment : null,
+      manualScore: showMarksAndComments ? a.manualScore : null,
+      manualComment: showMarksAndComments ? a.manualComment : null,
       autoGraded: a.autoGraded,
       question: revealSolutions
         ? a.question

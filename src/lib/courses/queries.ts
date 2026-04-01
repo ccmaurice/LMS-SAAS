@@ -1,8 +1,17 @@
 import { prisma } from "@/lib/db";
+import type { Role } from "@/generated/prisma/enums";
 
-export async function listStaffCourses(organizationId: string) {
+export async function listStaffCourses(organizationId: string, viewer: { id: string; role: Role }) {
+  const where =
+    viewer.role === "ADMIN"
+      ? { organizationId }
+      : {
+          organizationId,
+          OR: [{ published: true }, { createdById: viewer.id }],
+        };
+
   return prisma.course.findMany({
-    where: { organizationId },
+    where,
     orderBy: { updatedAt: "desc" },
     include: {
       _count: { select: { enrollments: true, modules: true } },

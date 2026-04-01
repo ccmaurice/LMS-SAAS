@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
+import { canTeacherManageCourse } from "@/lib/courses/access";
 import { parseMcqOptions } from "@/lib/assessments/mcq";
 
 const patchSchema = z
@@ -44,10 +45,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ questionId: s
 
   const question = await prisma.question.findFirst({
     where: { id: questionId, assessment: { course: { organizationId: user.organizationId } } },
-    include: { assessment: true },
+    include: { assessment: { include: { course: { select: { createdById: true } } } } },
   });
   if (!question) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!canTeacherManageCourse(user, question.assessment.course.createdById)) {
+    return NextResponse.json({ error: "Only the course author or an admin can edit this question" }, { status: 403 });
   }
 
   let body: unknown;
@@ -90,9 +94,13 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ questionId:
 
   const question = await prisma.question.findFirst({
     where: { id: questionId, assessment: { course: { organizationId: user.organizationId } } },
+    include: { assessment: { include: { course: { select: { createdById: true } } } } },
   });
   if (!question) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!canTeacherManageCourse(user, question.assessment.course.createdById)) {
+    return NextResponse.json({ error: "Only the course author or an admin can delete this question" }, { status: 403 });
   }
 
   await prisma.question.delete({ where: { id: questionId } });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/api/guard";
-import { getCourseInOrganization, getEnrollment, isStaffRole } from "@/lib/courses/access";
+import { canTeacherManageCourse, getCourseInOrganization, getEnrollment } from "@/lib/courses/access";
 
 export async function POST(_req: Request, ctx: { params: Promise<{ courseId: string }> }) {
   const { courseId } = await ctx.params;
@@ -13,7 +13,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ courseId: str
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (!course.published && !isStaffRole(user.role)) {
+  if (!course.published && !canTeacherManageCourse(user, course.createdById)) {
     return NextResponse.json({ error: "Course is not open for enrollment" }, { status: 403 });
   }
 

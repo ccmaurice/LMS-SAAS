@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
-import { assertCourseInOrg } from "@/lib/assessments/access";
-import { getEnrollment, isStaffRole } from "@/lib/courses/access";
+import { assertCourseInOrg, assessmentWhereForStudent } from "@/lib/assessments/access";
+import { canTeacherManageCourse, getEnrollment, isStaffRole } from "@/lib/courses/access";
+import { getStudentCohortIds } from "@/lib/school/cohort-access";
+import { getStudentDepartmentIds } from "@/lib/school/department-access";
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),
@@ -24,11 +26,15 @@ export async function GET(_req: Request, ctx: { params: Promise<{ courseId: stri
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (isStaffRole(user.role)) {
+  const privilegedStaff = isStaffRole(user.role) && canTeacherManageCourse(user, course.createdById);
+
+  if (privilegedStaff) {
     const assessments = await prisma.assessment.findMany({
       where: { courseId },
       orderBy: { updatedAt: "desc" },
-      include: { _count: { select: { questions: true, submissions: true } } },
+      include: {
+        _count: { select: { questions: true, submissions: true, assessmentCohorts: true, assessmentDepartments: true } },
+      },
     });
     return NextResponse.json({ assessments });
   }
@@ -38,8 +44,19 @@ export async function GET(_req: Request, ctx: { params: Promise<{ courseId: stri
     return NextResponse.json({ error: "Enroll in this course first" }, { status: 403 });
   }
 
+  const org = await prisma.organization.findUnique({
+    where: { id: user.organizationId },
+    select: { educationLevel: true },
+  });
+  const level = org?.educationLevel ?? "SECONDARY";
+  const studentCohortIds = await getStudentCohortIds(user.id, user.organizationId);
+  const studentDeptIds = await getStudentDepartmentIds(user.id, user.organizationId);
   const assessments = await prisma.assessment.findMany({
-    where: { courseId, published: true },
+    where: {
+      courseId,
+      published: true,
+      ...assessmentWhereForStudent(level, studentCohortIds, studentDeptIds),
+    },
     orderBy: { title: "asc" },
     include: { _count: { select: { questions: true } } },
   });
@@ -57,6 +74,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ courseId: stri
   const course = await assertCourseInOrg(courseId, user.organizationId);
   if (!course) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!canTeacherManageCourse(user, course.createdById)) {
+    return NextResponse.json({ error: "Only the course author or an admin can add assessments" }, { status: 403 });
   }
 
   let body: unknown;

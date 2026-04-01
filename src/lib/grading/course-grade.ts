@@ -1,44 +1,51 @@
-import type { AssessmentKind } from "@/generated/prisma/enums";
+import type { AssessmentKind, EducationLevel, GradingScaleType } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
+import { getEducationContext } from "@/lib/education_context";
+import type { OrganizationSettings } from "@/lib/education_context/schema";
+import { computeWeightedSemesterPercent, letterAndGpaForLevel } from "@/lib/grading_engine";
 
 function submissionPercent(total: number | null, max: number | null): number | null {
   if (total == null || max == null || max <= 0) return null;
   return (total / max) * 100;
 }
 
-function mean(nums: number[]): number | null {
-  if (nums.length === 0) return null;
-  return nums.reduce((a, b) => a + b, 0) / nums.length;
-}
+export type CourseSemesterGradeResult = {
+  percent: number;
+  letter?: string;
+  gpa?: number;
+  components: {
+    continuousPercent: number | null;
+    examPercent: number | null;
+    weightsUsed: { continuous: number; exam: number };
+  };
+  educationLevel: EducationLevel;
+  gradingScale: GradingScaleType;
+};
 
 /**
- * Weighted semester grade for one course: G = w_ca * S_ca + w_exam * S_exam (percent 0–100).
- * QUIZ → continuous assessment; EXAM → exam. Missing category: weight collapses to the other.
+ * Structured semester grade for one course (percent + optional letter/GPA from org config).
  */
-export async function computeCourseSemesterGradePercent(args: {
+export async function computeCourseSemesterGrade(args: {
   userId: string;
   courseId: string;
   semester: 1 | 2 | 3;
   weightContinuous: number;
   weightExam: number;
-}): Promise<number | null> {
-  const { userId, courseId, semester, weightContinuous: wCaRaw, weightExam: wExRaw } = args;
-  let wCa = wCaRaw;
-  let wEx = wExRaw;
-  const sum = wCa + wEx;
-  if (sum > 0 && Math.abs(sum - 1) > 0.001) {
-    wCa /= sum;
-    wEx /= sum;
-  }
+  organizationId: string;
+  gradingScale: GradingScaleType;
+}): Promise<CourseSemesterGradeResult | null> {
+  const ctx = await getEducationContext(args.organizationId);
+  const educationLevel = ctx?.educationLevel ?? "SECONDARY";
+  const orgSettings: OrganizationSettings = ctx?.settings ?? {};
 
   const submissions = await prisma.submission.findMany({
     where: {
-      userId,
+      userId: args.userId,
       submittedAt: { not: null },
       status: { in: ["SUBMITTED", "GRADED"] },
       assessment: {
-        courseId,
-        semester,
+        courseId: args.courseId,
+        semester: args.semester,
       },
     },
     include: {
@@ -46,30 +53,73 @@ export async function computeCourseSemesterGradePercent(args: {
     },
   });
 
-  const byKind = (k: AssessmentKind) =>
-    submissions
-      .filter((s) => s.assessment.kind === k)
-      .map((s) => submissionPercent(s.totalScore, s.maxScore))
-      .filter((x): x is number => x != null);
+  const submissionPercents = submissions
+    .map((s) => {
+      const pct = submissionPercent(s.totalScore, s.maxScore);
+      if (pct == null) return null;
+      return { kind: s.assessment.kind as AssessmentKind, percent: pct };
+    })
+    .filter((x): x is { kind: AssessmentKind; percent: number } => x != null);
 
-  const caPts = byKind("QUIZ");
-  const exPts = byKind("EXAM");
-  const sCa = mean(caPts);
-  const sEx = mean(exPts);
+  const weighted = computeWeightedSemesterPercent({
+    submissionPercents,
+    weightContinuous: args.weightContinuous,
+    weightExam: args.weightExam,
+  });
 
-  if (sCa == null && sEx == null) return null;
-  if (sCa == null) return sEx;
-  if (sEx == null) return sCa;
+  if (weighted.percent == null) return null;
 
-  let wc = wCa;
-  let we = wEx;
-  if (caPts.length === 0 && exPts.length > 0) {
-    wc = 0;
-    we = 1;
-  } else if (exPts.length === 0 && caPts.length > 0) {
-    wc = 1;
-    we = 0;
+  const { letter, gpa } = letterAndGpaForLevel(
+    weighted.percent,
+    educationLevel,
+    args.gradingScale,
+    orgSettings,
+  );
+
+  return {
+    percent: weighted.percent,
+    letter,
+    gpa,
+    components: {
+      continuousPercent: weighted.continuousPercent,
+      examPercent: weighted.examPercent,
+      weightsUsed: weighted.weightsUsed,
+    },
+    educationLevel,
+    gradingScale: args.gradingScale,
+  };
+}
+
+/** Weighted semester percent only (backward compatible with promotion engine). */
+export async function computeCourseSemesterGradePercent(args: {
+  userId: string;
+  courseId: string;
+  semester: 1 | 2 | 3;
+  weightContinuous: number;
+  weightExam: number;
+  organizationId?: string;
+  gradingScale?: GradingScaleType;
+}): Promise<number | null> {
+  let organizationId = args.organizationId;
+  let gradingScale = args.gradingScale;
+  if (organizationId == null || gradingScale == null) {
+    const course = await prisma.course.findUnique({
+      where: { id: args.courseId },
+      select: { organizationId: true, gradingScale: true },
+    });
+    if (!course) return null;
+    organizationId = course.organizationId;
+    gradingScale = course.gradingScale;
   }
 
-  return wc * sCa + we * sEx;
+  const full = await computeCourseSemesterGrade({
+    userId: args.userId,
+    courseId: args.courseId,
+    semester: args.semester,
+    weightContinuous: args.weightContinuous,
+    weightExam: args.weightExam,
+    organizationId,
+    gradingScale,
+  });
+  return full?.percent ?? null;
 }

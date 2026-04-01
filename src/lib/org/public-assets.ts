@@ -24,9 +24,20 @@ export function orgHeroSettingPath(orgId: string, ext: string): string {
   return path.posix.join("orgs", orgId, `hero${ext}`);
 }
 
+/** Brand logo for School settings (`organization.logoImageUrl`) — transcripts, sidebar, PDFs, etc. */
+export function orgLogoSettingPath(orgId: string, ext: string): string {
+  return path.posix.join("orgs", orgId, `logo${ext}`);
+}
+
 export function isSafeOrgHeroSettingKey(key: string, orgId: string): boolean {
   if (key.includes("..") || key.length > 500) return false;
   const re = new RegExp(`^orgs/${escapeOrgId(orgId)}/hero\\.(jpe?g|png|webp|gif)$`, "i");
+  return re.test(key);
+}
+
+export function isSafeOrgLogoSettingKey(key: string, orgId: string): boolean {
+  if (key.includes("..") || key.length > 500) return false;
+  const re = new RegExp(`^orgs/${escapeOrgId(orgId)}/logo\\.(jpe?g|png|webp|gif)$`, "i");
   return re.test(key);
 }
 
@@ -66,4 +77,8 @@ export function isSafeOrgAboutVideoStoredValue(key: string, orgId: string): bool
 
 export function isSafeOrgHeroSettingStoredValue(key: string, orgId: string): boolean {
   return isBlobStoredRef(key) || isSafeOrgHeroSettingKey(key, orgId);
+}
+
+export function isSafeOrgLogoSettingStoredValue(key: string, orgId: string): boolean {
+  return isBlobStoredRef(key) || isSafeOrgLogoSettingKey(key, orgId);
 }

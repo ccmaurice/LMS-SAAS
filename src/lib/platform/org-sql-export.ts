@@ -23,6 +23,11 @@ function qEnum(s: string): string {
   return q(String(s).replace(/'/g, "''"));
 }
 
+function qJsonb(val: unknown): string {
+  if (val == null) return "NULL";
+  return `${q(JSON.stringify(val))}::jsonb`;
+}
+
 /**
  * Partial SQL: removes existing rows for this org (courses cascade), then inserts core data.
  * Targets PostgreSQL (quoted identifiers; Prisma `postgresql` provider).
@@ -33,7 +38,8 @@ export async function exportOrganizationCoreSql(organizationId: string): Promise
 
   const lines: string[] = [
     "-- SaaS LMS — partial organization export (PostgreSQL, core tables).",
-    "-- Test on a copy first. Does not include assessments, enrollments, DMs, lesson files, etc.",
+    "-- Test on a copy first. Includes org profile (educationLevel, organizationSettings), users, courses (creditHours, academicTermId), modules, lessons, blog, learning resources (createdById), CMS, invites, wall.",
+    "-- Does not include: assessments, enrollments, lesson file blobs, DMs, cohort/department structures beyond what FKs require.",
     "BEGIN;",
     `DELETE FROM ${bt("Course")} WHERE ${bt("organizationId")} = ${q(organizationId)};`,
     `DELETE FROM ${bt("BlogPost")} WHERE ${bt("organizationId")} = ${q(organizationId)};`,
@@ -47,7 +53,7 @@ export async function exportOrganizationCoreSql(organizationId: string): Promise
   ];
 
   lines.push(
-    `INSERT INTO ${bt("Organization")} (${bt("id")},${bt("name")},${bt("slug")},${bt("subdomain")},${bt("status")},${bt("reportCardsPublished")},${bt("certificatesPublished")},${bt("academicYearLabel")},${bt("promotionPassMinPercent")},${bt("promotionProbationMinPercent")},${bt("themeTemplate")},${bt("customPrimaryHex")},${bt("customAccentHex")},${bt("heroImageUrl")},${bt("createdAt")},${bt("updatedAt")}) VALUES (${q(org.id)},${q(org.name)},${q(org.slug)},${q(org.subdomain)},${qEnum(org.status)},${qBool(org.reportCardsPublished)},${qBool(org.certificatesPublished)},${q(org.academicYearLabel)},${org.promotionPassMinPercent},${org.promotionProbationMinPercent},${q(org.themeTemplate)},${q(org.customPrimaryHex)},${q(org.customAccentHex)},${q(org.heroImageUrl)},${qDate(org.createdAt)},${qDate(org.updatedAt)});`,
+    `INSERT INTO ${bt("Organization")} (${bt("id")},${bt("name")},${bt("slug")},${bt("subdomain")},${bt("status")},${bt("reportCardsPublished")},${bt("certificatesPublished")},${bt("academicYearLabel")},${bt("promotionPassMinPercent")},${bt("promotionProbationMinPercent")},${bt("themeTemplate")},${bt("customPrimaryHex")},${bt("customAccentHex")},${bt("heroImageUrl")},${bt("logoImageUrl")},${bt("educationLevel")},${bt("organizationSettings")},${bt("createdAt")},${bt("updatedAt")}) VALUES (${q(org.id)},${q(org.name)},${q(org.slug)},${q(org.subdomain)},${qEnum(org.status)},${qBool(org.reportCardsPublished)},${qBool(org.certificatesPublished)},${q(org.academicYearLabel)},${org.promotionPassMinPercent},${org.promotionProbationMinPercent},${q(org.themeTemplate)},${q(org.customPrimaryHex)},${q(org.customAccentHex)},${q(org.heroImageUrl)},${q(org.logoImageUrl)},${qEnum(org.educationLevel)},${qJsonb(org.organizationSettings)},${qDate(org.createdAt)},${qDate(org.updatedAt)});`,
   );
 
   const users = await prisma.user.findMany({ where: { organizationId } });
@@ -74,7 +80,7 @@ export async function exportOrganizationCoreSql(organizationId: string): Promise
   const courses = await prisma.course.findMany({ where: { organizationId } });
   for (const c of courses) {
     lines.push(
-      `INSERT INTO ${bt("Course")} (${bt("id")},${bt("organizationId")},${bt("title")},${bt("description")},${bt("published")},${bt("gradeWeightContinuous")},${bt("gradeWeightExam")},${bt("gradingScale")},${bt("createdById")},${bt("createdAt")},${bt("updatedAt")}) VALUES (${q(c.id)},${q(c.organizationId)},${q(c.title)},${q(c.description)},${qBool(c.published)},${c.gradeWeightContinuous},${c.gradeWeightExam},${qEnum(c.gradingScale)},${q(c.createdById)},${qDate(c.createdAt)},${qDate(c.updatedAt)});`,
+      `INSERT INTO ${bt("Course")} (${bt("id")},${bt("organizationId")},${bt("title")},${bt("description")},${bt("published")},${bt("gradeWeightContinuous")},${bt("gradeWeightExam")},${bt("gradingScale")},${bt("creditHours")},${bt("academicTermId")},${bt("createdById")},${bt("createdAt")},${bt("updatedAt")}) VALUES (${q(c.id)},${q(c.organizationId)},${q(c.title)},${q(c.description)},${qBool(c.published)},${c.gradeWeightContinuous},${c.gradeWeightExam},${qEnum(c.gradingScale)},${c.creditHours != null ? String(c.creditHours) : "NULL"},${c.academicTermId ? q(c.academicTermId) : "NULL"},${q(c.createdById)},${qDate(c.createdAt)},${qDate(c.updatedAt)});`,
     );
   }
 
@@ -108,7 +114,7 @@ export async function exportOrganizationCoreSql(organizationId: string): Promise
   const resources = await prisma.learningResource.findMany({ where: { organizationId } });
   for (const r of resources) {
     lines.push(
-      `INSERT INTO ${bt("LearningResource")} (${bt("id")},${bt("organizationId")},${bt("title")},${bt("description")},${bt("kind")},${bt("externalUrl")},${bt("storageKey")},${bt("mimeType")},${bt("sortOrder")},${bt("published")},${bt("createdAt")},${bt("updatedAt")}) VALUES (${q(r.id)},${q(r.organizationId)},${q(r.title)},${q(r.description)},${qEnum(r.kind)},${q(r.externalUrl)},${q(r.storageKey)},${q(r.mimeType)},${r.sortOrder},${qBool(r.published)},${qDate(r.createdAt)},${qDate(r.updatedAt)});`,
+      `INSERT INTO ${bt("LearningResource")} (${bt("id")},${bt("organizationId")},${bt("title")},${bt("description")},${bt("kind")},${bt("externalUrl")},${bt("storageKey")},${bt("mimeType")},${bt("sortOrder")},${bt("published")},${bt("createdById")},${bt("createdAt")},${bt("updatedAt")}) VALUES (${q(r.id)},${q(r.organizationId)},${q(r.title)},${q(r.description)},${qEnum(r.kind)},${q(r.externalUrl)},${q(r.storageKey)},${q(r.mimeType)},${r.sortOrder},${qBool(r.published)},${r.createdById ? q(r.createdById) : "NULL"},${qDate(r.createdAt)},${qDate(r.updatedAt)});`,
     );
   }
 

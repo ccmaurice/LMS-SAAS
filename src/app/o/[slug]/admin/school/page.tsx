@@ -6,6 +6,7 @@ import { GradingPromotionPanel } from "@/components/admin/grading-promotion-pane
 import { SchoolSettingsForm } from "@/components/admin/school-settings-form";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { parseOrganizationSettings } from "@/lib/education_context";
 
 export default async function AdminSchoolPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -25,10 +26,15 @@ export default async function AdminSchoolPage({ params }: { params: Promise<{ sl
       customPrimaryHex: true,
       customAccentHex: true,
       heroImageUrl: true,
+      logoImageUrl: true,
+      educationLevel: true,
+      organizationSettings: true,
     },
   });
 
   if (!org) redirect("/login");
+
+  const orgSettings = parseOrganizationSettings(org.organizationSettings);
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -36,13 +42,31 @@ export default async function AdminSchoolPage({ params }: { params: Promise<{ sl
         <Link href={`/o/${slug}/admin/users`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 text-muted-foreground")}>
           ← Users & invites
         </Link>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">School settings</h1>
+        <h1 className="page-title mt-4">School settings</h1>
         <p className="mt-1 text-muted-foreground">
-          Hero image for the marketing carousel, student-facing report cards and certificates, and theme colors.
+          Brand logo (upload or link), public hero image for marketing, education level, and theme colors.
         </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href={`/o/${slug}/admin/terms`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+            Academic terms
+          </Link>
+          <Link
+            href={org.educationLevel === "HIGHER_ED" ? `/o/${slug}/admin/departments` : `/o/${slug}/admin/classes`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            {org.educationLevel === "HIGHER_ED" ? "Departments & faculty" : "Classes & homerooms"}
+          </Link>
+        </div>
       </div>
       <section className="surface-bento p-6">
-        <SchoolSettingsForm slug={slug} initial={org} />
+        <SchoolSettingsForm
+          slug={slug}
+          initial={{
+            ...org,
+            reportShowRank: orgSettings.reportShowRank ?? false,
+            gpaBands: orgSettings.gpaBands,
+          }}
+        />
       </section>
       <section className="surface-bento p-6">
         <GradingPromotionPanel

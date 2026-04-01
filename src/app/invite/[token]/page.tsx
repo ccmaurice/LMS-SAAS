@@ -24,7 +24,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
       <div className="relative z-10 w-full max-w-md space-y-6">
         <div className="surface-glass p-8">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">You&apos;re invited</h1>
+            <h1 className="page-title">You&apos;re invited</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {expired
                 ? "This invite link has expired. Ask an admin to send a new one."

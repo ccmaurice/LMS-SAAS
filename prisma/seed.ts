@@ -27,6 +27,8 @@ async function main() {
     { email: "admin@test.com", name: "Demo Admin", role: "ADMIN" as const },
     { email: "teacher@test.com", name: "Demo Teacher", role: "TEACHER" as const },
     { email: "student@test.com", name: "Demo Student", role: "STUDENT" as const },
+    { email: "ward2@test.com", name: "Demo Student (sibling)", role: "STUDENT" as const },
+    { email: "parent@test.com", name: "Demo Parent", role: "PARENT" as const },
   ];
 
   await prisma.cmsEntry.upsert({
@@ -173,6 +175,104 @@ async function main() {
     }
   }
 
+  const studentUser = await prisma.user.findFirst({
+    where: { organizationId: org.id, email: "student@test.com" },
+  });
+  const ward2User = await prisma.user.findFirst({
+    where: { organizationId: org.id, email: "ward2@test.com" },
+  });
+  const parentUser = await prisma.user.findFirst({
+    where: { organizationId: org.id, email: "parent@test.com" },
+  });
+  if (parentUser) {
+    for (const child of [studentUser, ward2User]) {
+      if (!child) continue;
+      await prisma.parentStudentLink.upsert({
+        where: {
+          organizationId_parentUserId_studentUserId: {
+            organizationId: org.id,
+            parentUserId: parentUser.id,
+            studentUserId: child.id,
+          },
+        },
+        create: {
+          organizationId: org.id,
+          parentUserId: parentUser.id,
+          studentUserId: child.id,
+        },
+        update: {},
+      });
+    }
+  }
+
+  const teacherUser = await prisma.user.findFirst({
+    where: { organizationId: org.id, email: "teacher@test.com" },
+  });
+
+  const demoCourse = await prisma.course.findFirst({
+    where: { organizationId: org.id, title: "Welcome to Demo School" },
+  });
+  if (demoCourse && studentUser) {
+    await prisma.enrollment.upsert({
+      where: {
+        userId_courseId: { userId: studentUser.id, courseId: demoCourse.id },
+      },
+      create: {
+        userId: studentUser.id,
+        courseId: demoCourse.id,
+        progressPercent: 0,
+      },
+      update: {},
+    });
+    let demoCohort = await prisma.schoolCohort.findFirst({
+      where: { organizationId: org.id, name: "Demo Class 1" },
+    });
+    if (!demoCohort) {
+      demoCohort = await prisma.schoolCohort.create({
+        data: {
+          organizationId: org.id,
+          name: "Demo Class 1",
+          gradeLabel: "Demo grade",
+          academicYearLabel: org.academicYearLabel,
+          homeroomTeacherId: teacherUser?.id ?? null,
+        },
+      });
+    } else {
+      await prisma.schoolCohort.update({
+        where: { id: demoCohort.id },
+        data: {
+          gradeLabel: "Demo grade",
+          academicYearLabel: org.academicYearLabel,
+          ...(teacherUser ? { homeroomTeacherId: teacherUser.id } : {}),
+        },
+      });
+    }
+    if (teacherUser) {
+      await prisma.cohortInstructor.upsert({
+        where: { cohortId_userId: { cohortId: demoCohort.id, userId: teacherUser.id } },
+        create: { cohortId: demoCohort.id, userId: teacherUser.id },
+        update: {},
+      });
+    }
+    await prisma.cohortMembership.upsert({
+      where: { cohortId_userId: { cohortId: demoCohort.id, userId: studentUser.id } },
+      create: { cohortId: demoCohort.id, userId: studentUser.id },
+      update: {},
+    });
+    if (ward2User) {
+      await prisma.cohortMembership.upsert({
+        where: { cohortId_userId: { cohortId: demoCohort.id, userId: ward2User.id } },
+        create: { cohortId: demoCohort.id, userId: ward2User.id },
+        update: {},
+      });
+    }
+    await prisma.courseCohort.upsert({
+      where: { courseId_cohortId: { courseId: demoCourse.id, cohortId: demoCohort.id } },
+      create: { courseId: demoCourse.id, cohortId: demoCohort.id },
+      update: {},
+    });
+  }
+
   const adminUser = await prisma.user.findFirst({
     where: { organizationId: org.id, email: "admin@test.com" },
   });
@@ -190,7 +290,169 @@ async function main() {
     }
   }
 
-  console.info("Seed complete: org slug demo-school, users admin|teacher|student@test.com / password123");
+  let term = await prisma.academicTerm.findFirst({
+    where: { organizationId: org.id, code: "demo-current" },
+  });
+  if (!term) {
+    await prisma.academicTerm.updateMany({
+      where: { organizationId: org.id },
+      data: { isCurrent: false },
+    });
+    term = await prisma.academicTerm.create({
+      data: {
+        organizationId: org.id,
+        code: "demo-current",
+        label: "Current term (demo)",
+        sortOrder: 0,
+        isCurrent: true,
+      },
+    });
+  }
+
+  const seededCourse = await prisma.course.findFirst({
+    where: { organizationId: org.id, title: "Welcome to Demo School" },
+  });
+  if (seededCourse && term) {
+    await prisma.course.update({
+      where: { id: seededCourse.id },
+      data: { academicTermId: term.id, creditHours: 3 },
+    });
+  }
+
+  // --- Higher-ed demo org: /login?org=demo-university · headmin|heteacher|hestudent@test.com / password123 ---
+  const heOrg = await prisma.organization.upsert({
+    where: { slug: "demo-university" },
+    create: {
+      name: "Demo University",
+      slug: "demo-university",
+      heroImageUrl: demoHero,
+      status: "ACTIVE",
+      educationLevel: "HIGHER_ED",
+    },
+    update: { educationLevel: "HIGHER_ED", name: "Demo University", status: "ACTIVE" },
+  });
+
+  const heUserSpecs = [
+    { email: "headmin@test.com", name: "HE Admin", role: "ADMIN" as const },
+    { email: "heteacher@test.com", name: "HE Faculty", role: "TEACHER" as const },
+    { email: "hestudent@test.com", name: "HE Student", role: "STUDENT" as const },
+  ];
+  for (const u of heUserSpecs) {
+    await prisma.user.upsert({
+      where: { organizationId_email: { organizationId: heOrg.id, email: u.email } },
+      create: {
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        passwordHash,
+        organizationId: heOrg.id,
+      },
+      update: { name: u.name, role: u.role, passwordHash },
+    });
+  }
+
+  const heTeacher = await prisma.user.findFirst({
+    where: { organizationId: heOrg.id, email: "heteacher@test.com" },
+  });
+  const heStudent = await prisma.user.findFirst({
+    where: { organizationId: heOrg.id, email: "hestudent@test.com" },
+  });
+  const heAuthor =
+    heTeacher ??
+    (await prisma.user.findFirst({ where: { organizationId: heOrg.id, role: "TEACHER" } })) ??
+    (await prisma.user.findFirst({ where: { organizationId: heOrg.id, role: "ADMIN" } }));
+
+  let heDiv = await prisma.facultyDivision.findFirst({
+    where: { organizationId: heOrg.id, name: "Faculty of Science (demo)" },
+  });
+  if (!heDiv) {
+    heDiv = await prisma.facultyDivision.create({
+      data: { organizationId: heOrg.id, name: "Faculty of Science (demo)", code: "SCI", sortOrder: 0 },
+    });
+  }
+
+  let heDept = await prisma.academicDepartment.findFirst({
+    where: { organizationId: heOrg.id, code: "DEMO-CS" },
+  });
+  if (!heDept && heTeacher) {
+    heDept = await prisma.academicDepartment.create({
+      data: {
+        organizationId: heOrg.id,
+        name: "Computer Science (demo)",
+        code: "DEMO-CS",
+        facultyDivisionId: heDiv.id,
+        chairUserId: heTeacher.id,
+      },
+    });
+    await prisma.departmentInstructor.upsert({
+      where: { departmentId_userId: { departmentId: heDept.id, userId: heTeacher.id } },
+      create: { departmentId: heDept.id, userId: heTeacher.id },
+      update: {},
+    });
+  }
+
+  if (heDept && heStudent) {
+    await prisma.studentDepartmentAffiliation.upsert({
+      where: { departmentId_userId: { departmentId: heDept.id, userId: heStudent.id } },
+      create: { departmentId: heDept.id, userId: heStudent.id, isPrimary: true },
+      update: { isPrimary: true },
+    });
+  }
+
+  const heCourseTitle = "Introduction to Higher Ed LMS (demo)";
+  let heCourse = await prisma.course.findFirst({
+    where: { organizationId: heOrg.id, title: heCourseTitle },
+  });
+  if (!heCourse && heAuthor) {
+    heCourse = await prisma.course.create({
+      data: {
+        title: heCourseTitle,
+        description: "Sample HE course linked to the demo department.",
+        published: true,
+        organizationId: heOrg.id,
+        createdById: heAuthor.id,
+        modules: {
+          create: [
+            {
+              title: "Orientation",
+              order: 0,
+              lessons: {
+                create: [
+                  {
+                    title: "Welcome",
+                    order: 0,
+                    content: "You are in a higher-education organization. Departments replace K–12 classes.",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    });
+  }
+
+  if (heCourse && heDept) {
+    await prisma.courseDepartment.upsert({
+      where: { courseId_departmentId: { courseId: heCourse.id, departmentId: heDept.id } },
+      create: { courseId: heCourse.id, departmentId: heDept.id },
+      update: {},
+    });
+  }
+  if (heCourse && heStudent) {
+    await prisma.enrollment.upsert({
+      where: { userId_courseId: { userId: heStudent.id, courseId: heCourse.id } },
+      create: { userId: heStudent.id, courseId: heCourse.id, progressPercent: 0 },
+      update: {},
+    });
+  }
+
+  console.info(
+    "Seed complete: demo-school · admin|teacher|student|ward2|parent@test.com / password123 · parent linked to student + ward2 + enrollment (primary student) + Demo Class 1",
+  );
+  console.info(
+    "Higher-ed demo: demo-university · headmin|heteacher|hestudent@test.com / password123 · dept + course link + enrollment",
+  );
 }
 
 main()

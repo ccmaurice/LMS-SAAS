@@ -6,7 +6,7 @@ import { requirePlatformOperator } from "@/lib/platform/api-guard";
 const patchSchema = z
   .object({
     suspended: z.boolean().optional(),
-    role: z.enum(["ADMIN", "TEACHER", "STUDENT"]).optional(),
+    role: z.enum(["ADMIN", "TEACHER", "STUDENT", "PARENT"]).optional(),
     name: z.union([z.string().max(200), z.literal("")]).optional(),
   })
   .refine((d) => d.suspended !== undefined || d.role !== undefined || d.name !== undefined, {
@@ -58,7 +58,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ orgId: string
 
   const data: {
     suspendedAt?: Date | null;
-    role?: "ADMIN" | "TEACHER" | "STUDENT";
+    role?: "ADMIN" | "TEACHER" | "STUDENT" | "PARENT";
     name?: string | null;
   } = {};
 

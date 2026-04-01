@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
-import { isStaffRole } from "@/lib/courses/access";
-
 export async function GET(req: Request) {
   const user = await getCurrentUser();
   if (!user) {
@@ -12,13 +10,18 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get("q") ?? "").trim();
 
-  const staff = isStaffRole(user.role);
+  const visibility =
+    user.role === "ADMIN"
+      ? {}
+      : user.role === "TEACHER"
+        ? { OR: [{ published: true }, { createdById: user.id }] }
+        : { published: true };
 
   const courses = await prisma.course.findMany({
     where: {
       organizationId: user.organizationId,
       ...(q ? { title: { contains: q } } : {}),
-      ...(!staff ? { published: true } : {}),
+      ...visibility,
     },
     select: { id: true, title: true },
     orderBy: { title: "asc" },

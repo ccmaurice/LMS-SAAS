@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { CreateInviteForm } from "@/components/admin/create-invite-form";
 import { MemberActions } from "@/components/admin/member-actions";
+import { ParentLinkForm } from "@/components/admin/parent-link-form";
 import { PendingInvitesList } from "@/components/admin/pending-invites-list";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
@@ -34,11 +35,15 @@ export default async function AdminUsersPage({ params }: { params: Promise<{ slu
     createdAt: i.createdAt.toISOString(),
   }));
 
+  const labelFor = (u: { name: string | null; email: string }) => u.name?.trim() || u.email;
+  const parentOptions = users.filter((u) => u.role === "PARENT").map((u) => ({ id: u.id, label: labelFor(u) }));
+  const studentOptions = users.filter((u) => u.role === "STUDENT").map((u) => ({ id: u.id, label: labelFor(u) }));
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Users & invites</h1>
+          <h1 className="page-title">Users & invites</h1>
           <p className="mt-1 text-muted-foreground">
             Invite teachers and students with a link. Suspend, edit roles, or remove members (teachers and students
             only). Other school admins are managed from the platform console.
@@ -50,6 +55,8 @@ export default async function AdminUsersPage({ params }: { params: Promise<{ slu
       </div>
 
       <CreateInviteForm />
+
+      <ParentLinkForm parents={parentOptions} students={studentOptions} />
 
       <section className="space-y-3">
         <h2 className="text-lg font-medium">Pending invites</h2>

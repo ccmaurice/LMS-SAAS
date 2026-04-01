@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getEducationContext } from "@/lib/education_context";
 import { ProfileAvatarEditor } from "@/components/profile/profile-avatar-editor";
 import { ProfileForm } from "@/components/settings/profile-form";
 
@@ -10,12 +12,63 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
     redirect("/login");
   }
 
+  const [ctx, cohortRows, currentTerm] = await Promise.all([
+    getEducationContext(user.organizationId),
+    user.role === "STUDENT"
+      ? prisma.cohortMembership.findMany({
+          where: { userId: user.id, cohort: { organizationId: user.organizationId } },
+          include: { cohort: { select: { name: true, gradeLabel: true, academicYearLabel: true } } },
+        })
+      : Promise.resolve([]),
+    prisma.academicTerm.findFirst({
+      where: { organizationId: user.organizationId, isCurrent: true },
+      select: { label: true, code: true },
+    }),
+  ]);
+
+  const classLabel = ctx?.terminology.Class ?? "Class";
+  const termLabel = ctx?.terminology.Term ?? "Term";
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
+        <h1 className="page-title">Settings</h1>
         <p className="mt-1 text-muted-foreground">Profile for {user.email}</p>
       </div>
+      {user.role === "STUDENT" && (cohortRows.length > 0 || currentTerm) ? (
+        <section className="surface-bento space-y-2 p-6">
+          <h2 className="text-lg font-semibold tracking-tight">School placement</h2>
+          {currentTerm ? (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{termLabel}:</span> {currentTerm.label}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No current {termLabel.toLowerCase()} is set yet. Your administrator can add one under Admin → Academic
+              terms.
+            </p>
+          )}
+          {cohortRows.length > 0 ? (
+            <div className="text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">{classLabel}</p>
+              <ul className="mt-1 list-inside list-disc">
+                {cohortRows.map((m) => (
+                  <li key={m.cohortId}>
+                    {m.cohort.name}
+                    {m.cohort.gradeLabel ? ` · ${m.cohort.gradeLabel}` : ""}
+                    {m.cohort.academicYearLabel ? ` (${m.cohort.academicYearLabel})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              You are not assigned to a {classLabel.toLowerCase()} yet. Your administrator can add you under Admin →
+              Classes &amp; homerooms.
+            </p>
+          )}
+        </section>
+      ) : null}
       <section className="surface-bento p-6">
         <h2 className="text-lg font-semibold tracking-tight">Profile</h2>
         <div className="mt-4 space-y-8">

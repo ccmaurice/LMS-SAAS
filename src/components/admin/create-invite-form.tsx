@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 export function CreateInviteForm() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"TEACHER" | "STUDENT">("STUDENT");
+  const [role, setRole] = useState<"TEACHER" | "STUDENT" | "PARENT">("STUDENT");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -65,10 +65,11 @@ export function CreateInviteForm() {
             id="invite-role"
             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             value={role}
-            onChange={(e) => setRole(e.target.value as "TEACHER" | "STUDENT")}
+            onChange={(e) => setRole(e.target.value as "TEACHER" | "STUDENT" | "PARENT")}
           >
             <option value="STUDENT">Student</option>
             <option value="TEACHER">Teacher</option>
+            <option value="PARENT">Parent</option>
           </select>
         </div>
       </div>

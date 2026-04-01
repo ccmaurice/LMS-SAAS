@@ -36,6 +36,8 @@ export async function computeStudentSemesterRollup(args: {
       course: {
         select: {
           id: true,
+          organizationId: true,
+          gradingScale: true,
           gradeWeightContinuous: true,
           gradeWeightExam: true,
         },
@@ -53,6 +55,8 @@ export async function computeStudentSemesterRollup(args: {
         semester: sem,
         weightContinuous: e.course.gradeWeightContinuous,
         weightExam: e.course.gradeWeightExam,
+        organizationId: e.course.organizationId,
+        gradingScale: e.course.gradingScale,
       });
       if (pct != null) {
         courseSemesterGrades.push({ sem, pct });

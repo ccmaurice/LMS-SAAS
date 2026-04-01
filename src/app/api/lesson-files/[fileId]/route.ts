@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
+import { canTeacherManageCourse } from "@/lib/courses/access";
 import { canAccessLessonDownload, getLessonFileInOrg } from "@/lib/lesson-files/access";
 import { loadUpload, removeUpload } from "@/lib/uploads/storage";
 
@@ -52,6 +53,11 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ fileId: str
   const row = await getLessonFileInOrg(fileId, user.organizationId);
   if (!row) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const createdById = row.lesson.module.course.createdById;
+  if (!canTeacherManageCourse(user, createdById)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   if (row.storageKey) {

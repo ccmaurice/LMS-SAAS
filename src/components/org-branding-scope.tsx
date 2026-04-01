@@ -17,7 +17,10 @@ export function OrgBrandingScope({
   children: React.ReactNode;
 }) {
   const css = buildOrgBrandingCss(slug, org.themeTemplate, org.customPrimaryHex, org.customAccentHex);
-  const cls = cn(`org-brand-${orgBrandClassSlug(slug)}`, "flex min-h-full flex-1 flex-col");
+  const cls = cn(
+    `org-brand-${orgBrandClassSlug(slug)}`,
+    "flex min-h-full flex-1 flex-col print:h-auto print:min-h-0 print:overflow-visible",
+  );
 
   return (
     <>

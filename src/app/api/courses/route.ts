@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { isStaffRole } from "@/lib/courses/access";
+import type { Prisma } from "@/generated/prisma/client";
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),
@@ -15,8 +16,15 @@ export async function GET() {
   if (!user) return response!;
 
   if (isStaffRole(user.role)) {
+    const staffWhere: Prisma.CourseWhereInput =
+      user.role === "ADMIN"
+        ? { organizationId: user.organizationId }
+        : {
+            organizationId: user.organizationId,
+            OR: [{ published: true }, { createdById: user.id }],
+          };
     const courses = await prisma.course.findMany({
-      where: { organizationId: user.organizationId },
+      where: staffWhere,
       orderBy: { updatedAt: "desc" },
       include: {
         _count: { select: { enrollments: true, modules: true } },

@@ -52,6 +52,10 @@ export function gradeAnswer(question: Pick<Question, "type" | "points" | "option
     return { score: 0, maxPoints, autoGraded: false };
   }
 
+  if (question.type === "DRAG_DROP" || question.type === "ESSAY_RICH" || question.type === "FORMULA") {
+    return { score: 0, maxPoints, autoGraded: false };
+  }
+
   return { score: 0, maxPoints, autoGraded: false };
 }
 

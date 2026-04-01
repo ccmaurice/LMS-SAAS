@@ -7,7 +7,7 @@ import { generateInviteToken } from "@/lib/invites/token";
 
 const createSchema = z.object({
   email: z.string().email(),
-  role: z.enum(["TEACHER", "STUDENT"]),
+  role: z.enum(["TEACHER", "STUDENT", "PARENT"]),
   expiresInDays: z.number().int().min(1).max(90).optional(),
 });
 

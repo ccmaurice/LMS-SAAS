@@ -71,16 +71,23 @@ export function RegisterForm() {
   }
 
   return (
-    <Card className="surface-glass w-full max-w-md border-0 py-6 ring-0 shadow-none">
-      <CardHeader>
-        <CardTitle>Create your school</CardTitle>
-        <CardDescription>
+    <Card className="auth-card-shell surface-glass w-full max-w-md border-0 py-6 shadow-none ring-1 ring-border/40 dark:ring-white/10">
+      <CardHeader className="space-y-1">
+        <CardTitle className="page-title">Create your school</CardTitle>
+        <CardDescription className="text-pretty leading-relaxed">
           Registers a new organization and makes you the admin. Teachers and students can be invited later.
         </CardDescription>
       </CardHeader>
       <form onSubmit={onSubmit}>
         <CardContent className="space-y-4">
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive dark:border-destructive/40 dark:bg-destructive/15"
+            >
+              {error}
+            </p>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="school">School name</Label>
             <Input

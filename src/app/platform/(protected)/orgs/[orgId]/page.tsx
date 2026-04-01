@@ -30,9 +30,10 @@ export default async function PlatformOrgDetailPage({ params }: { params: Promis
           <Link href="/platform" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-2 px-0")}>
             ← All organizations
           </Link>
-          <h1 className="text-2xl font-semibold tracking-tight">{org.name}</h1>
+          <h1 className="page-title">{org.name}</h1>
           <p className="text-muted-foreground">
-            Slug <code className="rounded-md bg-muted px-1.5 py-0.5 text-sm">{org.slug}</code> · {org._count.courses}{" "}
+            Slug <code className="rounded-md bg-muted px-1.5 py-0.5 text-sm">{org.slug}</code> · segment{" "}
+            <span className="text-foreground">{org.educationLevel.replace(/_/g, " ")}</span> · {org._count.courses}{" "}
             courses · {org.users.length} users
             {org.status === "PENDING" ? (
               <span className="ml-2 inline-block align-middle">
@@ -56,6 +57,7 @@ export default async function PlatformOrgDetailPage({ params }: { params: Promis
           <a
             href={`/api/platform/organizations/${org.id}/export-sql`}
             className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+            title="Users, org settings, courses (weights, terms, credits), curriculum shell, blog, library (with createdById), CMS, invites, wall — not assessments or enrollments."
           >
             Download core SQL
           </a>

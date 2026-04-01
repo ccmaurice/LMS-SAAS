@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { assertCourseInOrg } from "@/lib/assessments/access";
-import { isStaffRole } from "@/lib/courses/access";
+import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
 import { NewAssessmentForm } from "@/components/assessments/new-assessment-form";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,9 @@ export default async function NewAssessmentPage({
 
   const course = await assertCourseInOrg(courseId, user.organizationId);
   if (!course) notFound();
+  if (!canTeacherManageCourse(user, course.createdById)) {
+    redirect(`/o/${slug}/courses/${courseId}/assessments`);
+  }
 
   return (
     <div className="space-y-6">
@@ -28,7 +31,7 @@ export default async function NewAssessmentPage({
       >
         ← Assessments
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">New assessment</h1>
+      <h1 className="page-title">New assessment</h1>
       <NewAssessmentForm courseId={courseId} orgSlug={slug} />
     </div>
   );

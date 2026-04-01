@@ -6,7 +6,7 @@ import type { Role } from "@/generated/prisma/enums";
 
 const patchSchema = z.object({
   name: z.union([z.string().max(120), z.literal("")]).optional(),
-  role: z.enum(["TEACHER", "STUDENT"]).optional(),
+  role: z.enum(["TEACHER", "STUDENT", "PARENT"]).optional(),
   suspended: z.boolean().optional(),
 });
 

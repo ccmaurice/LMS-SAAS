@@ -24,3 +24,15 @@ export function sanitizeMcqForStudent(raw: unknown): McqOptions | null {
     choices: parsed.choices.map(({ id, text }) => ({ id, text })),
   };
 }
+
+/** Fisher–Yates shuffle of choice order for delivery (correct flags already stripped). */
+export function shuffleMcqForStudent(raw: unknown): McqOptions | null {
+  const s = sanitizeMcqForStudent(raw);
+  if (!s) return null;
+  const choices = [...s.choices];
+  for (let i = choices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [choices[i], choices[j]] = [choices[j], choices[i]];
+  }
+  return { choices };
+}

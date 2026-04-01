@@ -12,6 +12,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // pdfkit loads metric files from disk; bundling it breaks at runtime (500 on PDF routes).
+  serverExternalPackages: ["pdfkit"],
+  // Faster dev / compile: tree-shake icon barrel imports; avoid Google Fonts fetch in `next/font/google`.
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
   async headers() {
     const headers = [...securityHeaders];
     if (process.env.NODE_ENV === "production") {

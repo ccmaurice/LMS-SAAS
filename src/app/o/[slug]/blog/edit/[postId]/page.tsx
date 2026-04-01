@@ -21,7 +21,7 @@ export default async function BlogEditPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Edit post</h1>
+      <h1 className="page-title">Edit post</h1>
       <BlogPostEditor
         slug={slug}
         postId={post.id}

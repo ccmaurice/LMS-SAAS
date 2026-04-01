@@ -11,7 +11,7 @@ export default async function BlogNewPage({ params }: { params: Promise<{ slug: 
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">New blog post</h1>
+      <h1 className="page-title">New blog post</h1>
       <BlogPostEditor slug={slug} />
     </div>
   );

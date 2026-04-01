@@ -18,7 +18,7 @@ export default async function PlatformDatabasePage() {
         <Link href="/platform/settings" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 text-muted-foreground")}>
           ← Settings
         </Link>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">Database backup &amp; restore</h1>
+        <h1 className="page-title mt-4">Database backup &amp; restore</h1>
         <p className="mt-1 text-muted-foreground">
           Platform operators can export the whole application database or restore from a <code className="rounded bg-muted px-1">.sql</code>{" "}
           file when tools are enabled on the server.

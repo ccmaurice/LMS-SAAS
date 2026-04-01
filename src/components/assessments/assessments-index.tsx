@@ -15,6 +15,7 @@ export type AssessmentStudentRow = {
   id: string;
   title: string;
   course: { id: string; title: string };
+  latestSubmissionId?: string | null;
 };
 
 export function AssessmentsStaffList({ slug, rows }: { slug: string; rows: AssessmentStaffRow[] }) {
@@ -57,7 +58,15 @@ export function AssessmentsStaffList({ slug, rows }: { slug: string; rows: Asses
   );
 }
 
-export function AssessmentsStudentList({ slug, rows }: { slug: string; rows: AssessmentStudentRow[] }) {
+export function AssessmentsStudentList({
+  slug,
+  rows,
+  viewer = "student",
+}: {
+  slug: string;
+  rows: AssessmentStudentRow[];
+  viewer?: "student" | "parent";
+}) {
   const reduce = useReducedMotion();
   return (
     <ul className="grid gap-4 md:grid-cols-12">
@@ -74,12 +83,22 @@ export function AssessmentsStudentList({ slug, rows }: { slug: string; rows: Ass
             <p className="font-semibold tracking-tight">{a.title}</p>
             <p className="mt-1 text-sm text-muted-foreground">{a.course.title}</p>
           </div>
-          <Link
-            href={`/o/${slug}/courses/${a.course.id}/assessments/${a.id}/take`}
-            className={cn(buttonVariants(), "shrink-0")}
-          >
-            Open
-          </Link>
+          {viewer === "parent" && !a.latestSubmissionId ? (
+            <span className={cn(buttonVariants({ variant: "secondary" }), "shrink-0 cursor-not-allowed opacity-70")}>
+              No submission yet
+            </span>
+          ) : (
+            <Link
+              href={
+                viewer === "parent" && a.latestSubmissionId
+                  ? `/o/${slug}/courses/${a.course.id}/assessments/${a.id}/results?submissionId=${encodeURIComponent(a.latestSubmissionId)}`
+                  : `/o/${slug}/courses/${a.course.id}/assessments/${a.id}/take`
+              }
+              className={cn(buttonVariants(), "shrink-0")}
+            >
+              {viewer === "parent" ? "View results" : "Open"}
+            </Link>
+          )}
         </motion.li>
       ))}
     </ul>

@@ -27,7 +27,9 @@ export async function getRecentDiscussionMessages(args: {
         organizationId: args.organizationId,
         ...(args.role === "STUDENT"
           ? { enrollments: { some: { userId: args.userId } } }
-          : {}),
+          : args.role === "TEACHER"
+            ? { createdById: args.userId }
+            : {}),
       },
     },
     orderBy: { createdAt: "desc" },
@@ -143,26 +145,15 @@ export type CertificateEligible = {
   courseTitle: string;
 };
 
-/** Courses where the user has an enrollment, is not staff-only (certificate page blocks staff), and completed every lesson. */
-export async function getEligibleCertificates(
-  userId: string,
+/**
+ * Courses where the student completed every lesson (certificates must be published — checked by caller if needed).
+ */
+export async function getEligibleCertificatesForStudent(
+  studentUserId: string,
   organizationId: string,
-  role: Role,
 ): Promise<CertificateEligible[]> {
-  if (isStaffRole(role)) {
-    return [];
-  }
-
-  const orgPub = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: { certificatesPublished: true },
-  });
-  if (!orgPub?.certificatesPublished) {
-    return [];
-  }
-
   const enrollments = await prisma.enrollment.findMany({
-    where: { userId, course: { organizationId } },
+    where: { userId: studentUserId, course: { organizationId } },
     include: {
       course: {
         include: {
@@ -179,7 +170,7 @@ export async function getEligibleCertificates(
     if (lessonIds.length === 0) continue;
 
     const progress = await prisma.lessonProgress.findMany({
-      where: { userId, lessonId: { in: lessonIds } },
+      where: { userId: studentUserId, lessonId: { in: lessonIds } },
       select: { lessonId: true },
     });
     const done = new Set(progress.map((p) => p.lessonId));
@@ -190,6 +181,27 @@ export async function getEligibleCertificates(
   }
 
   return eligible;
+}
+
+/** Courses where the user has an enrollment, is not staff-only (certificate page blocks staff), and completed every lesson. */
+export async function getEligibleCertificates(
+  userId: string,
+  organizationId: string,
+  role: Role,
+): Promise<CertificateEligible[]> {
+  if (isStaffRole(role) || role === "PARENT") {
+    return [];
+  }
+
+  const orgPub = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { certificatesPublished: true },
+  });
+  if (!orgPub?.certificatesPublished) {
+    return [];
+  }
+
+  return getEligibleCertificatesForStudent(userId, organizationId);
 }
 
 export type RecentSchoolMessage = {

@@ -35,7 +35,12 @@ if ($docker) {
 
 Write-Host "Running Prisma migrate deploy..."
 npx prisma migrate deploy
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "If the DB was created with db:push or a half-applied migrate, reset local data and retry:"
+    Write-Host "  npm run db:reset"
+    exit $LASTEXITCODE
+}
 
 Write-Host "Seeding database..."
 npm run db:seed

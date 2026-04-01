@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
-import { canEditCourseAsStaff, getEnrollment, getLessonInOrganization, isStaffRole } from "@/lib/courses/access";
+import {
+  canTeacherManageCourse,
+  getEnrollment,
+  getLessonInOrganization,
+  getParentProgressUserIdForCourse,
+} from "@/lib/courses/access";
 
 const patchSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -22,23 +27,53 @@ export async function GET(_req: Request, ctx: { params: Promise<{ lessonId: stri
   }
 
   const courseId = lesson.module.courseId;
-  const enrollment = await getEnrollment(user.id, courseId);
-  const staff = isStaffRole(user.role);
   const course = lesson.module.course;
+  const privilegedStaff = canTeacherManageCourse(user, course.createdById);
+  const enrollment = await getEnrollment(user.id, courseId);
+  const parentProgressUserId =
+    user.role === "PARENT"
+      ? await getParentProgressUserIdForCourse(user.id, user.organizationId, courseId)
+      : null;
 
-  if (!staff && !enrollment) {
-    if (user.role === "STUDENT" && course.published) {
-      return NextResponse.json({
-        lesson: {
-          id: lesson.id,
-          title: lesson.title,
-          order: lesson.order,
-          moduleId: lesson.moduleId,
-        },
-        preview: true,
-      });
-    }
+  const studentPreview =
+    !privilegedStaff &&
+    !enrollment &&
+    !parentProgressUserId &&
+    user.role === "STUDENT" &&
+    course.published;
+
+  const otherTeacherPreview =
+    user.role === "TEACHER" &&
+    !privilegedStaff &&
+    !enrollment &&
+    course.published;
+
+  if (user.role === "TEACHER" && !privilegedStaff && !enrollment && !course.published) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  const allowed =
+    privilegedStaff ||
+    !!enrollment ||
+    !!parentProgressUserId ||
+    studentPreview ||
+    otherTeacherPreview;
+
+  if (!allowed) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (studentPreview || otherTeacherPreview) {
+    return NextResponse.json({
+      lesson: {
+        id: lesson.id,
+        title: lesson.title,
+        order: lesson.order,
+        moduleId: lesson.moduleId,
+      },
+      preview: true,
+      completed: false,
+    });
   }
 
   const full = await prisma.lesson.findUnique({
@@ -46,10 +81,11 @@ export async function GET(_req: Request, ctx: { params: Promise<{ lessonId: stri
     include: { files: true, module: { select: { id: true, title: true, courseId: true } } },
   });
 
+  const progressUserId = enrollment ? user.id : parentProgressUserId;
   let completed = false;
-  if (enrollment) {
+  if (progressUserId) {
     const p = await prisma.lessonProgress.findUnique({
-      where: { userId_lessonId: { userId: user.id, lessonId } },
+      where: { userId_lessonId: { userId: progressUserId, lessonId } },
     });
     completed = !!p;
   }
@@ -68,7 +104,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ lessonId: str
   if (!lesson) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canEditCourseAsStaff(user.role)) {
+  if (!canTeacherManageCourse(user, lesson.module.course.createdById)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -112,7 +148,7 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ lessonId: s
   if (!lesson) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canEditCourseAsStaff(user.role)) {
+  if (!canTeacherManageCourse(user, lesson.module.course.createdById)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

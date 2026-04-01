@@ -3,10 +3,21 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { isValidHex6 } from "@/lib/org-branding";
-import { isSafeOrgHeroSettingKey, isSafeOrgHeroSettingStoredValue } from "@/lib/org/public-assets";
+import {
+  isSafeOrgHeroSettingKey,
+  isSafeOrgHeroSettingStoredValue,
+  isSafeOrgLogoSettingKey,
+  isSafeOrgLogoSettingStoredValue,
+} from "@/lib/org/public-assets";
 import { removeUpload } from "@/lib/uploads/storage";
+import {
+  mergeOrganizationSettings,
+  organizationSettingsSchema,
+} from "@/lib/education_context";
 
 const THEME_ENUM = ["DEFAULT", "SLATE", "VIOLET", "EMERALD", "ROSE", "AMBER"] as const;
+
+const EDUCATION_LEVEL = ["PRIMARY", "SECONDARY", "HIGHER_ED"] as const;
 
 const patchSchema = z.object({
   reportCardsPublished: z.boolean().optional(),
@@ -18,6 +29,9 @@ const patchSchema = z.object({
   customPrimaryHex: z.union([z.string(), z.literal(""), z.null()]).optional(),
   customAccentHex: z.union([z.string(), z.literal(""), z.null()]).optional(),
   heroImageUrl: z.union([z.literal(""), z.null(), z.string().max(2000)]).optional(),
+  logoImageUrl: z.union([z.literal(""), z.null(), z.string().max(2000)]).optional(),
+  educationLevel: z.enum(EDUCATION_LEVEL).optional(),
+  organizationSettings: organizationSettingsSchema.partial().optional(),
 });
 
 export async function PATCH(req: Request) {
@@ -110,6 +124,48 @@ export async function PATCH(req: Request) {
     data.heroImageUrl = next;
   }
 
+  if (parsed.data.logoImageUrl !== undefined) {
+    const v = parsed.data.logoImageUrl;
+    const next: string | null = v === "" || v === null ? null : v.trim();
+    if (
+      next &&
+      !/^https?:\/\//i.test(next) &&
+      !isSafeOrgLogoSettingKey(next, orgId)
+    ) {
+      return NextResponse.json(
+        { error: "Brand logo must be an https URL, empty, or your uploaded logo file" },
+        { status: 400 },
+      );
+    }
+
+    const currentLogo = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { logoImageUrl: true },
+    });
+
+    if (
+      currentLogo?.logoImageUrl &&
+      isSafeOrgLogoSettingStoredValue(currentLogo.logoImageUrl, orgId) &&
+      currentLogo.logoImageUrl !== next
+    ) {
+      await removeUpload(currentLogo.logoImageUrl);
+    }
+
+    data.logoImageUrl = next;
+  }
+
+  if (parsed.data.educationLevel !== undefined) {
+    data.educationLevel = parsed.data.educationLevel;
+  }
+
+  if (parsed.data.organizationSettings !== undefined) {
+    const current = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { organizationSettings: true },
+    });
+    data.organizationSettings = mergeOrganizationSettings(current?.organizationSettings, parsed.data.organizationSettings);
+  }
+
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "No changes" }, { status: 400 });
   }
@@ -136,6 +192,9 @@ export async function PATCH(req: Request) {
       customPrimaryHex: true,
       customAccentHex: true,
       heroImageUrl: true,
+      logoImageUrl: true,
+      educationLevel: true,
+      organizationSettings: true,
     },
   });
 

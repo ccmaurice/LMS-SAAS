@@ -29,7 +29,7 @@ export type CatalogRow = {
 };
 
 export function CoursesStaffView({ base, courses }: { base: string; courses: StaffCourseRow[] }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotion() ?? false;
   return (
     <ul className="grid gap-4 md:grid-cols-12">
       {courses.map((c, i) => (
@@ -77,7 +77,7 @@ export function CoursesStudentView({
   enrollments: EnrollmentRow[];
   catalog: CatalogRow[];
 }) {
-  const reduce = useReducedMotion();
+  const reduce = useReducedMotion() ?? false;
   return (
     <>
       <section className="space-y-4">
@@ -96,13 +96,16 @@ export function CoursesStudentView({
                 whileHover={reduce ? undefined : { y: -3, transition: { type: "spring", stiffness: 520, damping: 28 } }}
               >
                 <div className="relative z-10">
-                  <Link href={`${base}/${e.courseId}`} className="font-semibold tracking-tight hover:underline">
+                  <Link
+                    href={`${base}/${e.courseId}`}
+                    className="font-semibold tracking-tight underline-offset-4 transition-colors hover:text-primary hover:underline"
+                  >
                     {e.course.title}
                   </Link>
                   <p className="mt-2 text-sm text-muted-foreground">Progress: {Math.round(e.progressPercent)}%</p>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted/80 ring-1 ring-inset ring-border/50 dark:ring-white/10">
                     <div
-                      className="h-full rounded-full bg-primary transition-[width]"
+                      className="h-full rounded-full bg-gradient-to-r from-primary to-primary/75 transition-[width] duration-500 ease-out dark:from-primary dark:to-primary/65"
                       style={{ width: `${Math.min(100, Math.max(0, e.progressPercent))}%` }}
                     />
                   </div>
@@ -114,9 +117,11 @@ export function CoursesStudentView({
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Catalog</h2>
+        <h2 className="section-heading">Catalog</h2>
         {catalog.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No published courses available.</p>
+          <div className="empty-state">
+            <p>No published courses are open for enrollment right now.</p>
+          </div>
         ) : (
           <ul className="grid gap-4 md:grid-cols-12">
             {catalog.map((c, i) => (
@@ -132,7 +137,10 @@ export function CoursesStudentView({
                 whileHover={reduce ? undefined : { y: -2, transition: { type: "spring", stiffness: 520, damping: 28 } }}
               >
                 <div>
-                  <Link href={`${base}/${c.id}`} className="font-semibold tracking-tight hover:underline">
+                  <Link
+                    href={`${base}/${c.id}`}
+                    className="font-semibold tracking-tight underline-offset-4 transition-colors hover:text-primary hover:underline"
+                  >
                     {c.title}
                   </Link>
                   <p className="mt-1 text-sm text-muted-foreground">{c._count.modules} modules</p>

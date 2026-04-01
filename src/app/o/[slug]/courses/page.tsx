@@ -17,23 +17,29 @@ export default async function CoursesPage({ params }: { params: Promise<{ slug: 
   const base = `/o/${slug}/courses`;
 
   if (isStaffRole(user.role)) {
-    const courses = await listStaffCourses(user.organizationId);
+    const courses = await listStaffCourses(user.organizationId, { id: user.id, role: user.role });
 
     return (
       <div className="space-y-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Courses</h1>
-            <p className="text-muted-foreground">Create and publish courses for your organization.</p>
+            <h1 className="page-title">Courses</h1>
+            <p className="mt-1 max-w-prose text-pretty text-muted-foreground">
+              Create and publish courses for your organization.
+            </p>
           </div>
           <Link href={`${base}/new`} className={cn(buttonVariants())}>
             New course
           </Link>
         </div>
-        <CoursesStaffView base={base} courses={courses} />
         {courses.length === 0 ? (
-          <p className="text-muted-foreground">No courses yet. Create one to get started.</p>
-        ) : null}
+          <div className="empty-state">
+            <p className="font-medium text-foreground">No courses yet</p>
+            <p className="mt-2 text-xs">Create a course to add modules, lessons, and assessments.</p>
+          </div>
+        ) : (
+          <CoursesStaffView base={base} courses={courses} />
+        )}
       </div>
     );
   }
@@ -43,8 +49,10 @@ export default async function CoursesPage({ params }: { params: Promise<{ slug: 
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Courses</h1>
-        <p className="text-muted-foreground">Enroll in published courses or continue where you left off.</p>
+        <h1 className="page-title">Courses</h1>
+        <p className="mt-1 max-w-prose text-pretty text-muted-foreground">
+          Enroll in published courses or continue where you left off.
+        </p>
       </div>
       <CoursesStudentView base={base} enrollments={enrollments} catalog={catalog} />
     </div>

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
+import { canTeacherManageCourse } from "@/lib/courses/access";
 import { parseMcqOptions } from "@/lib/assessments/mcq";
 
 const choiceSchema = z.object({
@@ -20,7 +22,15 @@ const mediaSchema = z.array(
 
 const bodySchema = z
   .object({
-    type: z.enum(["MCQ", "SHORT_ANSWER", "LONG_ANSWER", "TRUE_FALSE"]),
+    type: z.enum([
+      "MCQ",
+      "SHORT_ANSWER",
+      "LONG_ANSWER",
+      "TRUE_FALSE",
+      "DRAG_DROP",
+      "ESSAY_RICH",
+      "FORMULA",
+    ]),
     prompt: z.string().min(1).max(50_000),
     points: z.number().positive().max(1000).optional(),
     options: z
@@ -31,6 +41,8 @@ const bodySchema = z
     correctAnswer: z.string().max(20_000).optional().nullable(),
     markingScheme: z.string().max(100_000).optional().nullable(),
     mediaAttachments: mediaSchema.optional().nullable(),
+    rubric: z.record(z.string(), z.unknown()).optional().nullable(),
+    questionSchema: z.record(z.string(), z.unknown()).optional().nullable(),
     order: z.number().int().optional(),
   })
   .superRefine((data, ctx) => {
@@ -65,6 +77,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ assessmentId: 
   if (!assessment) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
+  if (!canTeacherManageCourse(user, assessment.course.createdById)) {
+    return NextResponse.json({ error: "Only the course author or an admin can edit questions" }, { status: 403 });
+  }
 
   let body: unknown;
   try {
@@ -98,7 +113,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ assessmentId: 
             ? parsed.data.correctAnswer.trim().toLowerCase()
             : null,
       markingScheme: parsed.data.markingScheme?.trim() || null,
-      mediaAttachments: parsed.data.mediaAttachments ?? undefined,
+      mediaAttachments: (parsed.data.mediaAttachments ?? undefined) as Prisma.InputJsonValue | undefined,
+      rubric:
+        parsed.data.rubric == null ? undefined : (parsed.data.rubric as Prisma.InputJsonValue),
+      questionSchema:
+        parsed.data.questionSchema == null
+          ? undefined
+          : (parsed.data.questionSchema as Prisma.InputJsonValue),
     },
   });
 

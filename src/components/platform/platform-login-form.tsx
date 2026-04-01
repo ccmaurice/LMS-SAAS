@@ -56,14 +56,23 @@ export function PlatformLoginForm() {
   }
 
   return (
-    <Card className="surface-glass w-full max-w-md border-0 ring-0">
-      <CardHeader>
-        <CardTitle>Platform operator</CardTitle>
-        <CardDescription>Cross-tenant console. Not for school staff or students.</CardDescription>
+    <Card className="auth-card-shell surface-glass w-full max-w-md border-0 shadow-none ring-1 ring-border/40 dark:ring-white/10">
+      <CardHeader className="space-y-1">
+        <CardTitle className="page-title">Platform operator</CardTitle>
+        <CardDescription className="text-pretty leading-relaxed">
+          Cross-tenant console. Not for school staff or students.
+        </CardDescription>
       </CardHeader>
       <form onSubmit={(e) => void onSubmit(e)}>
         <CardContent className="space-y-4">
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive dark:border-destructive/40 dark:bg-destructive/15"
+            >
+              {error}
+            </p>
+          ) : null}
           <div className="space-y-2">
             <Label htmlFor="p-email">Email</Label>
             <Input

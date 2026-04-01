@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
-import { canEditCourseAsStaff, getEnrollment, isStaffRole } from "@/lib/courses/access";
+import { canTeacherManageCourse, resolveCourseLearnerAccess } from "@/lib/courses/access";
 import { EnrollButton } from "@/components/courses/enroll-button";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -38,33 +38,32 @@ export default async function CourseDetailPage({
 
   if (!course) notFound();
 
-  const enrollment = await getEnrollment(user.id, courseId);
-  const staff = isStaffRole(user.role);
-  const preview = !staff && !enrollment && user.role === "STUDENT" && course.published;
+  const gate = await resolveCourseLearnerAccess(user, courseId, course.published);
+  if (!gate.canAccess) notFound();
 
-  if (!staff && !enrollment && !(user.role === "STUDENT" && course.published)) {
-    notFound();
-  }
+  const { enrollment, staff, preview, parentViaChild } = gate;
 
-  const progressIds = enrollment
-    ? (
-        await prisma.lessonProgress.findMany({
-          where: { userId: user.id, lesson: { module: { courseId } } },
-          select: { lessonId: true },
-        })
-      ).map((p) => p.lessonId)
-    : [];
+  const progressIds =
+    enrollment || parentViaChild
+      ? (
+          await prisma.lessonProgress.findMany({
+            where: { userId: gate.progressUserId, lesson: { module: { courseId } } },
+            select: { lessonId: true },
+          })
+        ).map((p) => p.lessonId)
+      : [];
 
   const base = `/o/${slug}/courses/${courseId}`;
-  const canEdit = canEditCourseAsStaff(user.role);
+  const canEdit = canTeacherManageCourse(user, course.createdById);
   const allLessons = course.modules.flatMap((m) => m.lessons);
   const certsPublished = orgBranding?.certificatesPublished !== false;
+  const lessonsComplete =
+    allLessons.length > 0 && allLessons.every((l) => progressIds.includes(l.id));
   const eligibleForCertificate =
-    !!enrollment &&
     !staff &&
     certsPublished &&
-    allLessons.length > 0 &&
-    allLessons.every((l) => progressIds.includes(l.id));
+    lessonsComplete &&
+    (!!enrollment || parentViaChild);
 
   return (
     <div className="space-y-8">
@@ -72,11 +71,12 @@ export default async function CourseDetailPage({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-semibold tracking-tight">{course.title}</h1>
+              <h1 className="page-title">{course.title}</h1>
               <Badge variant={course.published ? "default" : "secondary"}>
                 {course.published ? "Published" : "Draft"}
               </Badge>
               {preview ? <Badge variant="outline">Preview — enroll for full content</Badge> : null}
+              {parentViaChild ? <Badge variant="outline">Viewing as parent</Badge> : null}
             </div>
             {course.description ? (
               <p className="mt-2 max-w-2xl whitespace-pre-wrap text-muted-foreground">{course.description}</p>
@@ -87,7 +87,10 @@ export default async function CourseDetailPage({
               Assessments
             </Link>
             {eligibleForCertificate ? (
-              <Link href={`${base}/certificate`} className={cn(buttonVariants({ variant: "default" }))}>
+              <Link
+                href={`${base}/certificate${parentViaChild ? `?child=${encodeURIComponent(gate.progressUserId)}` : ""}`}
+                className={cn(buttonVariants({ variant: "default" }))}
+              >
                 Certificate
               </Link>
             ) : null}
@@ -96,7 +99,9 @@ export default async function CourseDetailPage({
                 Edit structure
               </Link>
             ) : null}
-            {!staff && course.published ? <EnrollButton courseId={courseId} enrolled={!!enrollment} /> : null}
+            {!staff && course.published && !parentViaChild ? (
+              <EnrollButton courseId={courseId} enrolled={!!enrollment} />
+            ) : null}
           </div>
         </div>
       </div>
@@ -110,7 +115,7 @@ export default async function CourseDetailPage({
               <ul className="mt-3 space-y-1 border-l-2 border-border/80 pl-4 dark:border-white/10">
                 {mod.lessons.map((lesson) => {
                   const done = progressIds.includes(lesson.id);
-                  const canOpen = staff || enrollment || preview;
+                  const canOpen = staff || enrollment || preview || parentViaChild;
                   return (
                     <li key={lesson.id}>
                       {canOpen ? (

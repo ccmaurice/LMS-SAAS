@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { Role } from "@/generated/prisma/enums";
+import type { EducationLevel, Role } from "@/generated/prisma/enums";
+import { navAcademicGroupsLabel } from "@/lib/school/group-labels";
 import { cn } from "@/lib/utils";
 
 const SCHOOL_SITE = "__school_site__" as const;
@@ -11,25 +12,46 @@ type NavItem =
   | { href: string; label: string; roles: Role[] }
   | { href: typeof SCHOOL_SITE; label: string; roles: Role[] };
 
-const nav: NavItem[] = [
-  { href: "dashboard", label: "Dashboard", roles: ["ADMIN", "TEACHER", "STUDENT"] },
-  { href: SCHOOL_SITE, label: "School site", roles: ["ADMIN", "TEACHER", "STUDENT"] },
-  { href: "messages", label: "Messages", roles: ["ADMIN", "TEACHER", "STUDENT"] },
-  { href: "courses", label: "Courses", roles: ["ADMIN", "TEACHER", "STUDENT"] },
-  { href: "library", label: "Library", roles: ["ADMIN", "TEACHER", "STUDENT"] },
-  { href: "blog", label: "Blog", roles: ["ADMIN", "TEACHER", "STUDENT"] },
-  { href: "assessments", label: "Assessments", roles: ["ADMIN", "TEACHER", "STUDENT"] },
-  { href: "report-card", label: "Report card", roles: ["ADMIN", "TEACHER", "STUDENT"] },
-  { href: "certificates", label: "Certificates", roles: ["ADMIN", "TEACHER", "STUDENT"] },
-  { href: "settings", label: "Settings", roles: ["ADMIN", "TEACHER", "STUDENT"] },
-  { href: "admin/cms", label: "CMS", roles: ["ADMIN"] },
-  { href: "admin/users", label: "Users", roles: ["ADMIN"] },
-  { href: "admin/school", label: "School", roles: ["ADMIN"] },
-  { href: "admin/analytics", label: "Analytics", roles: ["ADMIN"] },
-];
+function navItemsForOrg(educationLevel: EducationLevel): NavItem[] {
+  const academicHubLabel = navAcademicGroupsLabel(educationLevel);
+  const adminGroupingLabel = educationLevel === "HIGHER_ED" ? "Departments" : "Classes";
+  const adminGroupingHref = educationLevel === "HIGHER_ED" ? "admin/departments" : "admin/classes";
 
-export function SidebarNav({ base, role, orgSlug }: { base: string; role: Role; orgSlug: string }) {
+  return [
+    { href: "dashboard", label: "Dashboard", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "my-classes", label: academicHubLabel, roles: ["ADMIN", "TEACHER", "STUDENT"] },
+    { href: SCHOOL_SITE, label: "School site", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "messages", label: "Messages", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "courses", label: "Courses", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "library", label: "Library", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "blog", label: "Blog", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "assessments", label: "Assessments", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "report-card", label: "Report card", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "transcript", label: "Transcript", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "certificates", label: "Certificates", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "settings", label: "Settings", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: "admin/cms", label: "CMS", roles: ["ADMIN"] },
+    { href: "admin/users", label: "Users", roles: ["ADMIN"] },
+    { href: "admin/school", label: "School", roles: ["ADMIN"] },
+    { href: "admin/analytics", label: "Analytics", roles: ["ADMIN"] },
+    { href: "admin/terms", label: "Academic terms", roles: ["ADMIN"] },
+    { href: adminGroupingHref, label: adminGroupingLabel, roles: ["ADMIN"] },
+  ];
+}
+
+export function SidebarNav({
+  base,
+  role,
+  orgSlug,
+  educationLevel,
+}: {
+  base: string;
+  role: Role;
+  orgSlug: string;
+  educationLevel: EducationLevel;
+}) {
   const pathname = usePathname();
+  const nav = navItemsForOrg(educationLevel);
 
   return (
     <nav className="flex flex-1 flex-col gap-1 p-2">
@@ -47,10 +69,10 @@ export function SidebarNav({ base, role, orgSlug }: { base: string; role: Role; 
               key={key}
               href={href}
               className={cn(
-                "rounded-lg px-3 py-2 text-sm font-medium tracking-tight transition-colors",
+                "rounded-lg px-3 py-2 text-sm font-medium tracking-tight transition-[color,background-color,box-shadow,transform] duration-200",
                 active
-                  ? "bg-primary/10 text-foreground ring-1 ring-border/70 dark:bg-primary/15 dark:ring-white/10"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  ? "bg-gradient-to-r from-primary/12 to-primary/5 text-foreground shadow-sm ring-1 ring-primary/15 dark:from-primary/18 dark:to-primary/8 dark:ring-primary/25"
+                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
               )}
             >
               {item.label}

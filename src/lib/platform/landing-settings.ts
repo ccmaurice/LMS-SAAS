@@ -6,6 +6,7 @@ import {
   parseLandingFeatures,
   resolvePlatformLogoSrc,
 } from "@/lib/platform/landing-defaults";
+import { isPrismaPublicFallbackError } from "@/lib/prisma-errors";
 
 export type { LandingFeature, PublicLandingPayload } from "@/lib/platform/landing-defaults";
 export {
@@ -16,8 +17,14 @@ export {
   resolvePlatformLogoSrc,
 } from "@/lib/platform/landing-defaults";
 
-function isMissingPlatformSettingsTable(e: unknown): boolean {
-  return typeof e === "object" && e !== null && "code" in e && (e as { code: string }).code === "P2021";
+function defaultLandingPayload(): PublicLandingPayload {
+  return {
+    logoSrc: null,
+    kicker: DEFAULT_LANDING.kicker,
+    headline: DEFAULT_LANDING.headline,
+    subheadline: DEFAULT_LANDING.subheadline,
+    features: DEFAULT_LANDING.features,
+  };
 }
 
 export async function getPublicLandingPayload(): Promise<PublicLandingPayload> {
@@ -36,14 +43,8 @@ export async function getPublicLandingPayload(): Promise<PublicLandingPayload> {
       features: parseLandingFeatures(m[LANDING_KEY.features]),
     };
   } catch (e) {
-    if (isMissingPlatformSettingsTable(e)) {
-      return {
-        logoSrc: null,
-        kicker: DEFAULT_LANDING.kicker,
-        headline: DEFAULT_LANDING.headline,
-        subheadline: DEFAULT_LANDING.subheadline,
-        features: DEFAULT_LANDING.features,
-      };
+    if (isPrismaPublicFallbackError(e)) {
+      return defaultLandingPayload();
     }
     throw e;
   }
@@ -57,7 +58,7 @@ export async function getRawLandingRowMap(): Promise<Record<string, string>> {
     });
     return Object.fromEntries(rows.map((r) => [r.key, r.value]));
   } catch (e) {
-    if (isMissingPlatformSettingsTable(e)) return {};
+    if (isPrismaPublicFallbackError(e)) return {};
     throw e;
   }
 }

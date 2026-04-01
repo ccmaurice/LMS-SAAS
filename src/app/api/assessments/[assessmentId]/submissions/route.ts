@@ -2,16 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/api/guard";
 import { canStudentTakeAssessment, getAssessmentInOrg } from "@/lib/assessments/access";
-import { isStaffRole } from "@/lib/courses/access";
 
 export async function POST(_req: Request, ctx: { params: Promise<{ assessmentId: string }> }) {
   const { assessmentId } = await ctx.params;
   const { user, response } = await requireUser();
   if (!user) return response!;
-
-  if (isStaffRole(user.role)) {
-    return NextResponse.json({ error: "Use student account to take assessments" }, { status: 400 });
-  }
 
   const assessment = await getAssessmentInOrg(assessmentId, user.organizationId);
   if (!assessment) {

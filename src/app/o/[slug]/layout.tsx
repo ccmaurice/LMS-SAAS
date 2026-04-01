@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { AppShell } from "@/components/app-shell";
 import { OrgBrandingScope } from "@/components/org-branding-scope";
+import { getOrganizationLogoUrl } from "@/lib/org/org-logo";
 
 export default async function OrgLayout({
   children,
@@ -21,9 +22,14 @@ export default async function OrgLayout({
       themeTemplate: true,
       customPrimaryHex: true,
       customAccentHex: true,
+      educationLevel: true,
+      heroImageUrl: true,
+      logoImageUrl: true,
     },
   });
   if (!org) notFound();
+
+  const orgLogoUrl = await getOrganizationLogoUrl(org.id, org.slug, org.logoImageUrl, org.heroImageUrl);
 
   const user = await getCurrentUser();
   if (!user || user.organizationId !== org.id) {
@@ -35,6 +41,8 @@ export default async function OrgLayout({
       <AppShell
         slug={slug}
         orgName={org.name}
+        orgLogoUrl={orgLogoUrl}
+        educationLevel={org.educationLevel}
         user={{ id: user.id, name: user.name, email: user.email, image: user.image }}
         role={user.role}
       >

@@ -27,16 +27,26 @@ import {
   Home,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import type { Role } from "@/generated/prisma/enums";
+import type { EducationLevel, Role } from "@/generated/prisma/enums";
+import { navAcademicGroupsLabel } from "@/lib/school/group-labels";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type CourseHit = { id: string; title: string };
 
-export function OrgCommandMenu({ slug, role }: { slug: string; role: Role }) {
+export function OrgCommandMenu({
+  slug,
+  role,
+  educationLevel,
+}: {
+  slug: string;
+  role: Role;
+  educationLevel: EducationLevel;
+}) {
   const router = useRouter();
   const base = `/o/${slug}`;
+  const hubLabel = navAcademicGroupsLabel(educationLevel);
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [courses, setCourses] = useState<CourseHit[]>([]);
@@ -165,6 +175,12 @@ export function OrgCommandMenu({ slug, role }: { slug: string; role: Role }) {
               <Home className="mr-2 size-4 text-muted-foreground" />
               School public page
             </CommandItem>
+            {(role === "STUDENT" || role === "TEACHER" || role === "ADMIN") && (
+              <CommandItem value="academic-hub" onSelect={() => run(`${base}/my-classes`)}>
+                <Users className="mr-2 size-4 text-muted-foreground" />
+                {hubLabel}
+              </CommandItem>
+            )}
             <CommandItem value="messages" onSelect={() => run(`${base}/messages`)}>
               <MessagesSquare className="mr-2 size-4 text-muted-foreground" />
               Messages
@@ -180,6 +196,10 @@ export function OrgCommandMenu({ slug, role }: { slug: string; role: Role }) {
             <CommandItem value="report-card" onSelect={() => run(`${base}/report-card`)}>
               <FileChartColumn className="mr-2 size-4 text-muted-foreground" />
               Report card
+            </CommandItem>
+            <CommandItem value="transcript" onSelect={() => run(`${base}/transcript`)}>
+              <FileChartColumn className="mr-2 size-4 text-muted-foreground" />
+              Transcript
             </CommandItem>
             <CommandItem value="certificates" onSelect={() => run(`${base}/certificates`)}>
               <Award className="mr-2 size-4 text-muted-foreground" />
@@ -210,6 +230,19 @@ export function OrgCommandMenu({ slug, role }: { slug: string; role: Role }) {
                 <CommandItem value="school" onSelect={() => run(`${base}/admin/school`)}>
                   <Building2 className="mr-2 size-4 text-muted-foreground" />
                   Admin · School settings
+                </CommandItem>
+                <CommandItem value="terms" onSelect={() => run(`${base}/admin/terms`)}>
+                  <Building2 className="mr-2 size-4 text-muted-foreground" />
+                  Admin · Academic terms
+                </CommandItem>
+                <CommandItem
+                  value="admin-grouping"
+                  onSelect={() =>
+                    run(educationLevel === "HIGHER_ED" ? `${base}/admin/departments` : `${base}/admin/classes`)
+                  }
+                >
+                  <Users className="mr-2 size-4 text-muted-foreground" />
+                  {educationLevel === "HIGHER_ED" ? "Admin · Departments" : "Admin · Classes"}
                 </CommandItem>
                 <CommandItem value="analytics" onSelect={() => run(`${base}/admin/analytics`)}>
                   <BarChart3 className="mr-2 size-4 text-muted-foreground" />

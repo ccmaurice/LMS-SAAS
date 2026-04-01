@@ -11,6 +11,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isValidOrgSlug, normalizeOrgSlug } from "@/lib/slug";
 
+function formatApiError(data: { error?: unknown; message?: unknown }): string {
+  if (typeof data.message === "string" && data.message.trim()) return data.message;
+  const e = data.error;
+  if (typeof e === "string" && e.trim()) return e;
+  if (e && typeof e === "object" && !Array.isArray(e)) {
+    const o = e as { fieldErrors?: Record<string, string[] | unknown>; formErrors?: string[] };
+    if (o.fieldErrors && typeof o.fieldErrors === "object") {
+      const parts: string[] = [];
+      for (const [key, val] of Object.entries(o.fieldErrors)) {
+        if (Array.isArray(val)) parts.push(...val.map((x) => `${key}: ${String(x)}`));
+        else if (val != null) parts.push(`${key}: ${String(val)}`);
+      }
+      if (parts.length) return parts.join(" ");
+    }
+    if (Array.isArray(o.formErrors) && o.formErrors.length) return o.formErrors.join(" ");
+    // Zod-style map at root: { email: ["…"], password: ["…"] }
+    const parts: string[] = [];
+    for (const [key, val] of Object.entries(e as Record<string, unknown>)) {
+      if (key === "fieldErrors" || key === "formErrors") continue;
+      if (Array.isArray(val)) parts.push(...val.map((x) => `${key}: ${String(x)}`));
+    }
+    if (parts.length) return parts.join(" ");
+  }
+  return "Could not sign in. Check organization URL, email, and password.";
+}
+
 const OAUTH_ERRORS: Record<string, string> = {
   google_no_account:
     "No account in that school for this Google user. Accept an invite with the same email, then try Google again.",
@@ -55,7 +81,7 @@ function GoogleGlyph() {
   );
 }
 
-export function LoginForm() {
+export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultOrg = searchParams.get("org") ?? "";
@@ -78,6 +104,7 @@ export function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ email, password, organizationSlug }),
       });
 
@@ -93,13 +120,7 @@ export function LoginForm() {
       }
 
       if (!res.ok) {
-        let msg = "Could not sign in. Check organization URL, email, and password.";
-        if (typeof data.error === "string") {
-          msg = data.error;
-        } else if (data.error && typeof data.error === "object") {
-          msg = JSON.stringify(data.error);
-        }
-        setError(msg);
+        setError(formatApiError(data));
         return;
       }
       const slug = data.user?.organization.slug ?? organizationSlug.trim().toLowerCase();
@@ -124,14 +145,42 @@ export function LoginForm() {
   const googleHref = `/api/auth/google?organizationSlug=${encodeURIComponent(slugForOAuth)}${redirectTo ? `&redirect=${encodeURIComponent(redirectTo)}` : ""}`;
 
   return (
-    <Card className="surface-glass w-full max-w-md border-0 py-6 ring-0 shadow-none">
-      <CardHeader>
-        <CardTitle>Sign in</CardTitle>
-        <CardDescription>Use your school URL, email, and password.</CardDescription>
+    <Card className="auth-card-shell surface-glass w-full max-w-md border-0 py-6 shadow-none ring-1 ring-border/40 dark:ring-white/10">
+      <CardHeader className="space-y-1">
+        <CardTitle className="page-title">Sign in</CardTitle>
+        <CardDescription className="text-pretty leading-relaxed">
+          Use your school URL, email, and password.
+        </CardDescription>
       </CardHeader>
       <form onSubmit={onSubmit}>
         <CardContent className="space-y-4">
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+          {showDemoHint ? (
+            <div className="rounded-md border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <p className="font-medium text-foreground">Local demo</p>
+              <p className="mt-1">
+                Postgres must be running and <code className="rounded bg-muted px-1">DATABASE_URL</code> must match it.
+                Apply migrations, then seed: <code className="rounded bg-muted px-1">npm run db:deploy</code> then{" "}
+                <code className="rounded bg-muted px-1">npm run db:seed</code>, or{" "}
+                <code className="rounded bg-muted px-1">npm run db:bootstrap</code> (Docker Postgres + deploy + seed).
+                If you used <code className="rounded bg-muted px-1">db:push</code> before or deploy errors on types
+                already existing, run <code className="rounded bg-muted px-1">npm run db:reset</code> (wipes local DB).
+                Demo: slug <code className="rounded bg-muted px-1">demo-school</code>, password{" "}
+                <code className="rounded bg-muted px-1">password123</code> — try{" "}
+                <code className="rounded bg-muted px-1">admin@test.com</code>,{" "}
+                <code className="rounded bg-muted px-1">teacher@test.com</code>,{" "}
+                <code className="rounded bg-muted px-1">student@test.com</code>, or{" "}
+                <code className="rounded bg-muted px-1">parent@test.com</code> (parent is linked to the demo student).
+              </p>
+            </div>
+          ) : null}
+          {error ? (
+            <p
+              role="alert"
+              className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive dark:border-destructive/40 dark:bg-destructive/15"
+            >
+              {error}
+            </p>
+          ) : null}
           {googleOAuthEnabled ? (
             <div className="space-y-2">
               {slugOk ? (
@@ -139,7 +188,7 @@ export function LoginForm() {
                   href={googleHref}
                   className={cn(
                     buttonVariants({ variant: "outline" }),
-                    "flex h-10 w-full items-center justify-center gap-2 text-sm font-medium",
+                    "flex h-10 w-full items-center justify-center gap-2 text-sm font-medium shadow-sm transition-shadow hover:shadow-md",
                   )}
                 >
                   <GoogleGlyph />

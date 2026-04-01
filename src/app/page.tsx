@@ -1,20 +1,25 @@
 import { HomeLanding } from "@/components/marketing/home-landing";
 import { prisma } from "@/lib/db";
 import { getPublicLandingPayload } from "@/lib/platform/landing-settings";
+import { isPrismaPublicFallbackError } from "@/lib/prisma-errors";
 import { resolveHeroImageSrc } from "@/lib/school-public";
 
 /** Avoid DB access during `next build` when MySQL is not running. */
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [landing, schools] = await Promise.all([
-    getPublicLandingPayload(),
-    prisma.organization.findMany({
+  const landing = await getPublicLandingPayload();
+
+  let schools: { id: string; slug: string; name: string; heroImageUrl: string | null }[] = [];
+  try {
+    schools = await prisma.organization.findMany({
       where: { status: "ACTIVE" },
       orderBy: { name: "asc" },
       select: { id: true, slug: true, name: true, heroImageUrl: true },
-    }),
-  ]);
+    });
+  } catch (e) {
+    if (!isPrismaPublicFallbackError(e)) throw e;
+  }
 
   const items = schools.map((s) => ({
     slug: s.slug,

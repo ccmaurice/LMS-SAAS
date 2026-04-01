@@ -7,8 +7,11 @@ import {
   canStudentViewAssessment,
   getAssessmentInOrg,
 } from "@/lib/assessments/access";
+import { userInstructsCohort } from "@/lib/school/cohort-access";
+import { userFacultyOfDepartment } from "@/lib/school/department-access";
 import { questionToStudentJson } from "@/lib/assessments/sanitize";
-import { isStaffRole } from "@/lib/courses/access";
+import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
+import { resolveQuestionsForStudentTake } from "@/lib/assessment_engine";
 
 const patchSchema = z.object({
   title: z.string().min(1).max(200).optional(),
@@ -18,6 +21,11 @@ const patchSchema = z.object({
   timeLimitMinutes: z.number().int().min(1).max(600).optional().nullable(),
   published: z.boolean().optional(),
   shuffleQuestions: z.boolean().optional(),
+  shuffleOptions: z.boolean().optional(),
+  /** K–12: empty = all enrolled. Each id must be linked to the course; teachers must teach that class. */
+  cohortIds: z.array(z.string().min(1)).optional(),
+  /** Higher ed: empty = all enrolled. Each id must be linked to the course; teachers must be department faculty/chair. */
+  departmentIds: z.array(z.string().min(1)).optional(),
 });
 
 export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: string }> }) {
@@ -28,8 +36,22 @@ export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: 
   const assessment = await prisma.assessment.findFirst({
     where: { id: assessmentId, course: { organizationId: user.organizationId } },
     include: {
-      course: { select: { id: true, title: true } },
+      course: {
+        select: {
+          id: true,
+          title: true,
+          organizationId: true,
+          createdById: true,
+          organization: { select: { educationLevel: true } },
+        },
+      },
+      assessmentCohorts: { select: { cohortId: true } },
+      assessmentDepartments: { select: { departmentId: true } },
       questions: { orderBy: { order: "asc" } },
+      questionPools: {
+        orderBy: { sortOrder: "asc" },
+        include: { entries: { include: { question: true } } },
+      },
     },
   });
 
@@ -37,19 +59,38 @@ export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: 
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const canView = await canStudentViewAssessment(user.id, user.role, assessment);
-  if (!canView) {
+  const staffUser = isStaffRole(user.role);
+  const privilegedStaff =
+    staffUser && (user.role === "ADMIN" || user.id === assessment.course.createdById);
+  const studentAllowed = await canStudentViewAssessment(user.id, user.role, assessment);
+
+  if (!privilegedStaff && !studentAllowed) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const staff = isStaffRole(user.role);
-  let questionsOut = staff
-    ? assessment.questions
-    : assessment.questions.map((q) => questionToStudentJson(q));
+  const staffView = privilegedStaff;
+  let sourceQuestions = assessment.questions;
+  if (!staffView && assessment.questionPools.some((p) => p.entries.length > 0)) {
+    sourceQuestions = resolveQuestionsForStudentTake({
+      directQuestions: assessment.questions,
+      pools: assessment.questionPools.map((p) => ({
+        id: p.id,
+        drawCount: p.drawCount,
+        sortOrder: p.sortOrder,
+        entries: p.entries.map((e) => ({ questionId: e.questionId, question: e.question })),
+      })),
+    });
+  }
 
-  if (!staff && assessment.shuffleQuestions) {
+  let questionsOut = staffView
+    ? assessment.questions
+    : sourceQuestions.map((q) => questionToStudentJson(q, { shuffleOptions: assessment.shuffleOptions }));
+
+  if (!staffView && assessment.shuffleQuestions) {
     questionsOut = [...questionsOut].sort(() => Math.random() - 0.5);
   }
+
+  const level = assessment.course.organization.educationLevel;
 
   return NextResponse.json({
     assessment: {
@@ -62,10 +103,14 @@ export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: 
       timeLimitMinutes: assessment.timeLimitMinutes,
       published: assessment.published,
       shuffleQuestions: assessment.shuffleQuestions,
+      shuffleOptions: assessment.shuffleOptions,
       course: assessment.course,
+      cohortIds: staffView && level !== "HIGHER_ED" ? assessment.assessmentCohorts.map((r) => r.cohortId) : undefined,
+      departmentIds:
+        staffView && level === "HIGHER_ED" ? assessment.assessmentDepartments.map((r) => r.departmentId) : undefined,
     },
     questions: questionsOut,
-    staffView: staff,
+    staffView,
   });
 }
 
@@ -83,6 +128,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ assessmentId:
   if (!canManageAssessments(user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+  if (!canTeacherManageCourse(user, existing.course.createdById)) {
+    return NextResponse.json({ error: "Only the course author or an admin can change this assessment" }, { status: 403 });
+  }
 
   let body: unknown;
   try {
@@ -95,7 +143,93 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ assessmentId:
     return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
 
-  const assessment = await prisma.assessment.update({
+  const eduLevel = existing.course.organization.educationLevel;
+
+  if (parsed.data.cohortIds !== undefined) {
+    if (eduLevel === "HIGHER_ED") {
+      return NextResponse.json(
+        { error: "This school uses departments for assessment targeting, not classes." },
+        { status: 400 },
+      );
+    }
+    const course = await prisma.course.findFirst({
+      where: { id: existing.courseId, organizationId: user.organizationId },
+      select: { createdById: true, courseCohorts: { select: { cohortId: true } } },
+    });
+    if (!course) {
+      return NextResponse.json({ error: "Course not found" }, { status: 404 });
+    }
+    const linked = new Set(course.courseCohorts.map((c) => c.cohortId));
+    const unique = [...new Set(parsed.data.cohortIds)];
+    for (const cid of unique) {
+      if (!linked.has(cid)) {
+        return NextResponse.json(
+          { error: "Each class must be linked to this course on the course edit page before targeting assessments." },
+          { status: 400 },
+        );
+      }
+      if (user.role === "TEACHER" && !(await userInstructsCohort(user.id, cid))) {
+        return NextResponse.json({ error: "You can only assign assessments to classes you teach." }, { status: 403 });
+      }
+    }
+    await prisma.$transaction([
+      prisma.assessmentCohort.deleteMany({ where: { assessmentId } }),
+      ...(unique.length > 0
+        ? [
+            prisma.assessmentCohort.createMany({
+              data: unique.map((cohortId) => ({ assessmentId, cohortId })),
+            }),
+          ]
+        : []),
+    ]);
+  }
+
+  if (parsed.data.departmentIds !== undefined) {
+    if (eduLevel !== "HIGHER_ED") {
+      return NextResponse.json(
+        { error: "Department targeting applies to higher-education organizations only." },
+        { status: 400 },
+      );
+    }
+    const course = await prisma.course.findFirst({
+      where: { id: existing.courseId, organizationId: user.organizationId },
+      select: { courseDepartments: { select: { departmentId: true } } },
+    });
+    if (!course) {
+      return NextResponse.json({ error: "Course not found" }, { status: 404 });
+    }
+    const linked = new Set(course.courseDepartments.map((d) => d.departmentId));
+    const unique = [...new Set(parsed.data.departmentIds)];
+    for (const did of unique) {
+      if (!linked.has(did)) {
+        return NextResponse.json(
+          {
+            error:
+              "Each department must be linked to this course on the course edit page before targeting assessments.",
+          },
+          { status: 400 },
+        );
+      }
+      if (user.role === "TEACHER" && !(await userFacultyOfDepartment(user.id, did))) {
+        return NextResponse.json(
+          { error: "You can only assign assessments to departments where you are faculty or chair." },
+          { status: 403 },
+        );
+      }
+    }
+    await prisma.$transaction([
+      prisma.assessmentDepartment.deleteMany({ where: { assessmentId } }),
+      ...(unique.length > 0
+        ? [
+            prisma.assessmentDepartment.createMany({
+              data: unique.map((departmentId) => ({ assessmentId, departmentId })),
+            }),
+          ]
+        : []),
+    ]);
+  }
+
+  await prisma.assessment.update({
     where: { id: assessmentId },
     data: {
       ...(parsed.data.title !== undefined && { title: parsed.data.title.trim() }),
@@ -111,11 +245,37 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ assessmentId:
       ...(parsed.data.shuffleQuestions !== undefined && {
         shuffleQuestions: parsed.data.shuffleQuestions,
       }),
+      ...(parsed.data.shuffleOptions !== undefined && {
+        shuffleOptions: parsed.data.shuffleOptions,
+      }),
     },
-    include: { questions: { orderBy: { order: "asc" } } },
   });
 
-  return NextResponse.json({ assessment });
+  const cohortIds =
+    parsed.data.cohortIds !== undefined
+      ? (
+          await prisma.assessmentCohort.findMany({
+            where: { assessmentId },
+            select: { cohortId: true },
+          })
+        ).map((r) => r.cohortId)
+      : undefined;
+
+  const departmentIds =
+    parsed.data.departmentIds !== undefined
+      ? (
+          await prisma.assessmentDepartment.findMany({
+            where: { assessmentId },
+            select: { departmentId: true },
+          })
+        ).map((r) => r.departmentId)
+      : undefined;
+
+  return NextResponse.json({
+    ok: true,
+    ...(cohortIds !== undefined ? { cohortIds } : {}),
+    ...(departmentIds !== undefined ? { departmentIds } : {}),
+  });
 }
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ assessmentId: string }> }) {
@@ -128,6 +288,9 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ assessmentI
   const existing = await getAssessmentInOrg(assessmentId, user.organizationId);
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if (!canTeacherManageCourse(user, existing.course.createdById)) {
+    return NextResponse.json({ error: "Only the course author or an admin can delete this assessment" }, { status: 403 });
   }
 
   await prisma.assessment.delete({ where: { id: assessmentId } });

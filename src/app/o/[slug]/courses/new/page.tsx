@@ -22,7 +22,7 @@ export default async function NewCoursePage({ params }: { params: Promise<{ slug
         ← All courses
       </Link>
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">New course</h1>
+        <h1 className="page-title">New course</h1>
         <p className="text-muted-foreground">You can add modules and lessons after creating the shell.</p>
       </div>
       <CourseCreateForm orgSlug={slug} />

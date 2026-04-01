@@ -25,6 +25,7 @@ async function smoke(base) {
 
 async function main() {
   run("npm run lint");
+  run("npm test");
   run("npm run build");
 
   const raw = process.env.VERIFY_BASE_URL?.trim();

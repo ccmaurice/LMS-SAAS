@@ -112,6 +112,7 @@ export async function POST(req: Request) {
         storageKey: storedRef,
         mimeType: mime,
         published: true,
+        createdById: user.id,
       },
       select: { id: true, title: true, kind: true },
     });

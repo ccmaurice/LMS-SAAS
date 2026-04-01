@@ -15,10 +15,18 @@ function LoginSkeleton() {
   );
 }
 
+function envFlagDisabled(v: string | undefined): boolean {
+  if (!v?.trim()) return false;
+  return ["1", "true", "yes"].includes(v.trim().toLowerCase());
+}
+
 export default function LoginPage() {
+  const showDemoHint =
+    process.env.NODE_ENV === "development" &&
+    !envFlagDisabled(process.env.NEXT_PUBLIC_HIDE_DEMO_LOGIN_HINT);
   return (
     <Suspense fallback={<LoginSkeleton />}>
-      <LoginForm />
+      <LoginForm showDemoHint={showDemoHint} />
     </Suspense>
   );
 }

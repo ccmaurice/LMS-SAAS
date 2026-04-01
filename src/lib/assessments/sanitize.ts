@@ -1,7 +1,13 @@
 import type { Question } from "@/generated/prisma/client";
-import { sanitizeMcqForStudent } from "@/lib/assessments/mcq";
+import { sanitizeMcqForStudent, shuffleMcqForStudent } from "@/lib/assessments/mcq";
 
-export function questionToStudentJson(q: Question) {
+export function questionToStudentJson(q: Question, opts?: { shuffleOptions?: boolean }) {
+  const mcq =
+    q.type === "MCQ"
+      ? opts?.shuffleOptions
+        ? shuffleMcqForStudent(q.options)
+        : sanitizeMcqForStudent(q.options)
+      : q.options;
   return {
     id: q.id,
     assessmentId: q.assessmentId,
@@ -9,7 +15,7 @@ export function questionToStudentJson(q: Question) {
     prompt: q.prompt,
     order: q.order,
     points: q.points,
-    options: q.type === "MCQ" ? sanitizeMcqForStudent(q.options) : q.options,
+    options: mcq,
     mediaAttachments: q.mediaAttachments,
   };
 }

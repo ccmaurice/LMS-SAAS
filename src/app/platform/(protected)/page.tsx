@@ -26,7 +26,7 @@ export default async function PlatformHomePage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Organizations</h1>
+        <h1 className="page-title">Organizations</h1>
         <p className="mt-1 text-muted-foreground">
           Open a school for full user management: suspend, edit name/role, or delete members (respects last-admin and
           database constraints). Use “Open as admin” to sign in as that org’s first admin (or teacher, then any user).
@@ -40,12 +40,13 @@ export default async function PlatformHomePage() {
       </div>
 
       <div className="surface-table-wrap">
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[820px] text-sm">
           <thead className="text-left text-xs font-medium text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Name</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Slug</th>
+              <th className="px-4 py-3">Segment</th>
               <th className="px-4 py-3">Users</th>
               <th className="px-4 py-3">Courses</th>
               <th className="px-4 py-3 text-right">Actions</th>
@@ -67,6 +68,7 @@ export default async function PlatformHomePage() {
                   )}
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">{o.slug}</td>
+                <td className="px-4 py-3 text-muted-foreground">{o.educationLevel.replace(/_/g, " ")}</td>
                 <td className="px-4 py-3 tabular-nums">{o._count.users}</td>
                 <td className="px-4 py-3 tabular-nums">{o._count.courses}</td>
                 <td className="px-4 py-3">
