@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { EducationLevel } from "@/generated/prisma/enums";
 
+type StaffOpt = { id: string; name: string | null; email: string; role: string };
+
 type CohortList = {
   id: string;
   name: string;
@@ -14,10 +16,15 @@ type CohortList = {
   trackLabel: string | null;
   academicYearLabel: string;
   _count: { members: number };
+  homeroomTeacher: { id: string; name: string | null; email: string } | null;
 };
 
 type MemberRow = {
   user: { id: string; name: string | null; email: string };
+};
+
+type InstructorRow = {
+  user: { id: string; name: string | null; email: string; role: string };
 };
 
 type CohortDetail = {
@@ -26,10 +33,22 @@ type CohortDetail = {
   gradeLabel: string | null;
   trackLabel: string | null;
   academicYearLabel: string;
+  homeroomTeacher: { id: string; name: string | null; email: string } | null;
+  instructors: InstructorRow[];
   members: MemberRow[];
 };
 
-export function SchoolClassesPanel({ educationLevel }: { educationLevel: EducationLevel }) {
+function staffLabel(s: StaffOpt) {
+  return `${s.name?.trim() || s.email} (${s.role})`;
+}
+
+export function SchoolClassesPanel({
+  educationLevel,
+  staffOptions,
+}: {
+  educationLevel: EducationLevel;
+  staffOptions: StaffOpt[];
+}) {
   const [cohorts, setCohorts] = useState<CohortList[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<CohortDetail | null>(null);
@@ -37,12 +56,15 @@ export function SchoolClassesPanel({ educationLevel }: { educationLevel: Educati
   const [name, setName] = useState("");
   const [gradeLabel, setGradeLabel] = useState("");
   const [trackLabel, setTrackLabel] = useState("");
+  const [createHomeroomId, setCreateHomeroomId] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [editName, setEditName] = useState("");
   const [editGradeLabel, setEditGradeLabel] = useState("");
   const [editTrackLabel, setEditTrackLabel] = useState("");
   const [editYearLabel, setEditYearLabel] = useState("");
+  const [editHomeroomId, setEditHomeroomId] = useState("");
+  const [coTeacherEmail, setCoTeacherEmail] = useState("");
 
   const loadList = useCallback(async () => {
     const res = await fetch("/api/admin/school-cohorts", { credentials: "include" });
@@ -79,12 +101,14 @@ export function SchoolClassesPanel({ educationLevel }: { educationLevel: Educati
       setEditGradeLabel("");
       setEditTrackLabel("");
       setEditYearLabel("");
+      setEditHomeroomId("");
       return;
     }
     setEditName(detail.name);
     setEditGradeLabel(detail.gradeLabel ?? "");
     setEditTrackLabel(detail.trackLabel ?? "");
     setEditYearLabel(detail.academicYearLabel ?? "");
+    setEditHomeroomId(detail.homeroomTeacher?.id ?? "");
   }, [detail]);
 
   async function saveCohortEdits() {
@@ -118,6 +142,74 @@ export function SchoolClassesPanel({ educationLevel }: { educationLevel: Educati
     }
   }
 
+  async function saveHomeroomTeacher() {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/school-cohorts/${selected}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          homeroomTeacherId: editHomeroomId ? editHomeroomId : null,
+        }),
+      });
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string };
+        toast.error(d.error ?? "Could not update homeroom teacher");
+        return;
+      }
+      await loadDetail(selected);
+      await loadList();
+      toast.success("Homeroom teacher updated");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addCoTeacher() {
+    if (!selected || !coTeacherEmail.trim()) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/school-cohorts/${selected}/instructors`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: coTeacherEmail.trim().toLowerCase() }),
+      });
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string };
+        toast.error(d.error ?? "Add failed");
+        return;
+      }
+      setCoTeacherEmail("");
+      await loadDetail(selected);
+      toast.success("Co-teacher added");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeCoTeacher(userId: string) {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/admin/school-cohorts/${selected}/instructors?userId=${encodeURIComponent(userId)}`,
+        { method: "DELETE", credentials: "include" },
+      );
+      if (!res.ok) {
+        const d = (await res.json()) as { error?: string };
+        toast.error(typeof d.error === "string" ? d.error : "Remove failed");
+        return;
+      }
+      await loadDetail(selected);
+      toast.success("Removed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function createCohort() {
     if (!name.trim()) {
       toast.error("Name is required");
@@ -125,15 +217,17 @@ export function SchoolClassesPanel({ educationLevel }: { educationLevel: Educati
     }
     setBusy(true);
     try {
+      const body: Record<string, unknown> = {
+        name: name.trim(),
+        gradeLabel: gradeLabel.trim() || null,
+        trackLabel: trackLabel.trim() || null,
+      };
+      if (createHomeroomId) body.homeroomTeacherId = createHomeroomId;
       const res = await fetch("/api/admin/school-cohorts", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          gradeLabel: gradeLabel.trim() || null,
-          trackLabel: trackLabel.trim() || null,
-        }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const d = (await res.json()) as { error?: string };
@@ -143,6 +237,7 @@ export function SchoolClassesPanel({ educationLevel }: { educationLevel: Educati
       setName("");
       setGradeLabel("");
       setTrackLabel("");
+      setCreateHomeroomId("");
       await loadList();
       toast.success("Class created");
     } finally {
@@ -201,6 +296,9 @@ export function SchoolClassesPanel({ educationLevel }: { educationLevel: Educati
     toast.success("Class deleted");
   }
 
+  const additionalCoTeachers =
+    detail?.instructors.filter((r) => r.user.id !== detail.homeroomTeacher?.id) ?? [];
+
   if (loading) {
     return <p className="text-sm text-muted-foreground">Loading…</p>;
   }
@@ -228,6 +326,25 @@ export function SchoolClassesPanel({ educationLevel }: { educationLevel: Educati
           <div className="space-y-1">
             <Label>Grade label (optional)</Label>
             <Input value={gradeLabel} onChange={(e) => setGradeLabel(e.target.value)} placeholder="Year 10" />
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <Label>Homeroom teacher (optional)</Label>
+            <select
+              className="flex h-9 w-full max-w-md rounded-md border border-input bg-background px-2 text-sm"
+              value={createHomeroomId}
+              onChange={(e) => setCreateHomeroomId(e.target.value)}
+            >
+              <option value="">— None —</option>
+              {staffOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {staffLabel(s)}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Main teacher for this class; can link the class to their courses for assessment groups. Add co-teachers after
+              the class exists.
+            </p>
           </div>
           <div className="space-y-1 sm:col-span-2">
             <Label>Track / pathway (optional)</Label>
@@ -264,6 +381,7 @@ export function SchoolClassesPanel({ educationLevel }: { educationLevel: Educati
                     {c._count.members} students
                     {c.gradeLabel ? ` · ${c.gradeLabel}` : ""}
                     {c.trackLabel ? ` · ${c.trackLabel}` : ""}
+                    {c.homeroomTeacher ? ` · ${c.homeroomTeacher.name?.trim() || c.homeroomTeacher.email}` : ""}
                   </span>
                 </button>
                 <Button type="button" variant="ghost" size="sm" onClick={() => void deleteCohort(c.id)}>
@@ -285,10 +403,85 @@ export function SchoolClassesPanel({ educationLevel }: { educationLevel: Educati
           </h3>
           {!selected ? (
             <p className="text-sm text-muted-foreground">
-              Select {educationLevel === "SECONDARY" ? "a form group" : "a class"} to edit labels and manage students.
+              Select {educationLevel === "SECONDARY" ? "a form group" : "a class"} to edit staff, labels, and students.
             </p>
           ) : (
             <>
+              <div className="space-y-3 rounded-lg border border-border/70 p-3 dark:border-white/10">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Homeroom teacher</p>
+                <p className="text-xs text-muted-foreground">
+                  Lead teacher for this class. Course authors who teach this class can link it under Edit course → Classes
+                  taking this course.
+                </p>
+                <div className="flex flex-wrap items-end gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="homeroom-pick">Teacher</Label>
+                    <select
+                      id="homeroom-pick"
+                      className="flex h-9 min-w-[240px] rounded-md border border-input bg-background px-2 text-sm"
+                      value={editHomeroomId}
+                      onChange={(e) => setEditHomeroomId(e.target.value)}
+                    >
+                      <option value="">— None —</option>
+                      {staffOptions.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {staffLabel(s)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <Button type="button" size="sm" disabled={busy} onClick={() => void saveHomeroomTeacher()}>
+                    Save homeroom teacher
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2 rounded-lg border border-border/70 p-3 dark:border-white/10">
+                <p className="text-sm font-medium">Co-teachers</p>
+                <p className="text-xs text-muted-foreground">
+                  Additional teachers assigned to this class (team-teaching). Use their school email; they must already be
+                  a teacher or admin member.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    type="email"
+                    className="max-w-xs"
+                    placeholder="Teacher email"
+                    value={coTeacherEmail}
+                    onChange={(e) => setCoTeacherEmail(e.target.value)}
+                  />
+                  <Button type="button" size="sm" disabled={busy} onClick={() => void addCoTeacher()}>
+                    Add co-teacher
+                  </Button>
+                </div>
+                {additionalCoTeachers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No co-teachers yet (homeroom teacher is not listed here).</p>
+                ) : (
+                  <ul className="space-y-2 text-sm">
+                    {additionalCoTeachers.map((r) => (
+                      <li
+                        key={r.user.id}
+                        className="flex items-center justify-between gap-2 rounded-md border border-border/80 px-3 py-2 dark:border-white/10"
+                      >
+                        <span>
+                          {r.user.name?.trim() || r.user.email}
+                          <span className="ml-2 text-xs text-muted-foreground">({r.user.role})</span>
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() => void removeCoTeacher(r.user.id)}
+                        >
+                          Remove
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
               <div className="space-y-3 rounded-lg border border-border/70 p-3 dark:border-white/10">
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Labels</p>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -326,7 +519,10 @@ export function SchoolClassesPanel({ educationLevel }: { educationLevel: Educati
               </div>
               <ul className="space-y-2 text-sm">
                 {detail?.members.map((m) => (
-                  <li key={m.user.id} className="flex items-center justify-between gap-2 rounded-md border border-border/80 px-3 py-2 dark:border-white/10">
+                  <li
+                    key={m.user.id}
+                    className="flex items-center justify-between gap-2 rounded-md border border-border/80 px-3 py-2 dark:border-white/10"
+                  >
                     <span>
                       {m.user.name?.trim() || m.user.email}
                       <span className="ml-2 text-xs text-muted-foreground">{m.user.email}</span>
