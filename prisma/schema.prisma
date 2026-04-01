@@ -63,6 +63,12 @@ enum SubmissionStatus {
   GRADED
 }
 
+enum RetakeRequestStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
 enum LearningResourceKind {
   PDF
   VIDEO
@@ -494,6 +500,8 @@ model User {
   chairedDepartments     AcademicDepartment[] @relation("DepartmentChair")
   departmentMessagesPosted DepartmentMessage[]
   learningResourcesAuthored  LearningResource[] @relation("LearningResourceAuthor")
+  retakeRequestsAsStudent    AssessmentRetakeRequest[] @relation("RetakeRequestStudent")
+  retakeRequestsAsReviewer   AssessmentRetakeRequest[] @relation("RetakeRequestReviewer")
 
   @@unique([organizationId, email])
   @@unique([organizationId, googleSub])
@@ -779,6 +787,12 @@ model Assessment {
   published        Boolean        @default(false)
   shuffleQuestions Boolean        @default(false)
   shuffleOptions   Boolean        @default(false)
+  /// When false, students (and submission API for students) do not see keys, correct answers, or full question payloads after submit.
+  showAnswersToStudents  Boolean @default(true)
+  /// Submitted attempts allowed without an approved retake grant (minimum 1).
+  maxAttemptsPerStudent  Int     @default(1)
+  /// After max attempts, student may request another attempt for staff approval.
+  retakeRequiresApproval Boolean @default(true)
   createdById      String
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -790,8 +804,31 @@ model Assessment {
   questionPools AssessmentQuestionPool[]
   assessmentCohorts AssessmentCohort[]
   assessmentDepartments AssessmentDepartment[]
+  retakeRequests AssessmentRetakeRequest[]
 
   @@index([courseId])
+}
+
+model AssessmentRetakeRequest {
+  id               String              @id @default(cuid())
+  assessmentId     String
+  userId           String
+  fromSubmissionId String?
+  status           RetakeRequestStatus @default(PENDING)
+  reviewedById     String?
+  reviewedAt       DateTime?
+  studentNote      String?             @db.Text
+  staffNote        String?             @db.Text
+  consumedAt       DateTime?
+  createdAt        DateTime            @default(now())
+
+  assessment     Assessment  @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  user           User        @relation("RetakeRequestStudent", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer       User?       @relation("RetakeRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  fromSubmission Submission? @relation(fields: [fromSubmissionId], references: [id], onDelete: SetNull)
+
+  @@index([assessmentId, status])
+  @@index([userId, assessmentId])
 }
 
 model Question {
@@ -860,6 +897,7 @@ model Submission {
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   answers    Answer[]
+  retakeRequestsOriginating AssessmentRetakeRequest[]
 
   @@index([assessmentId])
   @@index([userId])

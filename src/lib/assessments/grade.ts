@@ -1,5 +1,6 @@
 import type { Question } from "@/generated/prisma/client";
 import { parseMcqOptions } from "@/lib/assessments/mcq";
+import { parseDragDropFromQuestionSchema } from "@/lib/assessments/drag-drop-schema";
 
 export type GradeResult = {
   score: number;
@@ -7,7 +8,24 @@ export type GradeResult = {
   autoGraded: boolean;
 };
 
-export function gradeAnswer(question: Pick<Question, "type" | "points" | "options" | "correctAnswer">, content: string): GradeResult {
+function normalizeFormulaAnswer(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function parseFormulaStudentContent(content: string): string {
+  try {
+    const j = JSON.parse(content) as { latex?: string };
+    if (typeof j.latex === "string") return j.latex;
+  } catch {
+    /* plain text */
+  }
+  return content;
+}
+
+export function gradeAnswer(
+  question: Pick<Question, "type" | "points" | "options" | "correctAnswer" | "questionSchema">,
+  content: string,
+): GradeResult {
   const maxPoints = question.points;
 
   if (question.type === "MCQ") {
@@ -52,7 +70,38 @@ export function gradeAnswer(question: Pick<Question, "type" | "points" | "option
     return { score: 0, maxPoints, autoGraded: false };
   }
 
-  if (question.type === "DRAG_DROP" || question.type === "ESSAY_RICH" || question.type === "FORMULA") {
+  if (question.type === "DRAG_DROP") {
+    const dd = parseDragDropFromQuestionSchema(question.questionSchema);
+    const correct = dd?.correct;
+    if (!correct || Object.keys(correct).length === 0) {
+      return { score: 0, maxPoints, autoGraded: false };
+    }
+    let assignments: Record<string, string> = {};
+    try {
+      const j = JSON.parse(content) as { assignments?: Record<string, string> };
+      if (j.assignments && typeof j.assignments === "object") {
+        assignments = j.assignments;
+      }
+    } catch {
+      return { score: 0, maxPoints, autoGraded: true };
+    }
+    const keys = Object.keys(correct);
+    let hits = 0;
+    for (const k of keys) {
+      if (assignments[k] === correct[k]) hits += 1;
+    }
+    const score = keys.length > 0 ? (hits / keys.length) * maxPoints : 0;
+    return { score, maxPoints, autoGraded: true };
+  }
+
+  if (question.type === "FORMULA" && question.correctAnswer != null && question.correctAnswer.trim() !== "") {
+    const got = normalizeFormulaAnswer(parseFormulaStudentContent(content));
+    const exp = normalizeFormulaAnswer(question.correctAnswer);
+    const ok = got === exp;
+    return { score: ok ? maxPoints : 0, maxPoints, autoGraded: true };
+  }
+
+  if (question.type === "ESSAY_RICH") {
     return { score: 0, maxPoints, autoGraded: false };
   }
 

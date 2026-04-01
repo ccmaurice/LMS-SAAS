@@ -2,37 +2,62 @@
 
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
+
+function renderKatex(inner: string, displayMode: boolean, key: number): ReactNode {
+  try {
+    const html = katex.renderToString(inner, { displayMode, throwOnError: false });
+    return displayMode ? (
+      // eslint-disable-next-line react/no-danger -- KaTeX output is trusted math markup
+      <div key={key} className="my-3 overflow-x-auto text-center" dangerouslySetInnerHTML={{ __html: html }} />
+    ) : (
+      // eslint-disable-next-line react/no-danger
+      <span key={key} className="mx-0.5 inline-block align-middle" dangerouslySetInnerHTML={{ __html: html }} />
+    );
+  } catch {
+    return (
+      <code key={key} className="rounded bg-muted px-1 text-xs text-muted-foreground">
+        {displayMode ? `$$${inner}$$` : `$${inner}$`}
+      </code>
+    );
+  }
+}
 
 /**
- * Renders prompt with `$$...$$` display math via KaTeX. Inline `$...$` is left as plain text for simplicity.
+ * Renders prompts with `$$...$$` display math and `$...$` inline math via KaTeX.
  */
 export function AssessmentPrompt({ text, className }: { text: string; className?: string }) {
   const nodes = useMemo(() => {
-    const parts = text.split(/(\$\$[\s\S]*?\$\$)/g);
-    return parts.map((part, i) => {
-      if (part.startsWith("$$") && part.endsWith("$$")) {
-        const inner = part.slice(2, -2).trim();
-        try {
-          const html = katex.renderToString(inner, { displayMode: true, throwOnError: false });
-          return (
-            // eslint-disable-next-line react/no-danger -- KaTeX output is trusted math markup
-            <div key={i} className="my-3 overflow-x-auto text-center" dangerouslySetInnerHTML={{ __html: html }} />
-          );
-        } catch {
-          return (
-            <pre key={i} className="my-2 whitespace-pre-wrap text-xs text-muted-foreground">
-              {part}
-            </pre>
-          );
-        }
+    const out: ReactNode[] = [];
+    const re = /(\$\$[\s\S]*?\$\$)|(\$[^$\n]+\$)/g;
+    let last = 0;
+    let m: RegExpExecArray | null;
+    let key = 0;
+    while ((m = re.exec(text)) !== null) {
+      if (m.index > last) {
+        out.push(
+          <span key={key++} className="whitespace-pre-wrap">
+            {text.slice(last, m.index)}
+          </span>,
+        );
       }
-      return (
-        <span key={i} className="whitespace-pre-wrap">
-          {part}
-        </span>
+      if (m[1]) {
+        const inner = m[1].slice(2, -2).trim();
+        out.push(renderKatex(inner, true, key++));
+      } else if (m[2]) {
+        const inner = m[2].slice(1, -1).trim();
+        out.push(renderKatex(inner, false, key++));
+      }
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) {
+      out.push(
+        <span key={key++} className="whitespace-pre-wrap">
+          {text.slice(last)}
+        </span>,
       );
-    });
+    }
+    return out;
   }, [text]);
 
   return <div className={className}>{nodes}</div>;

@@ -6,6 +6,7 @@ import { requireUser, requireRoles } from "@/lib/api/guard";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
 import { canTeacherManageCourse } from "@/lib/courses/access";
 import { parseMcqOptions } from "@/lib/assessments/mcq";
+import { parseDragDropFromQuestionSchema } from "@/lib/assessments/drag-drop-schema";
 
 const choiceSchema = z.object({
   id: z.string().min(1).max(64),
@@ -64,6 +65,26 @@ const bodySchema = z
         });
       }
     }
+    if (data.type === "DRAG_DROP") {
+      const dd = parseDragDropFromQuestionSchema(data.questionSchema);
+      if (!dd?.correct || Object.keys(dd.correct).length === 0) {
+        ctx.addIssue({
+          code: "custom",
+          message: "DRAG_DROP requires questionSchema.dragDrop with targets, bank, and a correct map (target id → bank id)",
+        });
+      } else {
+        for (const t of dd.targets) {
+          const bid = dd.correct![t.id];
+          if (typeof bid !== "string" || !dd.bank.some((b) => b.id === bid)) {
+            ctx.addIssue({
+              code: "custom",
+              message: `DRAG_DROP: each target needs a valid bank id in correct["${t.id}"]`,
+            });
+            break;
+          }
+        }
+      }
+    }
   });
 
 export async function POST(req: Request, ctx: { params: Promise<{ assessmentId: string }> }) {
@@ -109,9 +130,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ assessmentId: 
       correctAnswer:
         parsed.data.type === "SHORT_ANSWER" && parsed.data.correctAnswer
           ? parsed.data.correctAnswer.trim()
-          : parsed.data.type === "TRUE_FALSE" && parsed.data.correctAnswer
-            ? parsed.data.correctAnswer.trim().toLowerCase()
-            : null,
+          : parsed.data.type === "FORMULA" && parsed.data.correctAnswer?.trim()
+            ? parsed.data.correctAnswer.trim()
+            : parsed.data.type === "TRUE_FALSE" && parsed.data.correctAnswer
+              ? parsed.data.correctAnswer.trim().toLowerCase()
+              : null,
       markingScheme: parsed.data.markingScheme?.trim() || null,
       mediaAttachments: (parsed.data.mediaAttachments ?? undefined) as Prisma.InputJsonValue | undefined,
       rubric:

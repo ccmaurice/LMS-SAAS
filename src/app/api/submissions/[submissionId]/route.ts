@@ -18,7 +18,12 @@ export async function GET(_req: Request, ctx: { params: Promise<{ submissionId: 
     where: { id: submissionId, assessment: { course: { organizationId: user.organizationId } } },
     include: {
       assessment: {
-        include: {
+        select: {
+          id: true,
+          title: true,
+          kind: true,
+          timeLimitMinutes: true,
+          showAnswersToStudents: true,
           course: { select: { id: true, title: true, createdById: true } },
           questions: { orderBy: { order: "asc" } },
         },
@@ -53,8 +58,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ submissionId: 
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  /** Guardians may view scores/comments but not MCQ keys, model answers, or marking schemes. */
-  const revealSolutions = privilegedStaff || (isSubmitter && submission.status !== "DRAFT");
+  /** Staff always see keys; students only if the assessment allows post-submit review; guardians never see keys. */
+  const revealSolutions =
+    privilegedStaff ||
+    (isSubmitter && submission.status !== "DRAFT" && submission.assessment.showAnswersToStudents);
   const showMarksAndComments = privilegedStaff || isSubmitter || user.role === "PARENT";
 
   return NextResponse.json({
@@ -71,6 +78,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ submissionId: 
         title: submission.assessment.title,
         kind: submission.assessment.kind,
         timeLimitMinutes: submission.assessment.timeLimitMinutes,
+        showAnswersToStudents: submission.assessment.showAnswersToStudents,
         course: submission.assessment.course,
       },
       user: privilegedStaff ? submission.user : { id: submission.user.id, name: submission.user.name },

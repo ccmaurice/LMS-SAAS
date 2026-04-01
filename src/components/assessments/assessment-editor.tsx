@@ -23,6 +23,9 @@ type AssessmentMeta = {
   published: boolean;
   shuffleQuestions: boolean;
   shuffleOptions: boolean;
+  showAnswersToStudents: boolean;
+  maxAttemptsPerStudent: number;
+  retakeRequiresApproval: boolean;
 };
 
 type LinkedCohort = {
@@ -69,6 +72,9 @@ export function AssessmentEditor({
   const [published, setPublished] = useState(initialAssessment.published);
   const [shuffle, setShuffle] = useState(initialAssessment.shuffleQuestions);
   const [shuffleOpts, setShuffleOpts] = useState(initialAssessment.shuffleOptions);
+  const [showAnswers, setShowAnswers] = useState(initialAssessment.showAnswersToStudents);
+  const [maxAttempts, setMaxAttempts] = useState(String(initialAssessment.maxAttemptsPerStudent));
+  const [retakeApproval, setRetakeApproval] = useState(initialAssessment.retakeRequiresApproval);
   const [timeLimit, setTimeLimit] = useState(initialAssessment.timeLimitMinutes?.toString() ?? "");
   const [kind, setKind] = useState(initialAssessment.kind);
   const [semester, setSemester] = useState<string>(
@@ -79,13 +85,21 @@ export function AssessmentEditor({
   const [selectedCohorts, setSelectedCohorts] = useState<Set<string>>(() => new Set(initialCohortIds));
   const [selectedDepartments, setSelectedDepartments] = useState<Set<string>>(() => new Set(initialDepartmentIds));
 
-  const [qType, setQType] = useState<"MCQ" | "SHORT_ANSWER" | "LONG_ANSWER" | "TRUE_FALSE">("MCQ");
+  const [qType, setQType] = useState<
+    "MCQ" | "SHORT_ANSWER" | "LONG_ANSWER" | "TRUE_FALSE" | "DRAG_DROP" | "FORMULA" | "ESSAY_RICH"
+  >("MCQ");
   const [qPrompt, setQPrompt] = useState("");
   const [qPoints, setQPoints] = useState("1");
   const [mcqTexts, setMcqTexts] = useState(["", "", "", ""]);
   const [mcqCorrect, setMcqCorrect] = useState(0);
   const [shortCorrect, setShortCorrect] = useState("");
   const [tfTrue, setTfTrue] = useState(true);
+  const [ddTargets, setDdTargets] = useState<string[]>(["Label A", "Label B"]);
+  const [ddBank, setDdBank] = useState<string[]>(["Item 1", "Item 2", "Item 3"]);
+  const [ddMatch, setDdMatch] = useState<number[]>([0, 1]);
+  const [formulaCorrect, setFormulaCorrect] = useState("");
+  const [mediaImageUrl, setMediaImageUrl] = useState("");
+  const [mediaAudioUrl, setMediaAudioUrl] = useState("");
   const [aiTopic, setAiTopic] = useState("");
   const [aiOut, setAiOut] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -104,6 +118,9 @@ export function AssessmentEditor({
           published,
           shuffleQuestions: shuffle,
           shuffleOptions: shuffleOpts,
+          showAnswersToStudents: showAnswers,
+          maxAttemptsPerStudent: Math.min(50, Math.max(1, Number(maxAttempts) || 1)),
+          retakeRequiresApproval: retakeApproval,
           kind,
           semester: semester === "" ? null : Number(semester),
           timeLimitMinutes: tl != null && !Number.isNaN(tl) ? tl : null,
@@ -144,11 +161,51 @@ export function AssessmentEditor({
       if (qType === "SHORT_ANSWER") {
         body = { ...body, correctAnswer: shortCorrect.trim() || null };
       }
-      if (qType === "LONG_ANSWER") {
+      if (qType === "LONG_ANSWER" || qType === "ESSAY_RICH") {
         body = { ...body, markingScheme: aiOut.trim() || null };
       }
       if (qType === "TRUE_FALSE") {
         body = { ...body, correctAnswer: tfTrue ? "true" : "false" };
+      }
+      if (qType === "FORMULA") {
+        body = { ...body, correctAnswer: formulaCorrect.trim() || null };
+      }
+      if (qType === "DRAG_DROP") {
+        const targets = ddTargets
+          .map((label, i) => ({ id: `t${i + 1}`, label: label.trim() }))
+          .filter((t) => t.label.length > 0);
+        const bank = ddBank
+          .map((text, i) => ({ id: `b${i + 1}`, text: text.trim() }))
+          .filter((b) => b.text.length > 0);
+        if (targets.length < 1 || bank.length < 1) return;
+        const correct: Record<string, string> = {};
+        for (let i = 0; i < targets.length; i += 1) {
+          const bi = ddMatch[i] ?? 0;
+          const b = bank[bi];
+          if (b) correct[targets[i]!.id] = b.id;
+        }
+        body = {
+          ...body,
+          questionSchema: { dragDrop: { targets, bank, correct } },
+        };
+      }
+      function isHttpsUrl(s: string): boolean {
+        try {
+          const u = new URL(s);
+          return u.protocol === "https:" || u.protocol === "http:";
+        } catch {
+          return false;
+        }
+      }
+      const media: { kind: "image" | "audio"; url: string }[] = [];
+      if (mediaImageUrl.trim() && isHttpsUrl(mediaImageUrl.trim())) {
+        media.push({ kind: "image", url: mediaImageUrl.trim() });
+      }
+      if (mediaAudioUrl.trim() && isHttpsUrl(mediaAudioUrl.trim())) {
+        media.push({ kind: "audio", url: mediaAudioUrl.trim() });
+      }
+      if (media.length > 0) {
+        body = { ...body, mediaAttachments: media };
       }
       const res = await fetch(`/api/assessments/${aid}/questions`, {
         method: "POST",
@@ -162,6 +219,8 @@ export function AssessmentEditor({
       setQPrompt("");
       setMcqTexts(["", "", "", ""]);
       setShortCorrect("");
+      setMediaImageUrl("");
+      setMediaAudioUrl("");
       router.refresh();
     } finally {
       setBusy(false);
@@ -289,6 +348,28 @@ export function AssessmentEditor({
           <input type="checkbox" checked={shuffleOpts} onChange={(e) => setShuffleOpts(e.target.checked)} />
           Shuffle MCQ answer options for students
         </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={showAnswers} onChange={(e) => setShowAnswers(e.target.checked)} />
+          Let students see correct answers / keys after they submit (quizzes & exams)
+        </label>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label>Max submitted attempts per student</Label>
+            <Input
+              className="max-w-[120px]"
+              type="number"
+              min={1}
+              max={50}
+              value={maxAttempts}
+              onChange={(e) => setMaxAttempts(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">Additional tries after this need approval when enabled below.</p>
+          </div>
+          <label className="flex items-center gap-2 text-sm sm:mt-6">
+            <input type="checkbox" checked={retakeApproval} onChange={(e) => setRetakeApproval(e.target.checked)} />
+            Require teacher/admin approval for attempts beyond the max
+          </label>
+        </div>
         {educationLevel === "HIGHER_ED" && linkedCourseDepartments.length > 0 ? (
           <div className="rounded-md border border-border/80 bg-muted/30 p-3 dark:border-white/10">
             <p className="text-sm font-medium">Assign to departments</p>
@@ -424,15 +505,41 @@ export function AssessmentEditor({
             <option value="SHORT_ANSWER">Short answer (auto-grade exact match)</option>
             <option value="LONG_ANSWER">Long answer (AI / manual grade)</option>
             <option value="TRUE_FALSE">True / false</option>
+            <option value="DRAG_DROP">Drag and drop (match labels to items)</option>
+            <option value="FORMULA">Math / formula (LaTeX, auto-grade exact match)</option>
+            <option value="ESSAY_RICH">Rich essay (manual / AI if marking scheme set)</option>
           </select>
         </div>
         <div className="space-y-1">
           <Label>Prompt</Label>
-          <Textarea rows={3} value={qPrompt} onChange={(e) => setQPrompt(e.target.value)} />
+          <Textarea
+            rows={3}
+            value={qPrompt}
+            onChange={(e) => setQPrompt(e.target.value)}
+            placeholder="Use $inline math$ or $$display math$$"
+          />
         </div>
         <div className="space-y-1">
           <Label>Points</Label>
           <Input className="max-w-[120px]" value={qPoints} onChange={(e) => setQPoints(e.target.value)} />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label>Image URL (optional)</Label>
+            <Input
+              placeholder="https://…"
+              value={mediaImageUrl}
+              onChange={(e) => setMediaImageUrl(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Audio URL (optional)</Label>
+            <Input
+              placeholder="https://…"
+              value={mediaAudioUrl}
+              onChange={(e) => setMediaAudioUrl(e.target.value)}
+            />
+          </div>
         </div>
         {qType === "MCQ" ? (
           <div className="space-y-2">
@@ -462,7 +569,7 @@ export function AssessmentEditor({
             Correct answer is True (uncheck for False)
           </label>
         ) : null}
-        {qType === "LONG_ANSWER" ? (
+        {qType === "LONG_ANSWER" || qType === "ESSAY_RICH" ? (
           <div className="space-y-2">
             <Label>AI marking scheme helper</Label>
             <Input placeholder="Topic / focus" value={aiTopic} onChange={(e) => setAiTopic(e.target.value)} />
@@ -472,6 +579,104 @@ export function AssessmentEditor({
             {aiOut ? (
               <Textarea readOnly rows={5} value={aiOut} className="text-muted-foreground" />
             ) : null}
+          </div>
+        ) : null}
+        {qType === "FORMULA" ? (
+          <div className="space-y-1">
+            <Label>Correct LaTeX (normalized match: spacing / case ignored)</Label>
+            <Input
+              className="font-mono text-sm"
+              value={formulaCorrect}
+              onChange={(e) => setFormulaCorrect(e.target.value)}
+              placeholder="e.g. x^2+1"
+            />
+          </div>
+        ) : null}
+        {qType === "DRAG_DROP" ? (
+          <div className="space-y-3 rounded-lg border border-dashed border-border p-3 dark:border-white/15">
+            <p className="text-sm font-medium">Drop targets (labels shown to students)</p>
+            {ddTargets.map((line, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  value={line}
+                  onChange={(e) =>
+                    setDdTargets((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDdTargets((prev) => prev.filter((_, j) => j !== i));
+                    setDdMatch((prev) => prev.filter((_, j) => j !== i));
+                  }}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+            <Button type="button" variant="secondary" size="sm" onClick={() => setDdTargets((p) => [...p, ""])}>
+              Add target
+            </Button>
+            <p className="text-sm font-medium">Answer bank (draggable items)</p>
+            {ddBank.map((line, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  value={line}
+                  onChange={(e) =>
+                    setDdBank((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDdBank((prev) => prev.filter((_, j) => j !== i));
+                    setDdMatch((prev) =>
+                      prev.map((bi) => {
+                        if (bi === i) return 0;
+                        if (bi > i) return bi - 1;
+                        return bi;
+                      }),
+                    );
+                  }}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+            <Button type="button" variant="secondary" size="sm" onClick={() => setDdBank((p) => [...p, ""])}>
+              Add bank item
+            </Button>
+            <p className="text-sm font-medium">Correct match (each target → bank item)</p>
+            <ul className="space-y-2">
+              {ddTargets.map((label, ti) => (
+                <li key={ti} className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="min-w-[100px] truncate text-muted-foreground">{label || `Target ${ti + 1}`}</span>
+                  <select
+                    className="h-8 rounded-md border border-input bg-background px-2"
+                    value={ddMatch[ti] ?? 0}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      setDdMatch((prev) => {
+                        const next = [...prev];
+                        while (next.length <= ti) next.push(0);
+                        next[ti] = v;
+                        return next;
+                      });
+                    }}
+                  >
+                    {ddBank.map((b, bi) => (
+                      <option key={bi} value={bi}>
+                        {b || `Item ${bi + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
         <Button type="button" disabled={busy} onClick={() => void addQuestion()}>

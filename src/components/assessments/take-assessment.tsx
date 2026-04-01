@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { AssessmentPrompt } from "@/components/assessments/assessment-prompt";
 import { AssessmentProctorHooks } from "@/components/assessments/assessment-proctor-hooks";
+import { AssessmentDragDrop } from "@/components/assessments/assessment-drag-drop";
+import { FormulaAnswerField } from "@/components/assessments/formula-answer-field";
+import { parseDragDropFromQuestionSchema } from "@/lib/assessments/drag-drop-schema";
 
 type Choice = { id: string; text: string };
 type MediaAtt = { kind: string; url: string };
@@ -29,7 +32,15 @@ type QuestionRow = {
   points: number;
   options?: { choices: Choice[] } | null;
   mediaAttachments?: unknown;
+  questionSchema?: unknown;
 };
+
+function defaultAnswerForType(t: QuestionRow["type"]): string {
+  if (t === "DRAG_DROP") return JSON.stringify({ assignments: {} });
+  if (t === "FORMULA") return JSON.stringify({ latex: "" });
+  if (t === "TRUE_FALSE") return JSON.stringify({ value: true });
+  return "";
+}
 
 export function TakeAssessment({
   assessmentId,
@@ -94,6 +105,14 @@ export function TakeAssessment({
         router.replace(
           `/o/${orgSlug}/courses/${courseId}/assessments/${assessmentId}/results?submissionId=${sData.submission.id}`,
         );
+      } else {
+        setAnswers(() => {
+          const init: Record<string, string> = {};
+          for (const q of aData.questions) {
+            init[q.id] = defaultAnswerForType(q.type);
+          }
+          return init;
+        });
       }
     } catch {
       setError("Network error");
@@ -207,7 +226,7 @@ export function TakeAssessment({
   const timedOut = remainingSec === 0 && timeLimit != null;
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-8 pb-16">
       {submissionId && !locked ? (
         <AssessmentProctorHooks assessmentId={assessmentId} submissionId={submissionId} />
       ) : null}
@@ -219,138 +238,163 @@ export function TakeAssessment({
           <h1 className="page-title mt-2">{title}</h1>
         </div>
         {remainingSec != null ? (
-          <p className="text-sm tabular-nums text-muted-foreground">
-            Time left: {Math.floor(remainingSec / 60)}:{String(remainingSec % 60).padStart(2, "0")}
-          </p>
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm tabular-nums dark:border-white/10">
+            <span className="text-muted-foreground">Time left </span>
+            <span className="font-semibold text-foreground">
+              {Math.floor(remainingSec / 60)}:{String(remainingSec % 60).padStart(2, "0")}
+            </span>
+          </div>
         ) : null}
       </div>
 
       {timedOut ? (
-        <p className="text-destructive">Time is up — submit now (answers saved periodically).</p>
+        <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          Time is up — submitting now (draft answers are included).
+        </p>
       ) : null}
 
       <ol className="space-y-8">
-        {questions.map((q, i) => (
-          <li key={q.id} className="surface-bento p-5">
-            <p className="text-sm text-muted-foreground">
-              Question {i + 1} · {q.points} pt{q.points === 1 ? "" : "s"}
-            </p>
-            <AssessmentPrompt text={q.prompt} className="mt-1 font-medium" />
-            {Array.isArray(q.mediaAttachments) && q.mediaAttachments.length > 0 ? (
-              <ul className="mt-3 space-y-2">
-                {(q.mediaAttachments as MediaAtt[]).map((m, mi) =>
-                  m.kind === "image" ? (
-                    <li key={mi}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={m.url} alt="" className="max-h-48 rounded-md border border-border object-contain" />
-                    </li>
-                  ) : m.kind === "video" ? (
-                    <li key={mi}>
-                      <a href={m.url} className="text-sm text-primary underline" target="_blank" rel="noreferrer">
-                        Open video
-                      </a>
-                    </li>
-                  ) : m.kind === "audio" ? (
-                    <li key={mi}>
-                      <audio controls className="w-full max-w-md" src={m.url} />
-                    </li>
-                  ) : null,
-                )}
-              </ul>
-            ) : null}
-            {q.type === "MCQ" && q.options?.choices ? (
-              <div className="mt-3 space-y-2">
-                {q.options.choices.map((c) => (
-                  <label key={c.id} className="flex cursor-pointer items-center gap-2 text-sm">
+        {questions.map((q, i) => {
+          const dd = q.type === "DRAG_DROP" ? parseDragDropFromQuestionSchema(q.questionSchema) : null;
+          return (
+            <li key={q.id} className="surface-bento border-border/60 p-6 shadow-sm dark:border-white/10">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Question {i + 1} · {q.points} pt{q.points === 1 ? "" : "s"}
+              </p>
+              <AssessmentPrompt text={q.prompt} className="mt-2 text-base font-medium leading-relaxed text-foreground" />
+              {Array.isArray(q.mediaAttachments) && q.mediaAttachments.length > 0 ? (
+                <ul className="mt-4 space-y-3">
+                  {(q.mediaAttachments as MediaAtt[]).map((m, mi) =>
+                    m.kind === "image" ? (
+                      <li key={mi} className="overflow-hidden rounded-xl border border-border bg-muted/20 dark:border-white/10">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={m.url} alt="" className="max-h-64 w-full object-contain" />
+                      </li>
+                    ) : m.kind === "video" ? (
+                      <li key={mi} className="overflow-hidden rounded-xl border border-border dark:border-white/10">
+                        <video controls className="w-full max-h-72 bg-black" src={m.url}>
+                          <track kind="captions" />
+                        </video>
+                      </li>
+                    ) : m.kind === "audio" ? (
+                      <li
+                        key={mi}
+                        className="rounded-xl border border-border bg-muted/20 px-3 py-2 dark:border-white/10"
+                      >
+                        <audio controls className="w-full max-w-md" src={m.url} />
+                      </li>
+                    ) : null,
+                  )}
+                </ul>
+              ) : null}
+              {q.type === "MCQ" && q.options?.choices ? (
+                <div className="mt-4 space-y-2">
+                  {q.options.choices.map((c) => (
+                    <label
+                      key={c.id}
+                      className="flex cursor-pointer items-start gap-3 rounded-lg border border-transparent px-2 py-2 text-sm transition hover:border-border hover:bg-muted/30"
+                    >
+                      <input
+                        type="radio"
+                        name={q.id}
+                        className="mt-1"
+                        checked={(() => {
+                          try {
+                            const j = JSON.parse(answers[q.id] || "{}") as { choiceId?: string };
+                            return j.choiceId === c.id;
+                          } catch {
+                            return false;
+                          }
+                        })()}
+                        onChange={() => setAnswer(q.id, JSON.stringify({ choiceId: c.id }))}
+                      />
+                      <AssessmentPrompt text={c.text} className="flex-1" />
+                    </label>
+                  ))}
+                </div>
+              ) : null}
+              {q.type === "SHORT_ANSWER" ? (
+                <Input
+                  className="mt-4"
+                  value={answers[q.id] ?? ""}
+                  onChange={(e) => setAnswer(q.id, e.target.value)}
+                />
+              ) : null}
+              {q.type === "LONG_ANSWER" || q.type === "ESSAY_RICH" ? (
+                <Textarea
+                  className="mt-4 min-h-[140px]"
+                  rows={6}
+                  value={answers[q.id] ?? ""}
+                  onChange={(e) => setAnswer(q.id, e.target.value)}
+                />
+              ) : null}
+              {q.type === "DRAG_DROP" ? (
+                dd ? (
+                  <AssessmentDragDrop
+                    questionId={q.id}
+                    targets={dd.targets}
+                    bank={dd.bank}
+                    valueJson={answers[q.id] ?? JSON.stringify({ assignments: {} })}
+                    onChange={(json) => setAnswer(q.id, json)}
+                  />
+                ) : (
+                  <p className="mt-3 text-sm text-destructive">
+                    This drag-and-drop question is not configured correctly. Contact your instructor.
+                  </p>
+                )
+              ) : null}
+              {q.type === "FORMULA" ? (
+                <FormulaAnswerField
+                  valueJson={answers[q.id] ?? JSON.stringify({ latex: "" })}
+                  onChange={(json) => setAnswer(q.id, json)}
+                />
+              ) : null}
+              {q.type === "TRUE_FALSE" ? (
+                <div className="mt-4 flex flex-wrap gap-6 text-sm">
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 dark:border-white/10">
                     <input
                       type="radio"
-                      name={q.id}
+                      name={`tf-${q.id}`}
                       checked={(() => {
                         try {
-                          const j = JSON.parse(answers[q.id] || "{}") as { choiceId?: string };
-                          return j.choiceId === c.id;
+                          const j = JSON.parse(answers[q.id] || "{}") as { value?: boolean };
+                          return j.value === true;
                         } catch {
                           return false;
                         }
                       })()}
-                      onChange={() => setAnswer(q.id, JSON.stringify({ choiceId: c.id }))}
+                      onChange={() => setAnswer(q.id, JSON.stringify({ value: true }))}
                     />
-                    {c.text}
+                    True
                   </label>
-                ))}
-              </div>
-            ) : null}
-            {q.type === "SHORT_ANSWER" ? (
-              <Input
-                className="mt-3"
-                value={answers[q.id] ?? ""}
-                onChange={(e) => setAnswer(q.id, e.target.value)}
-              />
-            ) : null}
-            {q.type === "LONG_ANSWER" || q.type === "ESSAY_RICH" ? (
-              <Textarea
-                className="mt-3"
-                rows={6}
-                value={answers[q.id] ?? ""}
-                onChange={(e) => setAnswer(q.id, e.target.value)}
-              />
-            ) : null}
-            {q.type === "DRAG_DROP" || q.type === "FORMULA" ? (
-              <div className="mt-3 space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  This question type is graded manually — use the text area if your teacher asked for a written response.
-                </p>
-                <Textarea
-                  rows={4}
-                  placeholder="Your response"
-                  value={answers[q.id] ?? ""}
-                  onChange={(e) => setAnswer(q.id, e.target.value)}
-                />
-              </div>
-            ) : null}
-            {q.type === "TRUE_FALSE" ? (
-              <div className="mt-3 flex flex-wrap gap-4 text-sm">
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`tf-${q.id}`}
-                    checked={(() => {
-                      try {
-                        const j = JSON.parse(answers[q.id] || "{}") as { value?: boolean };
-                        return j.value === true;
-                      } catch {
-                        return false;
-                      }
-                    })()}
-                    onChange={() => setAnswer(q.id, JSON.stringify({ value: true }))}
-                  />
-                  True
-                </label>
-                <label className="flex cursor-pointer items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`tf-${q.id}`}
-                    checked={(() => {
-                      try {
-                        const j = JSON.parse(answers[q.id] || "{}") as { value?: boolean };
-                        return j.value === false;
-                      } catch {
-                        return false;
-                      }
-                    })()}
-                    onChange={() => setAnswer(q.id, JSON.stringify({ value: false }))}
-                  />
-                  False
-                </label>
-              </div>
-            ) : null}
-          </li>
-        ))}
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 dark:border-white/10">
+                    <input
+                      type="radio"
+                      name={`tf-${q.id}`}
+                      checked={(() => {
+                        try {
+                          const j = JSON.parse(answers[q.id] || "{}") as { value?: boolean };
+                          return j.value === false;
+                        } catch {
+                          return false;
+                        }
+                      })()}
+                      onChange={() => setAnswer(q.id, JSON.stringify({ value: false }))}
+                    />
+                    False
+                  </label>
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
       </ol>
 
-      <Button type="button" disabled={submitting} onClick={() => void submit()}>
-        {submitting ? "Submitting…" : "Submit assessment"}
-      </Button>
+      <div className="sticky bottom-4 flex justify-end">
+        <Button type="button" size="lg" disabled={submitting} onClick={() => void submit()}>
+          {submitting ? "Submitting…" : "Submit assessment"}
+        </Button>
+      </div>
     </div>
   );
 }

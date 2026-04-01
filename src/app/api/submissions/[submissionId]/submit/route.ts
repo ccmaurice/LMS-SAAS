@@ -70,7 +70,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ submissionId: 
   }
 
   for (const q of questions) {
-    if (q.type !== "LONG_ANSWER" || !q.markingScheme?.trim()) continue;
+    if ((q.type !== "LONG_ANSWER" && q.type !== "ESSAY_RICH") || !q.markingScheme?.trim()) continue;
     const content =
       incoming[q.id] ??
       (

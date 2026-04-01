@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
 import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
 import { GradebookTable } from "@/components/assessments/gradebook-table";
+import { GradebookRetakeRequests } from "@/components/assessments/gradebook-retake-requests";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,7 @@ export default async function GradebookPage({
           Edit assessment
         </Link>
       </div>
+      <GradebookRetakeRequests assessmentId={assessmentId} />
       <GradebookTable initial={JSON.parse(JSON.stringify(submissions))} />
     </div>
   );

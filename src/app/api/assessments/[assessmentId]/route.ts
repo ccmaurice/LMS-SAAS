@@ -22,6 +22,9 @@ const patchSchema = z.object({
   published: z.boolean().optional(),
   shuffleQuestions: z.boolean().optional(),
   shuffleOptions: z.boolean().optional(),
+  showAnswersToStudents: z.boolean().optional(),
+  maxAttemptsPerStudent: z.number().int().min(1).max(50).optional(),
+  retakeRequiresApproval: z.boolean().optional(),
   /** K–12: empty = all enrolled. Each id must be linked to the course; teachers must teach that class. */
   cohortIds: z.array(z.string().min(1)).optional(),
   /** Higher ed: empty = all enrolled. Each id must be linked to the course; teachers must be department faculty/chair. */
@@ -104,6 +107,9 @@ export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: 
       published: assessment.published,
       shuffleQuestions: assessment.shuffleQuestions,
       shuffleOptions: assessment.shuffleOptions,
+      showAnswersToStudents: assessment.showAnswersToStudents,
+      maxAttemptsPerStudent: assessment.maxAttemptsPerStudent,
+      retakeRequiresApproval: assessment.retakeRequiresApproval,
       course: assessment.course,
       cohortIds: staffView && level !== "HIGHER_ED" ? assessment.assessmentCohorts.map((r) => r.cohortId) : undefined,
       departmentIds:
@@ -247,6 +253,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ assessmentId:
       }),
       ...(parsed.data.shuffleOptions !== undefined && {
         shuffleOptions: parsed.data.shuffleOptions,
+      }),
+      ...(parsed.data.showAnswersToStudents !== undefined && {
+        showAnswersToStudents: parsed.data.showAnswersToStudents,
+      }),
+      ...(parsed.data.maxAttemptsPerStudent !== undefined && {
+        maxAttemptsPerStudent: parsed.data.maxAttemptsPerStudent,
+      }),
+      ...(parsed.data.retakeRequiresApproval !== undefined && {
+        retakeRequiresApproval: parsed.data.retakeRequiresApproval,
       }),
     },
   });

@@ -87,6 +87,9 @@ export default async function EditAssessmentPage({
           published: assessment.published,
           shuffleQuestions: assessment.shuffleQuestions,
           shuffleOptions: assessment.shuffleOptions,
+          showAnswersToStudents: assessment.showAnswersToStudents,
+          maxAttemptsPerStudent: assessment.maxAttemptsPerStudent,
+          retakeRequiresApproval: assessment.retakeRequiresApproval,
         }}
         initialQuestions={questions}
         linkedCourseCohorts={linkedCourseCohorts}

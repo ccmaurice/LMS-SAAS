@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/api/guard";
 import { canStudentTakeAssessment, getAssessmentInOrg } from "@/lib/assessments/access";
+import { resolveStudentStartAttempt } from "@/lib/assessments/retake";
+
+function clampAttempts(n: number): number {
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(50, Math.max(1, Math.floor(n)));
+}
 
 export async function POST(_req: Request, ctx: { params: Promise<{ assessmentId: string }> }) {
   const { assessmentId } = await ctx.params;
@@ -17,22 +23,28 @@ export async function POST(_req: Request, ctx: { params: Promise<{ assessmentId:
     return NextResponse.json({ error: "Not available" }, { status: 403 });
   }
 
-  const existing = await prisma.submission.findFirst({
-    where: { assessmentId, userId: user.id },
-    orderBy: { startedAt: "desc" },
+  const maxAttempts = clampAttempts(assessment.maxAttemptsPerStudent);
+  const retakeRequiresApproval = assessment.retakeRequiresApproval;
+
+  const result = await resolveStudentStartAttempt(assessmentId, user.id, {
+    maxAttemptsPerStudent: maxAttempts,
+    retakeRequiresApproval,
   });
 
-  if (existing?.status === "SUBMITTED" || existing?.status === "GRADED") {
-    return NextResponse.json({ submission: existing, locked: true });
+  if (result.kind === "locked") {
+    return NextResponse.json({
+      submission: result.submission,
+      locked: true,
+      needsRetakeApproval: result.needsRetakeApproval,
+      completedAttempts: result.completedAttempts,
+      maxAttemptsPerStudent: result.maxAttempts,
+    });
   }
 
-  if (existing?.status === "DRAFT") {
-    return NextResponse.json({ submission: existing, locked: false });
-  }
-
-  const submission = await prisma.submission.create({
-    data: { assessmentId, userId: user.id, status: "DRAFT" },
+  return NextResponse.json({
+    submission: result.submission,
+    locked: false,
+    maxAttemptsPerStudent: maxAttempts,
+    retakeRequiresApproval,
   });
-
-  return NextResponse.json({ submission, locked: false });
 }
