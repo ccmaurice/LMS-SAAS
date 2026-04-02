@@ -1,5 +1,12 @@
 import { youtubeEmbedSrc } from "@/lib/youtube";
-import { isSafeOrgAboutVideoKey, isSafeOrgCmsHeroKey, isSafeOrgHeroSettingKey } from "@/lib/org/public-assets";
+import {
+  isSafeOrgAboutVideoKey,
+  isSafeOrgCmsHeroKey,
+  isSafeOrgHeroSettingKey,
+  isSafeOrgPublicCardImageStoredValue,
+  isSafeOrgPublicCardVideoStoredValue,
+} from "@/lib/org/public-assets";
+import { isBlobStoredRef } from "@/lib/uploads/blob-ref";
 
 export type SchoolPublicCmsField = {
   key: string;
@@ -143,6 +150,84 @@ export function resolveAboutVideoSource(args: {
 
   if (isSafeOrgAboutVideoKey(v, args.orgId)) {
     return { kind: "video", src: `/api/public/organizations/${args.slug}/about-video` };
+  }
+
+  return null;
+}
+
+export const SCHOOL_PUBLIC_EXTRA_CARDS_KEY = "school.public.extraCards" as const;
+
+export type SchoolPublicExtraCard = {
+  id: string;
+  title: string;
+  body: string;
+  imageUrl: string;
+  videoUrl: string;
+};
+
+/** Upper bound for custom sections on `/school/[slug]` (editor + parser). */
+export const MAX_SCHOOL_PUBLIC_EXTRA_CARDS = 24;
+
+export function parseSchoolPublicExtraCards(raw: string | undefined | null): SchoolPublicExtraCard[] {
+  if (!raw?.trim()) return [];
+  try {
+    const j = JSON.parse(raw) as unknown;
+    if (!Array.isArray(j)) return [];
+    const out: SchoolPublicExtraCard[] = [];
+    for (const item of j) {
+      if (!item || typeof item !== "object") continue;
+      const o = item as Record<string, unknown>;
+      const id = typeof o.id === "string" && o.id.trim() ? o.id.trim().slice(0, 80) : "";
+      const title = typeof o.title === "string" ? o.title.slice(0, 200) : "";
+      if (!id || !title.trim()) continue;
+      const body = typeof o.body === "string" ? o.body.slice(0, 12_000) : "";
+      const imageUrl = typeof o.imageUrl === "string" ? o.imageUrl.slice(0, 2000) : "";
+      const videoUrl = typeof o.videoUrl === "string" ? o.videoUrl.slice(0, 2000) : "";
+      out.push({ id, title: title.trim(), body, imageUrl: imageUrl.trim(), videoUrl: videoUrl.trim() });
+      if (out.length >= MAX_SCHOOL_PUBLIC_EXTRA_CARDS) break;
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+export function resolvePublicCardImageSrc(args: {
+  slug: string;
+  orgId: string;
+  raw: string | undefined | null;
+}): string | null {
+  const v = args.raw?.trim() ?? "";
+  if (!v) return null;
+  if (/^https?:\/\//i.test(v)) return v;
+  if (isSafeOrgPublicCardImageStoredValue(v, args.orgId)) {
+    return `/api/public/organizations/${args.slug}/card-media?type=image&key=${encodeURIComponent(v)}`;
+  }
+  return null;
+}
+
+export function resolvePublicCardVideoSource(args: {
+  slug: string;
+  orgId: string;
+  raw: string | undefined | null;
+}): AboutVideoRender | null {
+  const v = args.raw?.trim() ?? "";
+  if (!v) return null;
+
+  const yt = youtubeEmbedSrc(v);
+  if (yt) return { kind: "youtube", embedUrl: yt };
+
+  if (/^https?:\/\//i.test(v)) {
+    if (isBlobStoredRef(v)) return { kind: "video", src: v };
+    if (/\.(mp4|webm)(\?[^#]*)?(#.*)?$/i.test(v)) return { kind: "video", src: v };
+    return null;
+  }
+
+  if (isSafeOrgPublicCardVideoStoredValue(v, args.orgId)) {
+    return {
+      kind: "video",
+      src: `/api/public/organizations/${args.slug}/card-media?type=video&key=${encodeURIComponent(v)}`,
+    };
   }
 
   return null;

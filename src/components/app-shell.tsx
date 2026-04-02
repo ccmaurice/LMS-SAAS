@@ -37,7 +37,12 @@ export function AppShell({
       />
       <aside className="relative z-10 hidden w-60 shrink-0 border-r border-border/70 bg-card/40 shadow-sm backdrop-blur-xl print:hidden dark:border-white/10 dark:bg-card/30 md:flex md:flex-col">
         <div className="border-b border-border/60 px-4 py-5 dark:border-white/10">
-          <OrgBrandMark url={orgLogoUrl} size="sm" className="mb-3 max-w-[180px]" />
+          <OrgBrandMark
+            url={orgLogoUrl}
+            size="sm"
+            adaptMonochromeDarkMode
+            className="mb-3 max-w-[180px]"
+          />
           <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">School</p>
           <p className="mt-1 truncate text-sm font-semibold tracking-tight">{orgName}</p>
           <p className="truncate font-mono text-xs text-muted-foreground">/{slug}</p>

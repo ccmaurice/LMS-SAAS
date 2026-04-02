@@ -1,3 +1,10 @@
+/**
+ * Custom public sections above this count still show in analytics tables and CSV, but only this many
+ * multiply `USAGE_WEIGHTS.publicExtraSections` in the weighted index (half of `MAX_SCHOOL_PUBLIC_EXTRA_CARDS` in
+ * school-public — rewards rich pages without letting 24 cards dominate billing).
+ */
+export const PUBLIC_EXTRA_SECTIONS_WEIGHT_CAP = 12;
+
 /** Weights emphasize grading traffic, enrollments, seats, and rich content. */
 export const USAGE_WEIGHTS = {
   users: 4,
@@ -17,6 +24,8 @@ export const USAGE_WEIGHTS = {
   courseChatMessages: 1,
   learningResources: 4,
   blogPosts: 2,
+  /** Public school page custom sections (JSON cards); same per-unit weight as `cmsEntries` (one card ≈ one surfaced block). */
+  publicExtraSections: 1,
   cmsEntries: 1,
   orgMessages: 1,
   dmThreads: 2,

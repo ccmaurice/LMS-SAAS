@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
+import { parseSchoolPublicExtraCards, SCHOOL_PUBLIC_EXTRA_CARDS_KEY } from "@/lib/school-public";
 
 function BarRow({ label, value, max }: { label: string; value: number; max: number }) {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
@@ -46,6 +48,8 @@ export default async function AdminAnalyticsPage({ params }: { params: Promise<{
     completionsWeek,
     pendingInvites,
     topCourses,
+    schoolPublicCmsRows,
+    extraCardRow,
   ] = await Promise.all([
     prisma.user.groupBy({
       by: ["role"],
@@ -80,7 +84,16 @@ export default async function AdminAnalyticsPage({ params }: { params: Promise<{
       take: 6,
       select: { id: true, title: true, _count: { select: { enrollments: true } } },
     }),
+    prisma.cmsEntry.count({
+      where: { organizationId: orgId, key: { startsWith: "school.public." } },
+    }),
+    prisma.cmsEntry.findUnique({
+      where: { organizationId_key: { organizationId: orgId, key: SCHOOL_PUBLIC_EXTRA_CARDS_KEY } },
+      select: { value: true },
+    }),
   ]);
+
+  const publicExtraSections = parseSchoolPublicExtraCards(extraCardRow?.value).length;
 
   const roleCounts = Object.fromEntries(usersByRole.map((r) => [r.role, r._count._all])) as Record<string, number>;
   const totalUsers = usersByRole.reduce((s, r) => s + r._count._all, 0);
@@ -102,6 +115,23 @@ export default async function AdminAnalyticsPage({ params }: { params: Promise<{
         <Stat label="Enrollments" value={enrollmentTotal} hint="Seat assignments across courses" />
         <Stat label="Courses" value={publishedCourses + draftCourses} hint={`${publishedCourses} published · ${draftCourses} draft`} />
         <Stat label="Assessments" value={assessmentCount} />
+      </section>
+
+      <section className="surface-bento p-6">
+        <h2 className="text-lg font-semibold tracking-tight">Public marketing page</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {schoolPublicCmsRows} CMS field{schoolPublicCmsRows === 1 ? "" : "s"} under{" "}
+          <code className="rounded bg-muted px-1 text-xs">school.public.*</code> · {publicExtraSections} custom section
+          {publicExtraSections === 1 ? "" : "s"}. Open{" "}
+          <Link href={`/school/${slug}`} className="font-medium text-foreground underline-offset-4 hover:underline">
+            /school/{slug}
+          </Link>{" "}
+          or edit in{" "}
+          <Link href={`/o/${slug}/admin/cms`} className="font-medium text-foreground underline-offset-4 hover:underline">
+            Admin → CMS
+          </Link>
+          . The same numbers feed platform tenant analytics for billing and support prioritization.
+        </p>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">

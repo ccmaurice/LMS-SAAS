@@ -7,6 +7,7 @@ import { SchoolsCarousel, type SchoolCarouselItem } from "@/components/marketing
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { HERO_BRAND_LOGO_IMG_CLASSES } from "@/lib/ui/brand-logo-classes";
 import type { LandingFeature } from "@/lib/platform/landing-defaults";
 
 export type HomeLandingProps = {
@@ -46,7 +47,7 @@ export function HomeLanding({ schools, logoSrc, kicker, headline, subheadline, f
           {logoSrc ? (
             <div className="mb-6 flex justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element -- public URL or same-origin logo API */}
-              <img src={logoSrc} alt="" className="max-h-20 w-auto max-w-[min(100%,280px)] object-contain md:max-h-24" />
+              <img src={logoSrc} alt="" className={HERO_BRAND_LOGO_IMG_CLASSES} />
             </div>
           ) : null}
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{kicker}</p>

@@ -2,9 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { Providers } from "@/components/providers";
+import { getMetadataBase } from "@/lib/seo/metadata-base";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: getMetadataBase(),
   title: "SaaS LMS",
   description: "Multi-tenant learning management platform",
   manifest: "/site.webmanifest",

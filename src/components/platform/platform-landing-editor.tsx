@@ -159,8 +159,8 @@ export function PlatformLandingEditor({ initial }: { initial: Initial }) {
           </Link>
           <h1 className="page-title mt-4">Marketing landing page</h1>
           <p className="mt-1 text-muted-foreground">
-            Controls the public home page (<code className="rounded bg-muted px-1">/</code>). Logo appears above the kicker
-            line.
+            Controls the public home page (<code className="rounded bg-muted px-1">/</code>). Logo appears centered above the
+            kicker and is used as the browser tab icon (favicon) for that page when set.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -172,7 +172,10 @@ export function PlatformLandingEditor({ initial }: { initial: Initial }) {
 
       <section className="surface-bento space-y-4 p-6">
         <h2 className="text-lg font-semibold tracking-tight">Logo</h2>
-        <p className="text-sm text-muted-foreground">Shown centered above the kicker (e.g. “SaaS LMS”). Max 2 MB.</p>
+        <p className="text-sm text-muted-foreground">
+          Shown centered above the kicker and as the favicon for <code className="rounded bg-muted px-1">/</code>. Prefer a
+          square or wide mark; max 2 MB.
+        </p>
         <div className="flex flex-wrap items-center gap-3">
           <input
             ref={fileRef}

@@ -1,5 +1,10 @@
 import { prisma } from "@/lib/db";
-import { MOMENTUM_WEIGHTS, USAGE_WEIGHTS } from "@/lib/platform/tenant-usage-weights";
+import {
+  MOMENTUM_WEIGHTS,
+  PUBLIC_EXTRA_SECTIONS_WEIGHT_CAP,
+  USAGE_WEIGHTS,
+} from "@/lib/platform/tenant-usage-weights";
+import { parseSchoolPublicExtraCards, SCHOOL_PUBLIC_EXTRA_CARDS_KEY } from "@/lib/school-public";
 
 /**
  * Raw per-tenant row counts from PostgreSQL (correlated subqueries — one round trip).
@@ -29,6 +34,10 @@ export type TenantUsageCounts = {
   courseChatMessages: number;
   learningResources: number;
   blogPosts: number;
+  /** CmsEntry rows whose keys start with `school.public.` (public one-pager + cards). */
+  schoolPublicCmsRows: number;
+  /** Parsed count of custom sections from `school.public.extraCards`; included in weighted index. */
+  publicExtraSections: number;
   cmsEntries: number;
   orgMessages: number;
   dmThreads: number;
@@ -143,6 +152,8 @@ function normalizeRow(raw: Record<string, unknown>): TenantUsageCounts {
     courseChatMessages: pick("courseChatMessages"),
     learningResources: pick("learningResources"),
     blogPosts: pick("blogPosts"),
+    schoolPublicCmsRows: pick("schoolPublicCmsRows"),
+    publicExtraSections: pick("publicExtraSections"),
     cmsEntries: pick("cmsEntries"),
     orgMessages: pick("orgMessages"),
     dmThreads: pick("dmThreads"),
@@ -213,6 +224,8 @@ export async function getTenantUsageAnalytics(): Promise<TenantUsageAnalytics[]>
       (SELECT COUNT(*)::int FROM "CourseChatMessage" ccm INNER JOIN "Course" c ON c."id" = ccm."courseId" WHERE c."organizationId" = o."id") AS "courseChatMessages",
       (SELECT COUNT(*)::int FROM "LearningResource" lr WHERE lr."organizationId" = o."id") AS "learningResources",
       (SELECT COUNT(*)::int FROM "BlogPost" bp WHERE bp."organizationId" = o."id") AS "blogPosts",
+      (SELECT COUNT(*)::int FROM "CmsEntry" ce
+        WHERE ce."organizationId" = o."id" AND ce."key" LIKE 'school.public.%') AS "schoolPublicCmsRows",
       (SELECT COUNT(*)::int FROM "CmsEntry" ce WHERE ce."organizationId" = o."id") AS "cmsEntries",
       (SELECT COUNT(*)::int FROM "OrganizationMessage" om WHERE om."organizationId" = o."id") AS "orgMessages",
       (SELECT COUNT(*)::int FROM "DirectMessageThread" dt WHERE dt."organizationId" = o."id") AS "dmThreads",
@@ -278,11 +291,28 @@ export async function getTenantUsageAnalytics(): Promise<TenantUsageAnalytics[]>
     ORDER BY o."name" ASC
   `;
 
+  const extraCardRows = await prisma.cmsEntry.findMany({
+    where: { key: SCHOOL_PUBLIC_EXTRA_CARDS_KEY },
+    select: { organizationId: true, value: true },
+  });
+  const extraSectionsByOrg = new Map<string, number>();
+  for (const row of extraCardRows) {
+    extraSectionsByOrg.set(row.organizationId, parseSchoolPublicExtraCards(row.value).length);
+  }
+
   return raw.map((row) => {
-    const counts = normalizeRow(row);
+    const base = normalizeRow(row);
+    const counts: TenantUsageCounts = {
+      ...base,
+      publicExtraSections: extraSectionsByOrg.get(base.id) ?? 0,
+    };
+    const forWeightedIndex: TenantUsageCounts = {
+      ...counts,
+      publicExtraSections: Math.min(counts.publicExtraSections, PUBLIC_EXTRA_SECTIONS_WEIGHT_CAP),
+    };
     return {
       ...counts,
-      weightedUsageIndex: computeWeightedUsageIndex(counts),
+      weightedUsageIndex: computeWeightedUsageIndex(forWeightedIndex),
       totalDataRows: computeTotalDataRows(counts),
       momentumIndex7: computeMomentumIndex(
         counts.submissionsLast7Days,

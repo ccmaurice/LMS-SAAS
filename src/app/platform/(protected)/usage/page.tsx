@@ -36,6 +36,9 @@ export default async function PlatformUsagePage() {
         <p className="mt-1 max-w-3xl text-muted-foreground">
           Per-school database activity and a configurable weighted index to prioritize commercial follow-up. Row counts
           approximate how much each tenant stresses PostgreSQL; combine with your own Blob bandwidth and support costs.
+          Public marketing pages surface as CMS row counts plus custom section cards; only the first twelve sections count
+          toward the weighted index (see tenant usage dashboard). Use the table and per-tenant feature mix chart for full
+          counts.
         </p>
       </div>
 

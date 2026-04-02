@@ -12,6 +12,7 @@ import { hashPassword } from "../src/lib/auth/password";
 
 async function main() {
   const { prisma } = await import("../src/lib/db");
+  const { SCHOOL_PUBLIC_EXTRA_CARDS_KEY } = await import("../src/lib/school-public");
   const demoHero =
     "https://images.unsplash.com/photo-1580582932707-5207e1e8b0d4?auto=format&fit=crop&w=1600&q=80";
 
@@ -94,6 +95,28 @@ async function main() {
       update: { value: sp.value },
     });
   }
+
+  const demoExtraCards = JSON.stringify([
+    {
+      id: "seed-campus-tours",
+      title: "Campus tours",
+      body: "Prospective families can book a guided visit — see classrooms, arts spaces, and our library.\n\nUse the contact section to request a time.",
+      imageUrl: "",
+      videoUrl: "",
+    },
+    {
+      id: "seed-after-school",
+      title: "After school",
+      body: "Clubs, study hall, and athletics run until 5pm on weekdays. Enrolled families receive the full activities guide.",
+      imageUrl: "",
+      videoUrl: "",
+    },
+  ]);
+  await prisma.cmsEntry.upsert({
+    where: { organizationId_key: { organizationId: org.id, key: SCHOOL_PUBLIC_EXTRA_CARDS_KEY } },
+    create: { organizationId: org.id, key: SCHOOL_PUBLIC_EXTRA_CARDS_KEY, value: demoExtraCards },
+    update: { value: demoExtraCards },
+  });
 
   for (const u of users) {
     await prisma.user.upsert({

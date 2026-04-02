@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { parseSchoolPublicExtraCards, SCHOOL_PUBLIC_EXTRA_CARDS_KEY } from "@/lib/school-public";
 import { ImpersonateOrgButton } from "@/components/platform/impersonate-org-button";
 import { ImpersonateUserButton } from "@/components/platform/impersonate-user-button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,17 @@ export default async function PlatformOrgDetailPage({ params }: { params: Promis
   });
 
   if (!org) notFound();
+
+  const [schoolPublicCmsRows, extraCardEntry] = await Promise.all([
+    prisma.cmsEntry.count({
+      where: { organizationId: org.id, key: { startsWith: "school.public." } },
+    }),
+    prisma.cmsEntry.findUnique({
+      where: { organizationId_key: { organizationId: org.id, key: SCHOOL_PUBLIC_EXTRA_CARDS_KEY } },
+      select: { value: true },
+    }),
+  ]);
+  const publicExtraSections = parseSchoolPublicExtraCards(extraCardEntry?.value).length;
 
   return (
     <div className="space-y-8">
@@ -57,11 +69,37 @@ export default async function PlatformOrgDetailPage({ params }: { params: Promis
           <a
             href={`/api/platform/organizations/${org.id}/export-sql`}
             className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
-            title="Users, org settings, courses (weights, terms, credits), curriculum shell, blog, library (with createdById), CMS, invites, wall — not assessments or enrollments."
+            title="Users, org settings, courses (weights, terms, credits), curriculum shell, blog, library (with createdById), CMS (including school.public.* and extraCards JSON), invites, wall — not assessments or enrollments."
           >
             Download core SQL
           </a>
         </div>
+      </div>
+
+      <div className="surface-bento p-5">
+        <h2 className="text-sm font-semibold tracking-tight">Public school page</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Live site:{" "}
+          <Link
+            href={`/school/${org.slug}`}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+            target="_blank"
+            rel="noreferrer"
+          >
+            /school/{org.slug}
+          </Link>
+          . {schoolPublicCmsRows} CMS row{schoolPublicCmsRows === 1 ? "" : "s"} under{" "}
+          <code className="rounded bg-muted px-1 text-xs">school.public.*</code> · {publicExtraSections} custom section
+          {publicExtraSections === 1 ? "" : "s"} (cards). Admins edit in{" "}
+          <Link href={`/o/${org.slug}/admin/cms`} className="font-medium text-foreground underline-offset-4 hover:underline">
+            Admin → CMS
+          </Link>
+          ; usage metrics also appear on{" "}
+          <Link href="/platform/usage" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Tenant usage
+          </Link>
+          .
+        </p>
       </div>
 
       <OrgApprovalActions organizationId={org.id} status={org.status} />

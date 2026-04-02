@@ -7,7 +7,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SCHOOL_PUBLIC_CMS_KEYS } from "@/lib/school-public";
+import { SchoolPublicExtraCardsEditor } from "@/components/cms/school-public-extra-cards-editor";
+import { SCHOOL_PUBLIC_CMS_KEYS, SCHOOL_PUBLIC_EXTRA_CARDS_KEY } from "@/lib/school-public";
 import { youtubeEmbedSrc } from "@/lib/youtube";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -211,6 +212,8 @@ export function SchoolPublicCmsSection({
           );
         })}
       </ul>
+
+      <SchoolPublicExtraCardsEditor slug={slug} initialJson={values[SCHOOL_PUBLIC_EXTRA_CARDS_KEY] ?? ""} />
     </div>
   );
 }

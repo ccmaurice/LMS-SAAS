@@ -67,6 +67,33 @@ export function isSafeOrgAboutVideoKey(key: string, orgId: string): boolean {
   return re.test(key);
 }
 
+/** Public school page custom section cards — uploaded images (CMS JSON references this key). */
+export function orgPublicCardImageStorageKey(orgId: string, ext: string): string {
+  return path.posix.join("orgs", orgId, "public", `card-img-${randomUUID()}${ext}`);
+}
+
+export function isSafeOrgPublicCardImageKey(key: string, orgId: string): boolean {
+  if (key.includes("..") || key.length > 500) return false;
+  const re = new RegExp(
+    `^orgs/${escapeOrgId(orgId)}/public/card-img-[a-f0-9-]{36}\\.(jpe?g|png|webp|gif)$`,
+    "i",
+  );
+  return re.test(key);
+}
+
+export function orgPublicCardVideoStorageKey(orgId: string, ext: string): string {
+  return path.posix.join("orgs", orgId, "public", `card-vid-${randomUUID()}${ext}`);
+}
+
+export function isSafeOrgPublicCardVideoKey(key: string, orgId: string): boolean {
+  if (key.includes("..") || key.length > 500) return false;
+  const re = new RegExp(
+    `^orgs/${escapeOrgId(orgId)}/public/card-vid-[a-f0-9-]{36}\\.(mp4|webm)$`,
+    "i",
+  );
+  return re.test(key);
+}
+
 export function isSafeOrgCmsHeroStoredValue(key: string, orgId: string): boolean {
   return isBlobStoredRef(key) || isSafeOrgCmsHeroKey(key, orgId);
 }
@@ -81,4 +108,12 @@ export function isSafeOrgHeroSettingStoredValue(key: string, orgId: string): boo
 
 export function isSafeOrgLogoSettingStoredValue(key: string, orgId: string): boolean {
   return isBlobStoredRef(key) || isSafeOrgLogoSettingKey(key, orgId);
+}
+
+export function isSafeOrgPublicCardImageStoredValue(key: string, orgId: string): boolean {
+  return isBlobStoredRef(key) || isSafeOrgPublicCardImageKey(key, orgId);
+}
+
+export function isSafeOrgPublicCardVideoStoredValue(key: string, orgId: string): boolean {
+  return isBlobStoredRef(key) || isSafeOrgPublicCardVideoKey(key, orgId);
 }

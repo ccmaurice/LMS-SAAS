@@ -55,7 +55,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ departmentId:
     return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
   }
 
-  let facultyDivisionId = parsed.data.facultyDivisionId;
+  const facultyDivisionId = parsed.data.facultyDivisionId;
   if (facultyDivisionId !== undefined && facultyDivisionId !== null) {
     const div = await prisma.facultyDivision.findFirst({
       where: { id: facultyDivisionId, organizationId: user.organizationId },

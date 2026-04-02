@@ -6,7 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MOMENTUM_WEIGHTS, USAGE_WEIGHTS } from "@/lib/platform/tenant-usage-weights";
+import {
+  MOMENTUM_WEIGHTS,
+  PUBLIC_EXTRA_SECTIONS_WEIGHT_CAP,
+  USAGE_WEIGHTS,
+} from "@/lib/platform/tenant-usage-weights";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +40,8 @@ export type TenantUsageRowJson = {
   courseChatMessages: number;
   learningResources: number;
   blogPosts: number;
+  schoolPublicCmsRows: number;
+  publicExtraSections: number;
   cmsEntries: number;
   orgMessages: number;
   dmThreads: number;
@@ -76,7 +82,9 @@ type SortKey =
   | "submissions"
   | "enrollments"
   | "courses"
-  | "answers";
+  | "answers"
+  | "schoolPublicCmsRows"
+  | "publicExtraSections";
 
 type StatusFilter = "ALL" | "ACTIVE" | "PENDING" | "REJECTED";
 type RankMode = "weighted" | "momentum";
@@ -286,6 +294,9 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
       { key: "learningResources" as const, label: "Library items" },
       { key: "courseChatMessages" as const, label: "Course chat" },
       { key: "dmMessages" as const, label: "DM messages" },
+      { key: "schoolPublicCmsRows" as const, label: "Public school CMS rows" },
+      { key: "publicExtraSections" as const, label: "Custom public sections" },
+      { key: "cmsEntries" as const, label: "CMS entries (all keys)" },
     ] as { key: keyof TenantUsageRowJson; label: string }[];
   }, [activityWindow]);
 
@@ -336,6 +347,10 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
       "answers",
       "lessons",
       "questions",
+      "cmsEntries",
+      "schoolPublicCmsRows",
+      "publicExtraSections",
+      "publicExtraSectionsForIndex",
     ];
     const mom30Sum = tenants.reduce((s, t) => s + t.momentumIndex30, 0);
     const lines = [
@@ -372,6 +387,10 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
           answers: t.answers,
           lessons: t.lessons,
           questions: t.questions,
+          cmsEntries: t.cmsEntries,
+          schoolPublicCmsRows: t.schoolPublicCmsRows,
+          publicExtraSections: t.publicExtraSections,
+          publicExtraSectionsForIndex: Math.min(t.publicExtraSections, PUBLIC_EXTRA_SECTIONS_WEIGHT_CAP),
         };
         return headers
           .map((h) => {
@@ -400,12 +419,18 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
         <p className="text-sm text-muted-foreground">
           <strong className="text-foreground">Weighted index</strong> blends cumulative data with a 30d activity slice
           (see <code className="rounded bg-muted px-1">USAGE_WEIGHTS</code>).{" "}
+          <strong className="text-foreground">Custom public sections</strong> (marketing page cards) use the same weight as
+          one CMS entry each, up to <strong className="text-foreground">{PUBLIC_EXTRA_SECTIONS_WEIGHT_CAP}</strong> sections
+          in the weighted index (full counts stay in the table and CSV); <strong className="text-foreground">public school CMS
+          rows</strong> is informational (subset of total CMS entries).{" "}
           <strong className="text-foreground">Momentum</strong> scores are separate: only recent submissions, new users,
           and new enrollments for <strong className="text-foreground">7 / 30 / 90 days</strong> — good for spotting who
           is heating up without re-weighting the whole model. Tune momentum multipliers in{" "}
           <code className="rounded bg-muted px-1">MOMENTUM_WEIGHTS</code> in the same file.{" "}
           <strong className="text-foreground">% platform</strong> uses full-fleet weighted sum;{" "}
-          <strong className="text-foreground">% mom.</strong> uses the sum of momentum for the selected window.
+          <strong className="text-foreground">% mom.</strong> uses the sum of momentum for the selected window. CSV export
+          includes <code className="rounded bg-muted px-1">publicExtraSectionsForIndex</code> (capped count used in the
+          weighted index) next to the raw card count.
         </p>
       </section>
 
@@ -605,7 +630,7 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
           </Button>
         </div>
         <div className="surface-table-wrap overflow-x-auto">
-          <table className="w-full min-w-[1280px] text-sm">
+          <table className="w-full min-w-[1480px] text-sm">
             <thead className="text-left text-xs font-medium text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">
@@ -714,6 +739,24 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
                     Rows {sortKey === "totalDataRows" ? (sortDir === "desc" ? "↓" : "↑") : ""}
                   </button>
                 </th>
+                <th className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    className="underline-offset-2 hover:underline"
+                    onClick={() => toggleSort("schoolPublicCmsRows")}
+                  >
+                    Pub. CMS {sortKey === "schoolPublicCmsRows" ? (sortDir === "desc" ? "↓" : "↑") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    className="underline-offset-2 hover:underline"
+                    onClick={() => toggleSort("publicExtraSections")}
+                  >
+                    Cards {sortKey === "publicExtraSections" ? (sortDir === "desc" ? "↓" : "↑") : ""}
+                  </button>
+                </th>
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
@@ -757,6 +800,12 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
                   <td className="px-3 py-2 text-right tabular-nums">{t.answers.toLocaleString()}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                     {t.totalDataRows.toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                    {t.schoolPublicCmsRows.toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                    {t.publicExtraSections.toLocaleString()}
                   </td>
                   <td className="px-3 py-2 text-right">
                     <Link href={`/platform/orgs/${t.id}`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>

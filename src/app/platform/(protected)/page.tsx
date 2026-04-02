@@ -87,6 +87,16 @@ export default async function PlatformHomePage() {
                 <td className="px-4 py-3 tabular-nums">{o._count.courses}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap justify-end gap-2">
+                    {o.status === "ACTIVE" ? (
+                      <Link
+                        href={`/school/${o.slug}`}
+                        className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Public page
+                      </Link>
+                    ) : null}
                     <Link
                       href={`/platform/orgs/${o.id}`}
                       className={cn(buttonVariants({ variant: "outline", size: "sm" }))}

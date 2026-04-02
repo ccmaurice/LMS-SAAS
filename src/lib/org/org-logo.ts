@@ -10,7 +10,7 @@ import { loadUpload } from "@/lib/uploads/storage";
 
 const CMS_HERO_KEY = "school.public.hero.imageUrl";
 
-function resolveOrgLogoPublicUrl(slug: string, orgId: string, logoImageUrl: string | null): string | null {
+export function resolveOrgLogoPublicUrl(slug: string, orgId: string, logoImageUrl: string | null): string | null {
   const raw = logoImageUrl?.trim();
   if (!raw) return null;
   if (/^https?:\/\//i.test(raw)) return raw;
@@ -21,25 +21,41 @@ function resolveOrgLogoPublicUrl(slug: string, orgId: string, logoImageUrl: stri
 }
 
 /** Deduped per request — safe to call from layout + page. */
+export type GetOrganizationLogoUrlOpts = {
+  /** When passed (including `undefined` value), skips the CMS DB read and uses this for the CMS hero slot. */
+  cmsHeroImageUrl?: string | null;
+};
+
 export const getOrganizationLogoUrl = cache(
   async (
     organizationId: string,
     slug: string,
     logoImageUrl: string | null,
     heroImageUrl: string | null,
+    opts?: GetOrganizationLogoUrlOpts,
   ): Promise<string | null> => {
     const fromLogo = resolveOrgLogoPublicUrl(slug, organizationId, logoImageUrl);
     if (fromLogo) return fromLogo;
 
-    const cms = await prisma.cmsEntry.findUnique({
-      where: { organizationId_key: { organizationId, key: CMS_HERO_KEY } },
-      select: { value: true },
-    });
+    let cmsValue: string | undefined;
+    if (opts && "cmsHeroImageUrl" in opts) {
+      const raw = opts.cmsHeroImageUrl;
+      cmsValue = raw == null || raw === "" ? undefined : raw.trim() || undefined;
+    } else {
+      cmsValue =
+        (
+          await prisma.cmsEntry.findUnique({
+            where: { organizationId_key: { organizationId, key: CMS_HERO_KEY } },
+            select: { value: true },
+          })
+        )?.value?.trim() || undefined;
+    }
+
     return resolveHeroImageSrc({
       slug,
       orgId: organizationId,
       orgHeroImageUrl: heroImageUrl,
-      cmsHeroImageUrl: cms?.value,
+      cmsHeroImageUrl: cmsValue,
     });
   },
 );

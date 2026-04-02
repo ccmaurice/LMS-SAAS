@@ -184,9 +184,11 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
       <section className="space-y-3">
         <h3 className="text-sm font-semibold tracking-tight">School brand logo</h3>
         <p className="text-xs text-muted-foreground">
-          Shown in the app sidebar, on transcripts and report cards (including PDFs), and on completion certificates. Upload
-          a PNG, JPEG, WebP, or GIF from your computer, or paste an https image link. If you leave this empty, the public
-          hero image below (or the CMS hero override on the public page) is used instead.
+          Shown in the app sidebar, on transcripts and report cards (including PDFs), on completion certificates, centered on
+          your public school page (<code className="rounded bg-muted px-1">/school/your-slug</code>), and as the browser
+          tab icon (favicon) for both that page and the signed-in school app. Upload a PNG, JPEG, WebP, or GIF from your
+          device, or paste an https image URL. If you leave this empty, the public hero image (or the CMS hero override)
+          is used as a fallback where a logo is needed.
         </p>
         <div className="space-y-2">
           <Label htmlFor="logo-url">Logo image URL (optional)</Label>

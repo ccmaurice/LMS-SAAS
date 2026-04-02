@@ -1,11 +1,28 @@
+import type { Metadata } from "next";
 import { HomeLanding } from "@/components/marketing/home-landing";
 import { prisma } from "@/lib/db";
 import { getPublicLandingPayload } from "@/lib/platform/landing-settings";
 import { isPrismaPublicFallbackError } from "@/lib/prisma-errors";
+import { toAbsoluteMetadataUrl } from "@/lib/seo/to-absolute-metadata-url";
 import { resolveHeroImageSrc } from "@/lib/school-public";
 
 /** Avoid DB access during `next build` when MySQL is not running. */
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const landing = await getPublicLandingPayload();
+  if (!landing.logoSrc) {
+    return {};
+  }
+  const abs = toAbsoluteMetadataUrl(landing.logoSrc);
+  return {
+    icons: {
+      icon: [{ url: abs, rel: "icon" }],
+      shortcut: [{ url: abs }],
+      apple: [{ url: abs }],
+    },
+  };
+}
 
 export default async function Home() {
   const landing = await getPublicLandingPayload();

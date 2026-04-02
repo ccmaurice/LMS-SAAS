@@ -1,16 +1,52 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getOrganizationLogoUrl } from "@/lib/org/org-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { toAbsoluteMetadataUrl } from "@/lib/seo/to-absolute-metadata-url";
+import { HERO_BRAND_LOGO_IMG_CLASSES } from "@/lib/ui/brand-logo-classes";
 import {
   aboutBodyFromCms,
   parseGalleryUrls,
+  parseSchoolPublicExtraCards,
   resolveAboutVideoSource,
   resolveHeroImageSrc,
+  resolvePublicCardImageSrc,
+  resolvePublicCardVideoSource,
+  SCHOOL_PUBLIC_EXTRA_CARDS_KEY,
   type SchoolPublicCmsMap,
 } from "@/lib/school-public";
+
+/** Max custom-section links in the hero (remaining sections: “+N more” → anchor below). */
+const HERO_CUSTOM_NAV_MAX = 6;
+
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const org = await prisma.organization.findFirst({
+    where: { slug, status: "ACTIVE" },
+    select: { id: true, name: true, slug: true, heroImageUrl: true, logoImageUrl: true },
+  });
+  if (!org) return {};
+  const logoUrl = await getOrganizationLogoUrl(org.id, org.slug, org.logoImageUrl, org.heroImageUrl);
+  if (!logoUrl) {
+    return { title: org.name, description: `Public page for ${org.name}` };
+  }
+  const abs = toAbsoluteMetadataUrl(logoUrl);
+  return {
+    title: org.name,
+    description: `Public page for ${org.name}`,
+    icons: {
+      icon: [{ url: abs, rel: "icon" }],
+      shortcut: [{ url: abs }],
+      apple: [{ url: abs }],
+    },
+  };
+}
 
 function Section({
   id,
@@ -78,6 +114,32 @@ function AboutVideoBlock({
   );
 }
 
+function ExtraCardVideoBlock({ slug, orgId, raw }: { slug: string; orgId: string; raw: string }) {
+  const source = resolvePublicCardVideoSource({ slug, orgId, raw });
+  if (!source) return null;
+  if (source.kind === "youtube") {
+    return (
+      <div className="mt-8 aspect-video overflow-hidden rounded-xl border border-border/60 dark:border-white/10">
+        <iframe
+          title="Section video"
+          src={source.embedUrl}
+          className="h-full w-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+  return (
+    <video
+      className="mt-8 w-full overflow-hidden rounded-xl border border-border/60 dark:border-white/10"
+      controls
+      preload="metadata"
+      src={source.src}
+    />
+  );
+}
+
 export default async function SchoolPublicPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
@@ -88,6 +150,7 @@ export default async function SchoolPublicPage({ params }: { params: Promise<{ s
       name: true,
       slug: true,
       heroImageUrl: true,
+      logoImageUrl: true,
     },
   });
 
@@ -99,6 +162,10 @@ export default async function SchoolPublicPage({ params }: { params: Promise<{ s
   });
 
   const cms = Object.fromEntries(cmsRows.map((r) => [r.key, r.value])) as SchoolPublicCmsMap;
+
+  const brandMarkUrl = await getOrganizationLogoUrl(org.id, org.slug, org.logoImageUrl, org.heroImageUrl, {
+    cmsHeroImageUrl: cms["school.public.hero.imageUrl"],
+  });
 
   const heroTitle = cms["school.public.hero.title"]?.trim() || org.name;
   const heroSubtitle = cms["school.public.hero.subtitle"]?.trim() || "";
@@ -112,11 +179,15 @@ export default async function SchoolPublicPage({ params }: { params: Promise<{ s
     cmsHeroImageUrl: cms["school.public.hero.imageUrl"],
   });
 
+  /** Prefer dedicated brand logo; otherwise same image as hero (matches header branding when no logo file). */
+  const heroTopLogoSrc = brandMarkUrl;
+
   const admissions = cms["school.public.admissions"]?.trim() ?? "";
   const about = aboutBodyFromCms(cms);
   const aboutVideoRaw = cms["school.public.about.videoUrl"]?.trim() ?? "";
   const contact = cms["school.public.contact"]?.trim() ?? "";
   const gallery = parseGalleryUrls(cms["school.public.gallery"]);
+  const extraCards = parseSchoolPublicExtraCards(cms[SCHOOL_PUBLIC_EXTRA_CARDS_KEY]);
 
   return (
     <div className="relative">
@@ -144,15 +215,25 @@ export default async function SchoolPublicPage({ params }: { params: Promise<{ s
         <div className="relative min-h-[min(70vh,560px)] w-full overflow-hidden">
           {heroImg ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={heroImg} alt="" className="absolute inset-0 h-full w-full object-cover" aria-hidden />
+            <img src={heroImg} alt="" className="absolute inset-0 z-0 h-full w-full object-cover" aria-hidden />
           ) : (
             <div
-              className="absolute inset-0 bg-gradient-to-br from-primary/30 via-muted to-accent/25"
+              className="absolute inset-0 z-0 bg-gradient-to-br from-primary/30 via-muted to-accent/25"
               aria-hidden
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/30" />
-          <div className="relative mx-auto flex min-h-[min(70vh,560px)] max-w-4xl flex-col justify-end px-6 pb-16 pt-32 md:px-8 md:pb-24">
+          <div className="absolute inset-0 z-[1] bg-gradient-to-t from-background via-background/70 to-background/30" />
+          <div className="relative z-10 mx-auto flex min-h-[min(70vh,560px)] max-w-4xl flex-col items-center justify-center px-6 py-20 text-center md:px-8 md:py-24">
+            {heroTopLogoSrc ? (
+              <div className="mb-6 flex w-full shrink-0 justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={heroTopLogoSrc}
+                  alt=""
+                  className={HERO_BRAND_LOGO_IMG_CLASSES}
+                />
+              </div>
+            ) : null}
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Welcome</p>
             <h1 className="mt-3 text-balance text-4xl font-semibold tracking-tighter md:text-5xl">{heroTitle}</h1>
             {heroSubtitle ? (
@@ -173,6 +254,23 @@ export default async function SchoolPublicPage({ params }: { params: Promise<{ s
               <a href="#contact" className={cn(buttonVariants({ variant: "ghost", size: "lg" }))}>
                 Contact
               </a>
+              {extraCards.slice(0, HERO_CUSTOM_NAV_MAX).map((c) => (
+                <a
+                  key={c.id}
+                  href={`#section-${c.id}`}
+                  className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+                >
+                  {c.title}
+                </a>
+              ))}
+              {extraCards.length > HERO_CUSTOM_NAV_MAX ? (
+                <a
+                  href="#custom-sections-start"
+                  className={cn(buttonVariants({ variant: "ghost", size: "lg" }))}
+                >
+                  +{extraCards.length - HERO_CUSTOM_NAV_MAX} more
+                </a>
+              ) : null}
             </div>
           </div>
         </div>
@@ -234,6 +332,27 @@ export default async function SchoolPublicPage({ params }: { params: Promise<{ s
           <p className="text-sm text-muted-foreground">Contact information can be added in the CMS.</p>
         </Section>
       )}
+
+      {extraCards.length > 0 ? <div id="custom-sections-start" className="scroll-mt-24" /> : null}
+      {extraCards.map((card) => {
+        const img = resolvePublicCardImageSrc({
+          slug: org.slug,
+          orgId: org.id,
+          raw: card.imageUrl,
+        });
+        return (
+          <Section id={`section-${card.id}`} key={card.id} title={card.title}>
+            {card.body.trim() ? <Prose text={card.body} /> : null}
+            {img ? (
+              <div className="mt-6 overflow-hidden rounded-xl border border-border/60 bg-muted/20 dark:border-white/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img} alt="" className="max-h-[28rem] w-full object-contain" loading="lazy" />
+              </div>
+            ) : null}
+            <ExtraCardVideoBlock slug={org.slug} orgId={org.id} raw={card.videoUrl} />
+          </Section>
+        );
+      })}
 
       <footer className="border-t border-border/60 py-10 text-center text-xs text-muted-foreground dark:border-white/10">
         <p>
