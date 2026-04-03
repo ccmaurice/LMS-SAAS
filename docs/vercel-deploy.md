@@ -2,6 +2,7 @@
 
 ## Pre-push checklist (GitHub → Vercel)
 
+- **Node:** `package.json` pins `"engines": { "node": "20.x" }` and `.nvmrc` is `20`, so Vercel and local dev stay on the **Node 20** LTS line instead of floating to a new major when `>=20.9.0` was used. To move to Node 22 later, change both and set **Project → Settings → Node.js Version** in Vercel if needed.
 - `npm run lint` and `npm test` pass; `npm run build` succeeds (or delete a stale `.next` folder if TypeScript validator errors appear, then rebuild).
 - Commit **all** `prisma/migrations/*` folders (Production runs `prisma migrate deploy` during build when `VERCEL_ENV=production`).
 - Do **not** commit `.env`, `.env.local`, or secrets — only `.env.example` is tracked.
