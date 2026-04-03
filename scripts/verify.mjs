@@ -19,6 +19,14 @@ async function smoke(base) {
   const j = await health.json();
   if (!j || typeof j !== "object" || j.ok !== true) throw new Error("health body");
 
+  const ready = await fetch(`${base}/api/health/ready`);
+  if (!ready.ok) {
+    const body = await ready.text();
+    throw new Error(`health/ready ${ready.status} ${body.slice(0, 200)}`);
+  }
+  const rj = await ready.json();
+  if (!rj || typeof rj !== "object" || rj.ok !== true) throw new Error("health/ready body");
+
   const cms = await fetch(`${base}/api/admin/cms`);
   if (cms.status !== 401) throw new Error(`cms unauthenticated expected 401, got ${cms.status}`);
 }

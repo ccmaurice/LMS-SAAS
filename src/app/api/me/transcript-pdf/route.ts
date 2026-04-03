@@ -11,6 +11,9 @@ import {
 import { loadOrganizationLogoBuffer } from "@/lib/org/org-logo";
 import { buildTranscriptPdfBuffer } from "@/lib/reporting_engine";
 
+/** PDF + logo fetch can exceed default serverless limits on Pro/Enterprise (capped on Hobby). */
+export const maxDuration = 60;
+
 export async function GET(req: Request) {
   const { user, response } = await requireUser();
   if (!user) return response!;

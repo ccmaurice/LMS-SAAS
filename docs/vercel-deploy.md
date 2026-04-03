@@ -7,6 +7,7 @@
 - Commit **all** `prisma/migrations/*` folders (Production runs `prisma migrate deploy` during build when `VERCEL_ENV=production`).
 - Do **not** commit `.env`, `.env.local`, or secrets — only `.env.example` is tracked.
 - After connecting the repo, confirm Vercel **Production** has `DATABASE_URL`, **`DIRECT_URL`** (Supabase), `JWT_SECRET` (≥16 chars), and `NEXT_PUBLIC_APP_URL` matching your deployment URL.
+- **Health checks:** `GET /api/health` is a cheap liveness probe (no database). `GET /api/health/ready` runs `SELECT 1` against Postgres — use after deploy or in uptime monitoring to catch bad `DATABASE_URL` / firewall issues early.
 
 Vercel runs **Next.js** well. The app uses **PostgreSQL** via **Prisma** and the **`pg`** driver (Supabase-compatible). The database must be reachable from Vercel’s build (migrations) and serverless runtime.
 

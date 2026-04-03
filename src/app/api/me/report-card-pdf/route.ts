@@ -7,6 +7,9 @@ import { getUserReportCardRows } from "@/lib/dashboard/insights";
 import { loadOrganizationLogoBuffer } from "@/lib/org/org-logo";
 import { buildReportCardPdfBuffer } from "@/lib/reporting_engine";
 
+/** PDF generation can exceed default limits on Pro/Enterprise (capped on Hobby). */
+export const maxDuration = 60;
+
 export async function GET(req: Request) {
   const { user, response } = await requireUser();
   if (!user) return response!;
