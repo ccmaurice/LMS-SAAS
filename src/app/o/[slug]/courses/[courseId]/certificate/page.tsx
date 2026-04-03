@@ -8,6 +8,12 @@ import { getEnrollment, isStaffRole } from "@/lib/courses/access";
 import { getOrganizationLogoUrl } from "@/lib/org/org-logo";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { CertificateVerifyQr } from "@/components/courses/certificate-verify-qr";
+import {
+  completionCertificateVerifyPath,
+  ensureCourseCompletionCertificate,
+} from "@/lib/certificates/completion-certificate";
+import { getAppOrigin } from "@/lib/seo/metadata-base";
 
 export default async function CourseCertificatePage({
   params,
@@ -109,7 +115,16 @@ export default async function CourseCertificatePage({
       ? new Date(Math.max(...completedDates.map((d) => d.getTime())))
       : new Date();
 
+  const credential = await ensureCourseCompletionCertificate({
+    organizationId: user.organizationId,
+    userId: subjectUserId,
+    courseId,
+    issuedAt,
+  });
+
   const displayName = subject.name?.trim() || subject.email;
+  const verifyPath = completionCertificateVerifyPath(slug, credential.id);
+  const verifyUrl = `${getAppOrigin()}${verifyPath}`;
   const base = `/o/${slug}/courses/${courseId}`;
   const childQuery = user.role === "PARENT" ? `?child=${encodeURIComponent(subjectUserId)}` : "";
 
@@ -140,10 +155,15 @@ export default async function CourseCertificatePage({
         <p className="relative z-10 mt-6 text-muted-foreground">has successfully completed</p>
         <p className="relative z-10 mt-2 text-xl font-semibold text-foreground md:text-2xl">{course.title}</p>
         <div className="relative z-10 mt-10 flex flex-col items-center gap-1 border-t border-border/80 pt-8 text-sm text-muted-foreground dark:border-white/10">
-          <p>Issued on {issuedAt.toLocaleDateString(undefined, { dateStyle: "long" })}</p>
-          <p className="text-xs">
-            Credential ID: {subject.id.slice(0, 8)}…{courseId.slice(0, 8)}
+          <p>Issued on {credential.issuedAt.toLocaleDateString(undefined, { dateStyle: "long" })}</p>
+          <p className="font-mono text-xs tracking-tight text-foreground">Credential ID: {credential.id}</p>
+          <p className="max-w-md text-xs text-muted-foreground print:max-w-none">
+            Verify at{" "}
+            <span className="break-all text-foreground">{verifyUrl}</span>
           </p>
+        </div>
+        <div className="relative z-10 mt-8 flex justify-center print:mt-6">
+          <CertificateVerifyQr verifyUrl={verifyUrl} className="rounded-lg border border-border/60 bg-white p-2 dark:border-white/10 dark:bg-white" />
         </div>
       </article>
       <p className="text-center text-xs text-muted-foreground print:hidden">

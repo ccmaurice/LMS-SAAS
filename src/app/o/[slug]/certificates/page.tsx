@@ -87,6 +87,13 @@ export default async function CertificatesPage({
                 ? "Courses where your linked student has completed all lessons. Open a certificate to print or save as PDF."
                 : "Courses where you have completed all lessons. Open a certificate to print or save as PDF."}
           </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Third parties can confirm a credential on the{" "}
+            <Link href={`/school/${encodeURIComponent(slug)}/verify-certificate`} className="underline-offset-4 hover:underline">
+              public verification page
+            </Link>
+            .
+          </p>
         </div>
         <Link href={`${base}/dashboard`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
           ← Dashboard

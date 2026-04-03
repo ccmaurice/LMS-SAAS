@@ -172,6 +172,7 @@ model Organization {
   schoolCohorts           SchoolCohort[]
   facultyDivisions        FacultyDivision[]
   academicDepartments     AcademicDepartment[]
+  courseCompletionCertificates CourseCompletionCertificate[]
 }
 
 /// Academic period (term/semester) — attach to courses; mark one as current for school-wide UI.
@@ -594,6 +595,7 @@ model User {
   learningResourcesAuthored  LearningResource[] @relation("LearningResourceAuthor")
   retakeRequestsAsStudent    AssessmentRetakeRequest[] @relation("RetakeRequestStudent")
   retakeRequestsAsReviewer   AssessmentRetakeRequest[] @relation("RetakeRequestReviewer")
+  courseCompletionCertificates CourseCompletionCertificate[]
 
   @@unique([organizationId, email])
   @@unique([organizationId, googleSub])
@@ -658,6 +660,7 @@ model Course {
   chatMessages  CourseChatMessage[]
   courseCohorts CourseCohort[]
   courseDepartments CourseDepartment[]
+  completionCertificates CourseCompletionCertificate[]
 
   @@index([organizationId])
   @@index([academicTermId])
@@ -852,6 +855,24 @@ model Enrollment {
 
   @@unique([userId, courseId])
   @@index([courseId])
+}
+
+/// Course completion credential for public verification (QR / credential ID on printed certificates).
+model CourseCompletionCertificate {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  courseId       String
+  issuedAt       DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course       Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([organizationId])
 }
 
 model LessonProgress {

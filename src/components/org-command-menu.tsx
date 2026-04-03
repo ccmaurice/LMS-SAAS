@@ -22,6 +22,7 @@ import {
   FileEdit,
   FileChartColumn,
   Award,
+  BadgeCheck,
   MessagesSquare,
   Building2,
   Home,
@@ -205,6 +206,10 @@ export function OrgCommandMenu({
             <CommandItem value="certificates" onSelect={() => run(`${base}/certificates`)}>
               <Award className="mr-2 size-4 text-muted-foreground" />
               Certificates
+            </CommandItem>
+            <CommandItem value="verify-certificate" onSelect={() => run(`/school/${slug}/verify-certificate`)}>
+              <BadgeCheck className="mr-2 size-4 text-muted-foreground" />
+              Verify certificate (public)
             </CommandItem>
             <CommandItem value="settings" onSelect={() => run(`${base}/settings`)}>
               <Settings className="mr-2 size-4 text-muted-foreground" />

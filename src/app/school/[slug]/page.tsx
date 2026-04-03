@@ -360,6 +360,13 @@ export default async function SchoolPublicPage({ params }: { params: Promise<{ s
           <Link href={`/login?org=${encodeURIComponent(org.slug)}`} className="underline-offset-4 hover:underline">
             Staff &amp; student sign in
           </Link>
+          {" · "}
+          <Link
+            href={`/school/${encodeURIComponent(org.slug)}/verify-certificate`}
+            className="underline-offset-4 hover:underline"
+          >
+            Verify a certificate
+          </Link>
         </p>
       </footer>
     </div>

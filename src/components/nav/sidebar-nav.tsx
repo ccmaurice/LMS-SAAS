@@ -8,10 +8,12 @@ import { navAcademicGroupsLabel } from "@/lib/school/group-labels";
 import { cn } from "@/lib/utils";
 
 const SCHOOL_SITE = "__school_site__" as const;
+const VERIFY_CERT = "__verify_certificate__" as const;
 
 type NavItem =
   | { href: string; label: string; roles: Role[] }
-  | { href: typeof SCHOOL_SITE; label: string; roles: Role[] };
+  | { href: typeof SCHOOL_SITE; label: string; roles: Role[] }
+  | { href: typeof VERIFY_CERT; label: string; roles: Role[] };
 
 function navItemsForOrg(educationLevel: EducationLevel): NavItem[] {
   const academicHubLabel = navAcademicGroupsLabel(educationLevel);
@@ -30,6 +32,7 @@ function navItemsForOrg(educationLevel: EducationLevel): NavItem[] {
     { href: "report-card", label: "Report card", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
     { href: "transcript", label: "Transcript", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
     { href: "certificates", label: "Certificates", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
+    { href: VERIFY_CERT, label: "Verify certificate", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
     { href: "settings", label: "Settings", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"] },
     { href: "admin/cms", label: "CMS", roles: ["ADMIN"] },
     { href: "admin/users", label: "Users", roles: ["ADMIN"] },
@@ -54,18 +57,27 @@ export function SidebarNav({
 }) {
   const pathname = usePathname();
   const nav = navItemsForOrg(educationLevel);
+  const schoolPublicPath = `/school/${orgSlug}`;
 
   return (
     <nav className="flex flex-1 flex-col gap-1 p-2">
       {nav
         .filter((item) => item.roles.includes(role))
         .map((item) => {
-          const href = item.href === SCHOOL_SITE ? `/school/${orgSlug}` : `${base}/${item.href}`;
+          const href =
+            item.href === SCHOOL_SITE
+              ? schoolPublicPath
+              : item.href === VERIFY_CERT
+                ? `${schoolPublicPath}/verify-certificate`
+                : `${base}/${item.href}`;
           const active =
             item.href === SCHOOL_SITE
-              ? pathname.startsWith(`/school/${orgSlug}`)
-              : pathname === href || (href !== base && pathname.startsWith(`${href}/`));
-          const key = item.href === SCHOOL_SITE ? "school-site" : item.href;
+              ? pathname === schoolPublicPath || pathname === `${schoolPublicPath}/`
+              : item.href === VERIFY_CERT
+                ? pathname.startsWith(`${schoolPublicPath}/verify-certificate`)
+                : pathname === href || (href !== base && pathname.startsWith(`${href}/`));
+          const key =
+            item.href === SCHOOL_SITE ? "school-site" : item.href === VERIFY_CERT ? "verify-certificate" : item.href;
           return (
             <Link
               key={key}

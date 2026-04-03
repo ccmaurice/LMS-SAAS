@@ -20,3 +20,8 @@ export function getMetadataBase(): URL {
   }
   return new URL("http://localhost:3000");
 }
+
+/** Public absolute origin for links and QR codes (same resolution as metadata base). */
+export function getAppOrigin(): string {
+  return getMetadataBase().origin;
+}
