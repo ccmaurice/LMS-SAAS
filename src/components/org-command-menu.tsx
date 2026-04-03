@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { EducationLevel, Role } from "@/generated/prisma/enums";
+import { academicCalendarCopy } from "@/lib/education_context/academic-period-labels";
 import { navAcademicGroupsLabel } from "@/lib/school/group-labels";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -231,9 +232,13 @@ export function OrgCommandMenu({
                   <Building2 className="mr-2 size-4 text-muted-foreground" />
                   Admin · School settings
                 </CommandItem>
+                <CommandItem value="calendar" onSelect={() => run(`${base}/admin/calendar`)}>
+                  <Building2 className="mr-2 size-4 text-muted-foreground" />
+                  Admin · School calendar
+                </CommandItem>
                 <CommandItem value="terms" onSelect={() => run(`${base}/admin/terms`)}>
                   <Building2 className="mr-2 size-4 text-muted-foreground" />
-                  Admin · Academic terms
+                  Admin · {academicCalendarCopy(educationLevel).navLabel}
                 </CommandItem>
                 <CommandItem
                   value="admin-grouping"

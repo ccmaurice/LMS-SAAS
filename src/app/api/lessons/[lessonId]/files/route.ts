@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { canTeacherManageCourse, getLessonInOrganization } from "@/lib/courses/access";
+import { bufferMatchesDeclaredMime } from "@/lib/uploads/file-sniff";
 import { sanitizeDownloadBasename } from "@/lib/uploads/filename";
 import { MAX_LESSON_UPLOAD_BYTES } from "@/lib/uploads/root";
 import { removeUpload, saveUpload } from "@/lib/uploads/storage";
@@ -75,6 +76,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ lessonId: stri
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
+  if (!bufferMatchesDeclaredMime(buffer, mime)) {
+    return NextResponse.json({ error: "File content does not match its type" }, { status: 400 });
+  }
   const id = randomUUID();
   const safeStem = sanitizeDownloadBasename(displayName.replace(/\.[^.]+$/, ""), "file");
   const ext = extFromName(displayName);

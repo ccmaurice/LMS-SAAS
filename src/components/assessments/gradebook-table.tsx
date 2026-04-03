@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AssessmentPrompt } from "@/components/assessments/assessment-prompt";
+import { formatProctorSummaryLine, type ProctorEventAgg } from "@/lib/assessments/proctoring-summary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,7 +29,13 @@ type SubRow = {
   answers: AnswerRow[];
 };
 
-export function GradebookTable({ initial }: { initial: SubRow[] }) {
+export function GradebookTable({
+  initial,
+  proctorBySubmissionId = {},
+}: {
+  initial: SubRow[];
+  proctorBySubmissionId?: Record<string, ProctorEventAgg[]>;
+}) {
   const router = useRouter();
   const [subs, setSubs] = useState(initial);
 
@@ -76,6 +83,15 @@ export function GradebookTable({ initial }: { initial: SubRow[] }) {
             <p className="text-sm text-muted-foreground">
               {s.status} · Score {s.totalScore ?? "—"} / {s.maxScore ?? "—"}
             </p>
+            {(() => {
+              const agg = proctorBySubmissionId[s.id];
+              if (!agg?.length) return null;
+              return (
+                <p className="mt-1 text-xs text-amber-900/90 dark:text-amber-200/90">
+                  Integrity signals: {formatProctorSummaryLine(agg)}
+                </p>
+              );
+            })()}
           </div>
           <ul className="mt-4 space-y-4">
             {s.answers.map((a) => (

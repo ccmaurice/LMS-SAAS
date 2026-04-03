@@ -94,6 +94,7 @@ export default async function EditCoursePage({
       <h1 className="page-title">Edit course</h1>
       <CourseGradingPanel
         courseId={course.id}
+        educationLevel={edu}
         terms={terms}
         initial={{
           gradeWeightContinuous: course.gradeWeightContinuous,

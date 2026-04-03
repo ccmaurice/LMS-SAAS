@@ -22,6 +22,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ assessmentId: 
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  if (assessment.deliveryMode === "FORMATIVE") {
+    return NextResponse.json(
+      { error: "Integrity logging is not enabled for this assessment" },
+      { status: 403 },
+    );
+  }
+
   if (!(await canStudentTakeAssessment(user.id, assessment))) {
     return NextResponse.json({ error: "Not available" }, { status: 403 });
   }

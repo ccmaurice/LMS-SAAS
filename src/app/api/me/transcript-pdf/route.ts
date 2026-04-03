@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/api/guard";
-import { parseOrganizationSettings } from "@/lib/education_context";
+import { academicCalendarCopy, parseOrganizationSettings } from "@/lib/education_context";
 import { buildStudentTranscript } from "@/lib/transcript/build-transcript";
+import {
+  listAcademicTermsOrdered,
+  transcriptScopeDescription,
+  transcriptScopeFromSearchParams,
+} from "@/lib/transcript/academic-term-scope";
 import { loadOrganizationLogoBuffer } from "@/lib/org/org-logo";
 import { buildTranscriptPdfBuffer } from "@/lib/reporting_engine";
 
@@ -12,6 +17,9 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const childParam = url.searchParams.get("child");
+  const termParam = url.searchParams.get("term");
+  const fromTermParam = url.searchParams.get("fromTerm");
+  const toTermParam = url.searchParams.get("toTerm");
 
   const org = await prisma.organization.findUnique({
     where: { id: user.organizationId },
@@ -23,6 +31,7 @@ export async function GET(req: Request) {
       organizationSettings: true,
       heroImageUrl: true,
       logoImageUrl: true,
+      educationLevel: true,
     },
   });
   if (!org) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -55,7 +64,17 @@ export async function GET(req: Request) {
   });
   if (!subject) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const payload = await buildStudentTranscript(subjectId, user.organizationId);
+  const [termScope, termsOrdered] = await Promise.all([
+    transcriptScopeFromSearchParams(user.organizationId, {
+      term: termParam ?? undefined,
+      fromTerm: fromTermParam ?? undefined,
+      toTerm: toTermParam ?? undefined,
+    }),
+    listAcademicTermsOrdered(user.organizationId),
+  ]);
+  const payload = await buildStudentTranscript(subjectId, user.organizationId, termScope);
+  const cal = academicCalendarCopy(org.educationLevel);
+  const scopeSubtitle = transcriptScopeDescription(termScope, termsOrdered, cal.scopePeriodLabels);
   const settings = parseOrganizationSettings(org.organizationSettings);
 
   const rows = payload.rows.map((r) => ({
@@ -93,6 +112,7 @@ export async function GET(req: Request) {
     showGpaColumn: payload.educationLevel === "HIGHER_ED",
     rows,
     semesterSummaries,
+    scopeSubtitle,
     orgSettings: settings,
     logoBuffer,
   });

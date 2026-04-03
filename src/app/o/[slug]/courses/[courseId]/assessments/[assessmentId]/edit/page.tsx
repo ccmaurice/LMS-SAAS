@@ -5,8 +5,41 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
 import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
 import { AssessmentEditor } from "@/components/assessments/assessment-editor";
+import type { ScheduleEntryClient } from "@/components/assessments/assessment-schedule-editor";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+
+function isoToDatetimeLocalInput(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const t = d.getTime() - d.getTimezoneOffset() * 60_000;
+  return new Date(t).toISOString().slice(0, 16);
+}
+
+function mapScheduleRowsToClient(
+  rows: {
+    kind: ScheduleEntryClient["kind"];
+    startsAt: Date;
+    endsAt: Date | null;
+    allDay: boolean;
+    label: string | null;
+    sortOrder: number;
+  }[],
+): ScheduleEntryClient[] {
+  return rows.map((e) => ({
+    kind: e.kind,
+    startsAt: e.allDay ? e.startsAt.toISOString().slice(0, 10) : isoToDatetimeLocalInput(e.startsAt.toISOString()),
+    endsAt:
+      e.kind === "EXAM_WINDOW" && e.endsAt
+        ? e.allDay
+          ? e.endsAt.toISOString().slice(0, 10)
+          : isoToDatetimeLocalInput(e.endsAt.toISOString())
+        : "",
+    allDay: e.allDay,
+    label: e.label ?? "",
+    sortOrder: e.sortOrder,
+  }));
+}
 
 export default async function EditAssessmentPage({
   params,
@@ -26,7 +59,7 @@ export default async function EditAssessmentPage({
 
   const level = assessment.course.organization.educationLevel;
 
-  const [questions, courseCohortRows, courseDeptRows] = await Promise.all([
+  const [questions, courseCohortRows, courseDeptRows, scheduleRows] = await Promise.all([
     prisma.question.findMany({
       where: { assessmentId },
       orderBy: { order: "asc" },
@@ -51,6 +84,10 @@ export default async function EditAssessmentPage({
           orderBy: { department: { name: "asc" } },
         })
       : Promise.resolve([]),
+    prisma.assessmentScheduleEntry.findMany({
+      where: { assessmentId },
+      orderBy: [{ sortOrder: "asc" }, { startsAt: "asc" }],
+    }),
   ]);
 
   const linkedCourseCohorts = courseCohortRows.map((r) => r.cohort);
@@ -90,7 +127,9 @@ export default async function EditAssessmentPage({
           showAnswersToStudents: assessment.showAnswersToStudents,
           maxAttemptsPerStudent: assessment.maxAttemptsPerStudent,
           retakeRequiresApproval: assessment.retakeRequiresApproval,
+          deliveryMode: assessment.deliveryMode,
         }}
+        initialScheduleEntries={mapScheduleRowsToClient(scheduleRows)}
         initialQuestions={questions}
         linkedCourseCohorts={linkedCourseCohorts}
         initialCohortIds={initialCohortIds}

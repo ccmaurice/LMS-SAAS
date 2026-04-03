@@ -52,6 +52,7 @@ const OAUTH_ERRORS: Record<string, string> = {
   google_org_pending:
     "This school is still waiting for platform approval. You will be able to sign in once an operator activates it.",
   google_org_rejected: "This school registration was not approved. Contact support if you believe this is a mistake.",
+  too_many_requests: "Too many sign-in attempts from this network. Wait a few minutes and try again.",
 };
 
 const googleOAuthEnabled =

@@ -1,5 +1,12 @@
 # Deploy SaaS LMS on Vercel
 
+## Pre-push checklist (GitHub → Vercel)
+
+- `npm run lint` and `npm test` pass; `npm run build` succeeds (or delete a stale `.next` folder if TypeScript validator errors appear, then rebuild).
+- Commit **all** `prisma/migrations/*` folders (Production runs `prisma migrate deploy` during build when `VERCEL_ENV=production`).
+- Do **not** commit `.env`, `.env.local`, or secrets — only `.env.example` is tracked.
+- After connecting the repo, confirm Vercel **Production** has `DATABASE_URL`, **`DIRECT_URL`** (Supabase), `JWT_SECRET` (≥16 chars), and `NEXT_PUBLIC_APP_URL` matching your deployment URL.
+
 Vercel runs **Next.js** well. The app uses **PostgreSQL** via **Prisma** and the **`pg`** driver (Supabase-compatible). The database must be reachable from Vercel’s build (migrations) and serverless runtime.
 
 ## 1. Create a Supabase (or other Postgres) database

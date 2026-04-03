@@ -3,17 +3,26 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { buildStudentTranscript } from "@/lib/transcript/build-transcript";
+import {
+  buildTranscriptPdfQuery,
+  listAcademicTermsOrdered,
+  transcriptScopeDescription,
+  transcriptScopeFromSearchParams,
+  transcriptScopeQueryPairs,
+} from "@/lib/transcript/academic-term-scope";
+import { TranscriptSessionFilters } from "@/components/transcript/transcript-session-filters";
 import { TranscriptView, type TranscriptRowClient } from "@/components/transcript/transcript-view";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { getOrganizationLogoUrl } from "@/lib/org/org-logo";
+import { academicCalendarCopy } from "@/lib/education_context";
 
 export default async function TranscriptPage({
   params,
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ child?: string }>;
+  searchParams: Promise<{ child?: string; term?: string; fromTerm?: string; toTerm?: string }>;
 }) {
   const { slug } = await params;
   const sp = await searchParams;
@@ -30,8 +39,10 @@ export default async function TranscriptPage({
       reportCardsPublished: true,
       heroImageUrl: true,
       logoImageUrl: true,
+      educationLevel: true,
     },
   });
+  const cal = academicCalendarCopy(org?.educationLevel ?? user.organization.educationLevel);
   const orgLogoUrl =
     org != null ? await getOrganizationLogoUrl(org.id, org.slug, org.logoImageUrl, org.heroImageUrl) : null;
 
@@ -87,7 +98,8 @@ export default async function TranscriptPage({
         <h1 className="page-title">Transcript</h1>
         <p className="text-sm text-muted-foreground">
           Staff view: open a student’s profile from Users, or sign in as a student demo account to preview transcript and
-          GPA. The transcript is built from course enrollments and graded, semester-tagged assessments.
+          GPA. Students can filter by {cal.periodSingular} (course calendar) or a range across school years; grades still
+          use assessment semesters 1–3 and promotion settings on each course.
         </p>
         <Link href={`${base}/admin/users`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
           Users admin
@@ -96,7 +108,26 @@ export default async function TranscriptPage({
     );
   }
 
-  const payload = await buildStudentTranscript(subjectUserId, user.organizationId);
+  const [termScope, termsOrdered] = await Promise.all([
+    transcriptScopeFromSearchParams(user.organizationId, {
+      term: typeof sp.term === "string" ? sp.term : undefined,
+      fromTerm: typeof sp.fromTerm === "string" ? sp.fromTerm : undefined,
+      toTerm: typeof sp.toTerm === "string" ? sp.toTerm : undefined,
+    }),
+    listAcademicTermsOrdered(user.organizationId),
+  ]);
+
+  const payload = await buildStudentTranscript(subjectUserId, user.organizationId, termScope);
+  const scopeSubtitle = transcriptScopeDescription(termScope, termsOrdered, cal.scopePeriodLabels);
+  const pdfQuery = buildTranscriptPdfQuery({
+    child: user.role === "PARENT" ? subjectUserId : undefined,
+    scope: termScope,
+  });
+
+  const parentTranscriptExtraQs = transcriptScopeQueryPairs(termScope)
+    .map(([k, v]) => `&${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join("");
+
   const rowsClient: TranscriptRowClient[] = payload.rows.map((r) => ({
     courseId: r.courseId,
     courseTitle: r.courseTitle,
@@ -123,7 +154,7 @@ export default async function TranscriptPage({
           {parentChildren.map((c) => (
             <Link
               key={c.id}
-              href={`${base}/transcript?child=${encodeURIComponent(c.id)}`}
+              href={`${base}/transcript?child=${encodeURIComponent(c.id)}${parentTranscriptExtraQs}`}
               className={cn(
                 buttonVariants({
                   variant: c.id === subjectUserId ? "default" : "outline",
@@ -136,17 +167,31 @@ export default async function TranscriptPage({
           ))}
         </div>
       ) : null}
+      <TranscriptSessionFilters
+        basePath={`${base}/transcript`}
+        terms={termsOrdered.map((t) => ({ id: t.id, label: t.label }))}
+        currentScope={termScope}
+        childUserId={user.role === "PARENT" ? subjectUserId : undefined}
+        calendar={cal}
+      />
       <TranscriptView
         slug={slug}
         orgName={org?.name ?? "School"}
         orgLogoUrl={orgLogoUrl}
         academicYearLabel={org?.academicYearLabel ?? "—"}
+        scopeSubtitle={scopeSubtitle}
+        coursePeriodColumnLabel={cal.periodSingularCapitalized}
+        emptyRowsHint={
+          termScope.kind !== "all" && payload.rows.length === 0
+            ? `No courses in this ${cal.periodSingular} scope. Assign ${cal.courseFieldLabel.toLowerCase()} on each course (edit course) and ensure you are enrolled.`
+            : undefined
+        }
         showGpa={payload.educationLevel === "HIGHER_ED"}
         cumulativeGpa={payload.cumulativeGpa}
         totalCreditsGraded={payload.totalCreditsGraded}
         rows={rowsClient}
         semesterSummaries={payload.semesterSummaries}
-        pdfQuery={user.role === "PARENT" ? `?child=${encodeURIComponent(subjectUserId)}` : ""}
+        pdfQuery={pdfQuery}
       />
     </div>
   );

@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { EducationLevel } from "@/generated/prisma/enums";
+import { academicCalendarCopy } from "@/lib/education_context/academic-period-labels";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +15,10 @@ export function CourseGradingPanel({
   courseId,
   initial,
   terms,
+  educationLevel,
 }: {
   courseId: string;
+  educationLevel: EducationLevel;
   initial: {
     gradeWeightContinuous: number;
     gradeWeightExam: number;
@@ -24,6 +28,7 @@ export function CourseGradingPanel({
   };
   terms: TermOption[];
 }) {
+  const cal = academicCalendarCopy(educationLevel);
   const router = useRouter();
   const [wCa, setWCa] = useState(String(initial.gradeWeightContinuous));
   const [wEx, setWEx] = useState(String(initial.gradeWeightExam));
@@ -75,8 +80,9 @@ export function CourseGradingPanel({
       <h2 className="text-lg font-semibold">Grades, weights & transcript</h2>
       <p className="text-sm text-muted-foreground">
         Quizzes roll into continuous assessment (CA); exams into the exam bucket. Tag assessments with semester 1–3 for
-        rollups. For higher-ed transcripts, set <span className="font-medium text-foreground">credit hours</span> and
-        optionally an <span className="font-medium text-foreground">academic term</span> (Admin → Academic terms).
+        rollups. For transcripts, set <span className="font-medium text-foreground">credit hours</span> where needed and
+        optionally <span className="font-medium text-foreground">{cal.courseFieldLabel.toLowerCase()}</span> (
+        {cal.gradingPanelAdminRef}).
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
@@ -109,7 +115,7 @@ export function CourseGradingPanel({
           />
         </div>
         <div className="space-y-1">
-          <Label>Academic term</Label>
+          <Label>{cal.courseFieldLabel}</Label>
           <select
             className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
             value={termId}

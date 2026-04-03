@@ -10,6 +10,8 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { AssessmentPrompt } from "@/components/assessments/assessment-prompt";
+import { AssessmentDeliveryIntegrity } from "@/components/assessments/assessment-delivery-integrity";
+import { AssessmentLockdownGuards } from "@/components/assessments/assessment-lockdown-guards";
 import { AssessmentProctorHooks } from "@/components/assessments/assessment-proctor-hooks";
 import { AssessmentDragDrop } from "@/components/assessments/assessment-drag-drop";
 import { FormulaAnswerField } from "@/components/assessments/formula-answer-field";
@@ -63,6 +65,7 @@ export function TakeAssessment({
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [remainingSec, setRemainingSec] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deliveryMode, setDeliveryMode] = useState<"FORMATIVE" | "SECURE_ONLINE" | "LOCKDOWN">("FORMATIVE");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const answersRef = useRef<Record<string, string>>({});
   const autoSubmittedRef = useRef(false);
@@ -83,11 +86,16 @@ export function TakeAssessment({
         return;
       }
       const aData = (await aRes.json()) as {
-        assessment: { title: string; timeLimitMinutes: number | null };
+        assessment: {
+          title: string;
+          timeLimitMinutes: number | null;
+          deliveryMode?: "FORMATIVE" | "SECURE_ONLINE" | "LOCKDOWN";
+        };
         questions: QuestionRow[];
       };
       setTitle(aData.assessment.title);
       setTimeLimit(aData.assessment.timeLimitMinutes);
+      setDeliveryMode(aData.assessment.deliveryMode ?? "FORMATIVE");
       setQuestions(aData.questions);
 
       if (!sRes.ok) {
@@ -143,6 +151,17 @@ export function TakeAssessment({
   useEffect(() => {
     answersRef.current = answers;
   }, [answers]);
+
+  useEffect(() => {
+    const strict = deliveryMode !== "FORMATIVE";
+    if (!strict || locked || !submissionId || submitting) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [deliveryMode, locked, submissionId, submitting]);
 
   useEffect(() => {
     if (remainingSec !== 0 || timeLimit == null || locked || !submissionId || autoSubmittedRef.current) return;
@@ -224,12 +243,20 @@ export function TakeAssessment({
   if (locked || !submissionId) return null;
 
   const timedOut = remainingSec === 0 && timeLimit != null;
+  const proctorEnabled = deliveryMode !== "FORMATIVE";
+  const lockdownUi = deliveryMode === "LOCKDOWN";
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8 pb-16">
-      {submissionId && !locked ? (
-        <AssessmentProctorHooks assessmentId={assessmentId} submissionId={submissionId} />
-      ) : null}
+    <AssessmentLockdownGuards active={lockdownUi}>
+      <div className="mx-auto max-w-2xl space-y-8 pb-16">
+        {submissionId && !locked ? (
+          <AssessmentProctorHooks
+            assessmentId={assessmentId}
+            submissionId={submissionId}
+            enabled={proctorEnabled}
+          />
+        ) : null}
+        {submissionId && !locked ? <AssessmentDeliveryIntegrity mode={deliveryMode} /> : null}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Link href={base} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
@@ -316,6 +343,7 @@ export function TakeAssessment({
               {q.type === "SHORT_ANSWER" ? (
                 <Input
                   className="mt-4"
+                  data-lockdown-allow-input
                   value={answers[q.id] ?? ""}
                   onChange={(e) => setAnswer(q.id, e.target.value)}
                 />
@@ -324,6 +352,7 @@ export function TakeAssessment({
                 <Textarea
                   className="mt-4 min-h-[140px]"
                   rows={6}
+                  data-lockdown-allow-input
                   value={answers[q.id] ?? ""}
                   onChange={(e) => setAnswer(q.id, e.target.value)}
                 />
@@ -395,6 +424,7 @@ export function TakeAssessment({
           {submitting ? "Submitting…" : "Submit assessment"}
         </Button>
       </div>
-    </div>
+      </div>
+    </AssessmentLockdownGuards>
   );
 }

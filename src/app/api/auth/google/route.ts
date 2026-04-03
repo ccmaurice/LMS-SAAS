@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { checkRateLimit, getRequestIp } from "@/lib/api/rate-limit";
 import { signGoogleOAuthState } from "@/lib/auth/oauth-state";
 import { isValidOrgSlug, normalizeOrgSlug } from "@/lib/slug";
 import { prisma } from "@/lib/db";
@@ -8,6 +9,12 @@ function appOrigin() {
 }
 
 export async function GET(request: Request) {
+  const ip = getRequestIp(request);
+  const limited = checkRateLimit(`auth-google-start:${ip}`, 45, 15 * 60 * 1000);
+  if (!limited.ok) {
+    return NextResponse.redirect(new URL("/login?error=too_many_requests", appOrigin()));
+  }
+
   const clientId = process.env.GOOGLE_CLIENT_ID?.trim();
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
   if (!clientId || !clientSecret) {

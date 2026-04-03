@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { checkRateLimit, getRequestIp } from "@/lib/api/rate-limit";
 import { prisma } from "@/lib/db";
 import { AUTH_COOKIE, AUTH_COOKIE_MAX_AGE_SEC } from "@/lib/auth/constants";
 import { signSessionToken } from "@/lib/auth/jwt";
@@ -12,6 +13,10 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const ip = getRequestIp(req);
+  const limited = checkRateLimit(`invite-accept:${ip}`, 15, 60 * 60 * 1000);
+  if (!limited.ok) return limited.response;
+
   let body: unknown;
   try {
     body = await req.json();

@@ -27,6 +27,8 @@ function buildTranscriptPrintBody(opts: {
   orgName: string;
   orgLogoUrl?: string | null;
   academicYearLabel: string;
+  scopeSubtitle?: string | null;
+  coursePeriodColumnLabel: string;
   showGpa: boolean;
   cumulativeGpa: number | null;
   totalCreditsGraded: number;
@@ -39,7 +41,11 @@ function buildTranscriptPrintBody(opts: {
     opts.orgLogoUrl?.trim() != null && opts.orgLogoUrl.trim() !== ""
       ? `<div class="brand-row"><img src="${escapeHtml(opts.orgLogoUrl.trim())}" alt="" /></div>`
       : "";
-  let html = `${brand}<h1>Official transcript</h1><p class="muted">${o} · ${y}</p>`;
+  const scope =
+    opts.scopeSubtitle?.trim() != null && opts.scopeSubtitle.trim() !== ""
+      ? `<p style="font-weight:600;margin-top:8px;">${escapeHtml(opts.scopeSubtitle.trim())}</p>`
+      : "";
+  let html = `${brand}<h1>Official transcript</h1><p class="muted">${o} · ${y}</p>${scope}`;
 
   if (opts.showGpa) {
     const gpa = opts.cumulativeGpa != null ? opts.cumulativeGpa.toFixed(2) : "—";
@@ -60,7 +66,7 @@ function buildTranscriptPrintBody(opts: {
     html += `<p class="muted">GPA columns appear for higher-ed institutions with letter or percent grading.</p>`;
   }
 
-  html += `<table><thead><tr><th>Course</th><th>Term</th><th class="num">Credits</th><th class="num">Grade</th>`;
+  html += `<table><thead><tr><th>Course</th><th>${escapeHtml(opts.coursePeriodColumnLabel)}</th><th class="num">Credits</th><th class="num">Grade</th>`;
   if (opts.showGpa) html += `<th class="num">GPA pts</th>`;
   html += `</tr></thead><tbody>`;
 
@@ -85,24 +91,33 @@ export function TranscriptView({
   orgName,
   orgLogoUrl = null,
   academicYearLabel,
+  scopeSubtitle = null,
+  coursePeriodColumnLabel = "Term",
   showGpa,
   cumulativeGpa,
   totalCreditsGraded,
   rows,
   semesterSummaries = [],
   pdfQuery = "",
+  emptyRowsHint,
 }: {
   slug: string;
   orgName: string;
   orgLogoUrl?: string | null;
   academicYearLabel: string;
+  /** Academic session filter line (e.g. “Terms: Fall 24 — Spring 25”). */
+  scopeSubtitle?: string | null;
+  /** Table column for course-linked calendar period (`AcademicTerm` label). */
+  coursePeriodColumnLabel?: string;
   showGpa: boolean;
   cumulativeGpa: number | null;
   totalCreditsGraded: number;
   rows: TranscriptRowClient[];
   semesterSummaries?: SemesterSummaryClient[];
-  /** e.g. `?child=userId` for parent viewing a specific student */
+  /** Full query string for PDF download, e.g. `?child=…&fromTerm=…` */
   pdfQuery?: string;
+  /** When the table is empty (e.g. term/semester filter). */
+  emptyRowsHint?: string;
 }) {
   const base = `/o/${slug}`;
 
@@ -112,6 +127,8 @@ export function TranscriptView({
         orgName,
         orgLogoUrl,
         academicYearLabel,
+        scopeSubtitle,
+        coursePeriodColumnLabel,
         showGpa,
         cumulativeGpa,
         totalCreditsGraded,
@@ -189,6 +206,9 @@ export function TranscriptView({
             <p className="mt-1 text-sm text-muted-foreground">
               {orgName} · Year {academicYearLabel}
             </p>
+            {scopeSubtitle ? (
+              <p className="mt-1 text-sm font-medium text-foreground">{scopeSubtitle}</p>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -219,6 +239,7 @@ export function TranscriptView({
             <p className="text-sm text-muted-foreground">
               {orgName} · {academicYearLabel}
             </p>
+            {scopeSubtitle ? <p className="text-sm font-medium text-foreground">{scopeSubtitle}</p> : null}
           </div>
         </div>
       </header>
@@ -275,7 +296,7 @@ export function TranscriptView({
           <thead className="text-left text-xs font-medium text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Course</th>
-              <th className="px-4 py-3">Term</th>
+              <th className="px-4 py-3">{coursePeriodColumnLabel}</th>
               <th className="px-4 py-3">Credits</th>
               <th className="px-4 py-3">Grade</th>
               {showGpa ? <th className="px-4 py-3">GPA pts</th> : null}
@@ -300,7 +321,9 @@ export function TranscriptView({
           </tbody>
         </table>
         {rows.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">No course enrollments in this organization yet.</p>
+          <p className="p-4 text-sm text-muted-foreground">
+            {emptyRowsHint ?? "No course enrollments in this organization yet."}
+          </p>
         ) : null}
       </div>
     </div>

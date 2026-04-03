@@ -6,7 +6,7 @@ import { GradingPromotionPanel } from "@/components/admin/grading-promotion-pane
 import { SchoolSettingsForm } from "@/components/admin/school-settings-form";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
-import { parseOrganizationSettings } from "@/lib/education_context";
+import { academicCalendarCopy, parseOrganizationSettings } from "@/lib/education_context";
 
 export default async function AdminSchoolPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -35,6 +35,7 @@ export default async function AdminSchoolPage({ params }: { params: Promise<{ sl
   if (!org) redirect("/login");
 
   const orgSettings = parseOrganizationSettings(org.organizationSettings);
+  const cal = academicCalendarCopy(org.educationLevel);
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -47,8 +48,11 @@ export default async function AdminSchoolPage({ params }: { params: Promise<{ sl
           Brand logo (upload or link), public hero image for marketing, education level, and theme colors.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
+          <Link href={`/o/${slug}/admin/calendar`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+            School calendar
+          </Link>
           <Link href={`/o/${slug}/admin/terms`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            Academic terms
+            {cal.navLabel}
           </Link>
           <Link
             href={org.educationLevel === "HIGHER_ED" ? `/o/${slug}/admin/departments` : `/o/${slug}/admin/classes`}

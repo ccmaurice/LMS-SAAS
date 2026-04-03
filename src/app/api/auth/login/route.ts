@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { checkRateLimit, getRequestIp } from "@/lib/api/rate-limit";
 import { prisma } from "@/lib/db";
 import { resolveAuthDatabaseError } from "@/lib/prisma-errors";
 import { signSessionToken } from "@/lib/auth/jwt";
@@ -19,6 +20,10 @@ function zodIssuesToMessage(err: z.ZodError): string {
 
 export async function POST(req: Request) {
   try {
+    const ip = getRequestIp(req);
+    const limited = checkRateLimit(`auth-login:${ip}`, 30, 15 * 60 * 1000);
+    if (!limited.ok) return limited.response;
+
     let json: unknown;
     try {
       json = await req.json();

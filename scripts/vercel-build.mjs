@@ -11,7 +11,7 @@ if (vercelEnv === "production") {
     );
     process.exit(1);
   }
-  console.log("[vercel-build] prisma migrate deploy (VERCEL_ENV=production)");
+  console.info("[vercel-build] prisma migrate deploy (VERCEL_ENV=production)");
   try {
     execSync("npx prisma migrate deploy", { stdio: "inherit", env: process.env });
   } catch {
@@ -21,12 +21,12 @@ if (vercelEnv === "production") {
     process.exit(1);
   }
 } else {
-  console.log(
+  console.info(
     `[vercel-build] skipping migrate (VERCEL_ENV=${vercelEnv ?? "unset"}); run migrations against preview DB manually if needed`,
   );
 }
 
-console.log("[vercel-build] next build");
+console.info("[vercel-build] next build");
 try {
   execSync("npx next build", { stdio: "inherit", env: process.env });
 } catch {

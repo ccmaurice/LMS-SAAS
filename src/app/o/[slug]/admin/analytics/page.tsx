@@ -50,6 +50,8 @@ export default async function AdminAnalyticsPage({ params }: { params: Promise<{
     topCourses,
     schoolPublicCmsRows,
     extraCardRow,
+    schoolCalendarEventCount,
+    assessmentScheduleEntryCount,
   ] = await Promise.all([
     prisma.user.groupBy({
       by: ["role"],
@@ -91,6 +93,10 @@ export default async function AdminAnalyticsPage({ params }: { params: Promise<{
       where: { organizationId_key: { organizationId: orgId, key: SCHOOL_PUBLIC_EXTRA_CARDS_KEY } },
       select: { value: true },
     }),
+    prisma.schoolCalendarEvent.count({ where: { organizationId: orgId } }),
+    prisma.assessmentScheduleEntry.count({
+      where: { assessment: { course: { organizationId: orgId } } },
+    }),
   ]);
 
   const publicExtraSections = parseSchoolPublicExtraCards(extraCardRow?.value).length;
@@ -130,7 +136,26 @@ export default async function AdminAnalyticsPage({ params }: { params: Promise<{
           <Link href={`/o/${slug}/admin/cms`} className="font-medium text-foreground underline-offset-4 hover:underline">
             Admin → CMS
           </Link>
-          . The same numbers feed platform tenant analytics for billing and support prioritization.
+          .           The same numbers feed platform tenant analytics for billing and support prioritization.
+        </p>
+      </section>
+
+      <section className="surface-bento p-6">
+        <h2 className="text-lg font-semibold tracking-tight">Calendar &amp; assessment schedules</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <strong className="text-foreground">{schoolCalendarEventCount}</strong> school calendar event
+          {schoolCalendarEventCount === 1 ? "" : "s"} (org-wide dates on the dashboard calendar and notification pipeline) ·{" "}
+          <strong className="text-foreground">{assessmentScheduleEntryCount}</strong> assessment schedule row
+          {assessmentScheduleEntryCount === 1 ? "" : "s"} (structured opens, due dates, and exam windows on published
+          assessments). These counts are the same ones platform operators see under{" "}
+          <Link href="/platform/usage" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Platform → Tenant usage &amp; analysis
+          </Link>{" "}
+          (weighted index includes both). Manage events in{" "}
+          <Link href={`/o/${slug}/admin/calendar`} className="font-medium text-foreground underline-offset-4 hover:underline">
+            Admin → School calendar
+          </Link>
+          ; schedule rows are edited on each assessment.
         </p>
       </section>
 

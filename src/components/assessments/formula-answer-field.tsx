@@ -49,7 +49,6 @@ export function FormulaAnswerField({
       {previewHtml ? (
         <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-2 text-sm dark:border-white/10">
           <p className="mb-1 text-xs text-muted-foreground">Preview</p>
-          {/* eslint-disable-next-line react/no-danger */}
           <div className="overflow-x-auto text-center" dangerouslySetInnerHTML={{ __html: previewHtml }} />
         </div>
       ) : null}

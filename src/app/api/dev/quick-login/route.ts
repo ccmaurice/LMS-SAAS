@@ -6,9 +6,13 @@ import { applySessionCookie } from "@/lib/auth/session-cookie";
 /**
  * Development only: one GET sets the session cookie for the seeded demo admin.
  * Open: /api/dev/quick-login
+ * Set DISABLE_DEV_QUICK_LOGIN=true to disable (e.g. when exposing a dev server to the network).
  */
 export async function GET(request: Request) {
   if (process.env.NODE_ENV !== "development") {
+    return new NextResponse(null, { status: 404 });
+  }
+  if (process.env.DISABLE_DEV_QUICK_LOGIN === "true") {
     return new NextResponse(null, { status: 404 });
   }
 

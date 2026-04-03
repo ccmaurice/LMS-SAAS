@@ -32,13 +32,17 @@ export default async function PlatformUsagePage() {
         <Link href="/platform" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2 text-muted-foreground")}>
           ← Organizations
         </Link>
-        <h1 className="page-title mt-4">Tenant usage &amp; billing signals</h1>
+        <h1 className="page-title mt-4">Tenant usage & analysis</h1>
         <p className="mt-1 max-w-3xl text-muted-foreground">
           Per-school database activity and a configurable weighted index to prioritize commercial follow-up. Row counts
           approximate how much each tenant stresses PostgreSQL; combine with your own Blob bandwidth and support costs.
           Public marketing pages surface as CMS row counts plus custom section cards; only the first twelve sections count
-          toward the weighted index (see tenant usage dashboard). Use the table and per-tenant feature mix chart for full
-          counts.
+          toward the weighted index (see tenant usage dashboard). <strong className="text-foreground">School calendar</strong>{" "}
+          and <strong className="text-foreground">assessment schedule</strong> row counts match Admin → School calendar and
+          per-assessment schedule windows (same figures as the weighted index and CSV).{" "}
+          <strong className="text-foreground">Outcome attention</strong> counts published assessments that would flag in each
+          school’s Assessment outcomes (same thresholds as staff “Needs attention”); use it for proactive support, not billing
+          weight. Use the table and per-tenant feature mix chart for full counts.
         </p>
       </div>
 

@@ -13,6 +13,11 @@ import {
   getRecentSchoolMessages,
   getUserReportCardRows,
 } from "@/lib/dashboard/insights";
+import { ensureUpcomingCalendarNotifications } from "@/lib/calendar/calendar-notifications";
+import {
+  defaultDashboardCalendarRange,
+  fetchDashboardCalendarItems,
+} from "@/lib/calendar/dashboard-calendar";
 
 export default async function DashboardPage({
   params,
@@ -123,6 +128,28 @@ export default async function DashboardPage({
 
   const cms = Object.fromEntries(cmsRows.map((r) => [r.key, r.value])) as Record<string, string>;
 
+  const { rangeStart: calFrom, rangeEnd: calTo } = defaultDashboardCalendarRange(new Date(), 2);
+  try {
+    await ensureUpcomingCalendarNotifications({
+      userId: user.id,
+      organizationId: user.organizationId,
+      orgSlug: slug,
+      role: user.role,
+      parentChildIds,
+    });
+  } catch {
+    /* avoid blocking dashboard if notification insert fails */
+  }
+  const calendarItems = await fetchDashboardCalendarItems({
+    organizationId: user.organizationId,
+    orgSlug: slug,
+    userId: user.id,
+    role: user.role,
+    parentChildIds,
+    rangeStart: calFrom,
+    rangeEnd: calTo,
+  });
+
   const reportPreview = reportRows.slice(0, 5).map((r) => ({
     submissionId: r.submissionId,
     assessmentId: r.assessmentId,
@@ -174,6 +201,7 @@ export default async function DashboardPage({
       recentDiscussions={recentDiscussionsSerialized}
       reportPreview={reportPreview}
       certificates={certificates}
+      calendarItems={calendarItems}
     />
   );
 }

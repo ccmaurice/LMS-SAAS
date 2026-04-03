@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AssessmentQuestionBankPanel } from "@/components/assessments/assessment-question-bank-panel";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,10 @@ import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import type { Question } from "@/generated/prisma/client";
 import type { EducationLevel } from "@/generated/prisma/enums";
+import {
+  AssessmentScheduleEditor,
+  type ScheduleEntryClient,
+} from "@/components/assessments/assessment-schedule-editor";
 
 type AssessmentMeta = {
   id: string;
@@ -26,6 +31,7 @@ type AssessmentMeta = {
   showAnswersToStudents: boolean;
   maxAttemptsPerStudent: number;
   retakeRequiresApproval: boolean;
+  deliveryMode: "FORMATIVE" | "SECURE_ONLINE" | "LOCKDOWN";
 };
 
 type LinkedCohort = {
@@ -47,6 +53,7 @@ export function AssessmentEditor({
   courseId,
   educationLevel,
   initialAssessment,
+  initialScheduleEntries,
   initialQuestions,
   linkedCourseCohorts = [],
   initialCohortIds = [],
@@ -57,6 +64,7 @@ export function AssessmentEditor({
   courseId: string;
   educationLevel: EducationLevel;
   initialAssessment: AssessmentMeta;
+  initialScheduleEntries: ScheduleEntryClient[];
   initialQuestions: Question[];
   linkedCourseCohorts?: LinkedCohort[];
   initialCohortIds?: string[];
@@ -75,6 +83,7 @@ export function AssessmentEditor({
   const [showAnswers, setShowAnswers] = useState(initialAssessment.showAnswersToStudents);
   const [maxAttempts, setMaxAttempts] = useState(String(initialAssessment.maxAttemptsPerStudent));
   const [retakeApproval, setRetakeApproval] = useState(initialAssessment.retakeRequiresApproval);
+  const [deliveryMode, setDeliveryMode] = useState(initialAssessment.deliveryMode);
   const [timeLimit, setTimeLimit] = useState(initialAssessment.timeLimitMinutes?.toString() ?? "");
   const [kind, setKind] = useState(initialAssessment.kind);
   const [semester, setSemester] = useState<string>(
@@ -103,6 +112,7 @@ export function AssessmentEditor({
   const [aiTopic, setAiTopic] = useState("");
   const [aiOut, setAiOut] = useState("");
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [questionTab, setQuestionTab] = useState<"build" | "bank">("build");
 
   async function saveMeta() {
     setBusy(true);
@@ -121,6 +131,7 @@ export function AssessmentEditor({
           showAnswersToStudents: showAnswers,
           maxAttemptsPerStudent: Math.min(50, Math.max(1, Number(maxAttempts) || 1)),
           retakeRequiresApproval: retakeApproval,
+          deliveryMode,
           kind,
           semester: semester === "" ? null : Number(semester),
           timeLimitMinutes: tl != null && !Number.isNaN(tl) ? tl : null,
@@ -335,6 +346,28 @@ export function AssessmentEditor({
             <Label>Time limit (minutes, empty = none)</Label>
             <Input value={timeLimit} onChange={(e) => setTimeLimit(e.target.value)} />
           </div>
+          <div className="space-y-1 sm:col-span-2">
+            <Label>Delivery mode (student experience)</Label>
+            <select
+              className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm"
+              value={deliveryMode}
+              onChange={(e) =>
+                setDeliveryMode(e.target.value as "FORMATIVE" | "SECURE_ONLINE" | "LOCKDOWN")
+              }
+            >
+              <option value="FORMATIVE">Formative — no focus logging or lockdown UI</option>
+              <option value="SECURE_ONLINE">
+                Secure online — logs tab/window leave; optional fullscreen; visible warnings
+              </option>
+              <option value="LOCKDOWN">
+                High lockdown — same as secure plus no right-click; copy/cut/paste blocked outside answers
+              </option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Integrity signals are stored for staff review; they do not replace a dedicated lockdown browser or
+              invigilation.
+            </p>
+          </div>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} />
@@ -450,6 +483,18 @@ export function AssessmentEditor({
         >
           Gradebook
         </Link>
+        <Link
+          href={`${base}/${aid}/item-analysis`}
+          className={cn(buttonVariants({ variant: "outline" }), "ml-2 inline-flex")}
+        >
+          Item analysis
+        </Link>
+        <Link
+          href={`${base}/${aid}/integrity`}
+          className={cn(buttonVariants({ variant: "outline" }), "ml-2 inline-flex")}
+        >
+          Integrity log
+        </Link>
         <div className="mt-4 rounded-md border border-dashed border-border p-3 text-sm">
           <Label className="text-foreground">AI: questions from PDF (Gemini)</Label>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -470,28 +515,71 @@ export function AssessmentEditor({
         </div>
       </section>
 
+      <AssessmentScheduleEditor assessmentId={aid} initialEntries={initialScheduleEntries} />
+
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Questions</h2>
-        <ul className="space-y-2">
-          {questions.map((q, i) => (
-            <li key={q.id} className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-border p-3">
-              <div>
-                <span className="text-xs text-muted-foreground">
-                  {i + 1}. {q.type} · {q.points} pts
-                </span>
-                <p className="text-sm whitespace-pre-wrap">{q.prompt}</p>
-              </div>
-              <Button type="button" size="sm" variant="destructive" onClick={() => void removeQuestion(q.id)}>
-                Delete
-              </Button>
-            </li>
-          ))}
-        </ul>
-        {questions.length === 0 ? <p className="text-sm text-muted-foreground">No questions yet.</p> : null}
+        <div className="flex flex-wrap gap-2 border-b border-border pb-2 dark:border-white/10">
+          <button
+            type="button"
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              questionTab === "build"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted",
+            )}
+            onClick={() => setQuestionTab("build")}
+          >
+            Build questions
+          </button>
+          <button
+            type="button"
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              questionTab === "bank"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted",
+            )}
+            onClick={() => setQuestionTab("bank")}
+          >
+            Question bank
+          </button>
+        </div>
+
+        {questionTab === "bank" ? (
+          <AssessmentQuestionBankPanel
+            assessmentId={aid}
+            disabled={busy}
+            onAdded={(q) => {
+              setQuestions((prev) => [...prev, q]);
+              router.refresh();
+            }}
+          />
+        ) : (
+          <>
+            <ul className="space-y-2">
+              {questions.map((q, i) => (
+                <li key={q.id} className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-border p-3">
+                  <div>
+                    <span className="text-xs text-muted-foreground">
+                      {i + 1}. {q.type} · {q.points} pts
+                    </span>
+                    <p className="text-sm whitespace-pre-wrap">{q.prompt}</p>
+                  </div>
+                  <Button type="button" size="sm" variant="destructive" onClick={() => void removeQuestion(q.id)}>
+                    Delete
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {questions.length === 0 ? <p className="text-sm text-muted-foreground">No questions yet.</p> : null}
+          </>
+        )}
       </section>
 
       <Separator />
 
+      {questionTab === "build" ? (
       <section className="space-y-3 rounded-lg border border-dashed border-border p-4">
         <h2 className="text-lg font-semibold">Add question</h2>
         <div className="space-y-1">
@@ -683,6 +771,7 @@ export function AssessmentEditor({
           Add question
         </Button>
       </section>
+      ) : null}
     </div>
   );
 }

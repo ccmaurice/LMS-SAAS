@@ -1,13 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { ORG_THEME_TEMPLATES } from "@/lib/org-branding";
+import { cn } from "@/lib/utils";
 import { STANDARD_4_POINT_GPA_BANDS } from "@/lib/grading_engine/letter-gpa";
+import { academicCalendarCopy } from "@/lib/education_context/academic-period-labels";
 
 type GpaBandRow = { minPercent: number; gpa: number };
 
@@ -62,6 +66,8 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const cal = academicCalendarCopy(educationLevel);
 
   const logoPreview =
     logoUrl.trim() === ""
@@ -286,9 +292,23 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
           </select>
           <p className="text-xs text-muted-foreground">
             Drives terminology, report card labels, and transcript behavior. For higher education, map course percentages to
-            GPA using the table below (first matching row from the top wins). Use{" "}
-            <span className="font-medium text-foreground">Academic terms</span> and per-course credit hours for transcripts.
+            GPA using the table below (first matching row from the top wins). {cal.schoolSettingsBlurb}
           </p>
+          <div className="flex max-w-md flex-col gap-2 rounded-lg border border-border/60 p-3 dark:border-white/10 sm:max-w-none sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 space-y-1">
+              <p className="text-sm font-semibold text-foreground">Academic calendar</p>
+              <p className="text-xs text-muted-foreground">
+                Open {cal.navLabel.toLowerCase()} to add or remove {cal.periodPlural}, set codes and labels, and mark the
+                current {cal.periodSingular} for students.
+              </p>
+            </div>
+            <Link
+              href={`/o/${slug}/admin/terms`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "inline-flex shrink-0")}
+            >
+              {cal.navLabel}
+            </Link>
+          </div>
           {educationLevel === "HIGHER_ED" ? (
             <div className="space-y-3 rounded-lg border border-border/60 p-3 dark:border-white/10">
               <div className="flex flex-wrap items-center justify-between gap-2">

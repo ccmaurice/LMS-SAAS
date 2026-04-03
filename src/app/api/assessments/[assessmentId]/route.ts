@@ -25,6 +25,10 @@ const patchSchema = z.object({
   showAnswersToStudents: z.boolean().optional(),
   maxAttemptsPerStudent: z.number().int().min(1).max(50).optional(),
   retakeRequiresApproval: z.boolean().optional(),
+  deliveryMode: z.enum(["FORMATIVE", "SECURE_ONLINE", "LOCKDOWN"]).optional(),
+  /** Dashboard calendar: optional open / due instants (ISO). */
+  availableFrom: z.string().datetime().optional().nullable(),
+  dueAt: z.string().datetime().optional().nullable(),
   /** K–12: empty = all enrolled. Each id must be linked to the course; teachers must teach that class. */
   cohortIds: z.array(z.string().min(1)).optional(),
   /** Higher ed: empty = all enrolled. Each id must be linked to the course; teachers must be department faculty/chair. */
@@ -110,6 +114,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: 
       showAnswersToStudents: assessment.showAnswersToStudents,
       maxAttemptsPerStudent: assessment.maxAttemptsPerStudent,
       retakeRequiresApproval: assessment.retakeRequiresApproval,
+      deliveryMode: assessment.deliveryMode,
       course: assessment.course,
       cohortIds: staffView && level !== "HIGHER_ED" ? assessment.assessmentCohorts.map((r) => r.cohortId) : undefined,
       departmentIds:
@@ -262,6 +267,13 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ assessmentId:
       }),
       ...(parsed.data.retakeRequiresApproval !== undefined && {
         retakeRequiresApproval: parsed.data.retakeRequiresApproval,
+      }),
+      ...(parsed.data.deliveryMode !== undefined && { deliveryMode: parsed.data.deliveryMode }),
+      ...(parsed.data.availableFrom !== undefined && {
+        availableFrom: parsed.data.availableFrom ? new Date(parsed.data.availableFrom) : null,
+      }),
+      ...(parsed.data.dueAt !== undefined && {
+        dueAt: parsed.data.dueAt ? new Date(parsed.data.dueAt) : null,
       }),
     },
   });

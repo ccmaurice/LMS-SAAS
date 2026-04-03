@@ -8,6 +8,7 @@ import { GradebookTable } from "@/components/assessments/gradebook-table";
 import { GradebookRetakeRequests } from "@/components/assessments/gradebook-retake-requests";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { aggregateProctorEventsBySubmission } from "@/lib/assessments/proctoring-summary";
 
 export default async function GradebookPage({
   params,
@@ -34,18 +35,45 @@ export default async function GradebookPage({
     },
   });
 
+  const submissionIds = submissions.map((s) => s.id);
+  const proctorRows =
+    submissionIds.length > 0
+      ? await prisma.proctoringEvent.findMany({
+          where: { assessmentId, submissionId: { in: submissionIds } },
+          select: { submissionId: true, eventType: true },
+        })
+      : [];
+  const proctorBySubmissionId = aggregateProctorEventsBySubmission(proctorRows);
+
   const base = `/o/${slug}/courses/${courseId}/assessments`;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="page-title">Gradebook · {assessment.title}</h1>
-        <Link href={`${base}/${assessmentId}/edit`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-          Edit assessment
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`${base}/${assessmentId}/item-analysis`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            Item analysis
+          </Link>
+          <Link
+            href={`${base}/${assessmentId}/integrity`}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            Integrity log
+          </Link>
+          <Link href={`${base}/${assessmentId}/edit`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+            Edit assessment
+          </Link>
+        </div>
       </div>
       <GradebookRetakeRequests assessmentId={assessmentId} />
-      <GradebookTable initial={JSON.parse(JSON.stringify(submissions))} />
+      <GradebookTable
+        initial={JSON.parse(JSON.stringify(submissions))}
+        proctorBySubmissionId={proctorBySubmissionId}
+      />
     </div>
   );
 }

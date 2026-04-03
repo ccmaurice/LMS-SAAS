@@ -24,6 +24,10 @@ export const USAGE_WEIGHTS = {
   courseChatMessages: 1,
   learningResources: 4,
   blogPosts: 2,
+  /** Org-wide school calendar rows (dashboard + notifications surface). */
+  schoolCalendarEvents: 2,
+  /** Per-assessment schedule windows (CA opens/due, exam windows); extra rows beyond legacy open/due on Assessment. */
+  assessmentScheduleEntries: 2,
   /** Public school page custom sections (JSON cards); same per-unit weight as `cmsEntries` (one card ≈ one surfaced block). */
   publicExtraSections: 1,
   cmsEntries: 1,

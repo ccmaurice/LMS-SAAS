@@ -9,6 +9,7 @@ if (existsSync(resolve(root, ".env.local"))) {
 }
 
 import { hashPassword } from "../src/lib/auth/password";
+import { GLOBAL_QUESTION_BANK_SEED } from "./question-bank-seed-data";
 
 async function main() {
   const { prisma } = await import("../src/lib/db");
@@ -117,6 +118,11 @@ async function main() {
     create: { organizationId: org.id, key: SCHOOL_PUBLIC_EXTRA_CARDS_KEY, value: demoExtraCards },
     update: { value: demoExtraCards },
   });
+
+  const globalBankCount = await prisma.questionBankItem.count({ where: { organizationId: null } });
+  if (globalBankCount === 0) {
+    await prisma.questionBankItem.createMany({ data: GLOBAL_QUESTION_BANK_SEED });
+  }
 
   for (const u of users) {
     await prisma.user.upsert({

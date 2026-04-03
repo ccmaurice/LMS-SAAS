@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { EducationLevel, Role } from "@/generated/prisma/enums";
+import { academicCalendarCopy } from "@/lib/education_context/academic-period-labels";
 import { navAcademicGroupsLabel } from "@/lib/school/group-labels";
 import { cn } from "@/lib/utils";
 
@@ -34,7 +35,8 @@ function navItemsForOrg(educationLevel: EducationLevel): NavItem[] {
     { href: "admin/users", label: "Users", roles: ["ADMIN"] },
     { href: "admin/school", label: "School", roles: ["ADMIN"] },
     { href: "admin/analytics", label: "Analytics", roles: ["ADMIN"] },
-    { href: "admin/terms", label: "Academic terms", roles: ["ADMIN"] },
+    { href: "admin/calendar", label: "School calendar", roles: ["ADMIN"] },
+    { href: "admin/terms", label: academicCalendarCopy(educationLevel).navLabel, roles: ["ADMIN"] },
     { href: adminGroupingHref, label: adminGroupingLabel, roles: ["ADMIN"] },
   ];
 }

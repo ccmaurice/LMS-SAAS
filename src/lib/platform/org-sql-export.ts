@@ -39,6 +39,7 @@ export async function exportOrganizationCoreSql(organizationId: string): Promise
   const lines: string[] = [
     "-- SaaS LMS — partial organization export (PostgreSQL, core tables).",
     "-- Test on a copy first. Includes org profile (educationLevel, organizationSettings), users, courses (creditHours, academicTermId), modules, lessons, blog, learning resources (createdById), CMS, invites, wall.",
+    "-- Includes org-scoped QuestionBankItem rows (organizationId set); global bank items (null org) are not exported.",
     "-- Does not include: assessments, enrollments, lesson file blobs, DMs, cohort/department structures beyond what FKs require.",
     "BEGIN;",
     `DELETE FROM ${bt("Course")} WHERE ${bt("organizationId")} = ${q(organizationId)};`,
@@ -47,6 +48,7 @@ export async function exportOrganizationCoreSql(organizationId: string): Promise
     `DELETE FROM ${bt("OrganizationMessage")} WHERE ${bt("organizationId")} = ${q(organizationId)};`,
     `DELETE FROM ${bt("CmsEntry")} WHERE ${bt("organizationId")} = ${q(organizationId)};`,
     `DELETE FROM ${bt("UserInvite")} WHERE ${bt("organizationId")} = ${q(organizationId)};`,
+    `DELETE FROM ${bt("QuestionBankItem")} WHERE ${bt("organizationId")} = ${q(organizationId)};`,
     `DELETE FROM ${bt("User")} WHERE ${bt("organizationId")} = ${q(organizationId)};`,
     `DELETE FROM ${bt("Organization")} WHERE ${bt("id")} = ${q(organizationId)};`,
     "",
@@ -55,6 +57,16 @@ export async function exportOrganizationCoreSql(organizationId: string): Promise
   lines.push(
     `INSERT INTO ${bt("Organization")} (${bt("id")},${bt("name")},${bt("slug")},${bt("subdomain")},${bt("status")},${bt("reportCardsPublished")},${bt("certificatesPublished")},${bt("academicYearLabel")},${bt("promotionPassMinPercent")},${bt("promotionProbationMinPercent")},${bt("themeTemplate")},${bt("customPrimaryHex")},${bt("customAccentHex")},${bt("heroImageUrl")},${bt("logoImageUrl")},${bt("educationLevel")},${bt("organizationSettings")},${bt("createdAt")},${bt("updatedAt")}) VALUES (${q(org.id)},${q(org.name)},${q(org.slug)},${q(org.subdomain)},${qEnum(org.status)},${qBool(org.reportCardsPublished)},${qBool(org.certificatesPublished)},${q(org.academicYearLabel)},${org.promotionPassMinPercent},${org.promotionProbationMinPercent},${q(org.themeTemplate)},${q(org.customPrimaryHex)},${q(org.customAccentHex)},${q(org.heroImageUrl)},${q(org.logoImageUrl)},${qEnum(org.educationLevel)},${qJsonb(org.organizationSettings)},${qDate(org.createdAt)},${qDate(org.updatedAt)});`,
   );
+
+  const questionBankItems = await prisma.questionBankItem.findMany({
+    where: { organizationId },
+    orderBy: [{ framework: "asc" }, { subject: "asc" }, { id: "asc" }],
+  });
+  for (const qb of questionBankItems) {
+    lines.push(
+      `INSERT INTO ${bt("QuestionBankItem")} (${bt("id")},${bt("organizationId")},${bt("framework")},${bt("subject")},${bt("gradeLabel")},${bt("standardCode")},${bt("type")},${bt("prompt")},${bt("points")},${bt("options")},${bt("correctAnswer")},${bt("markingScheme")},${bt("questionSchema")},${bt("createdAt")}) VALUES (${q(qb.id)},${q(organizationId)},${qEnum(qb.framework)},${q(qb.subject)},${q(qb.gradeLabel)},${q(qb.standardCode)},${qEnum(qb.type)},${q(qb.prompt)},${qb.points},${qJsonb(qb.options)},${q(qb.correctAnswer)},${q(qb.markingScheme)},${qJsonb(qb.questionSchema)},${qDate(qb.createdAt)});`,
+    );
+  }
 
   const users = await prisma.user.findMany({ where: { organizationId } });
   for (const u of users) {

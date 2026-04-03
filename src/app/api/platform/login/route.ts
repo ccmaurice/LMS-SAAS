@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { checkRateLimit, getRequestIp } from "@/lib/api/rate-limit";
 import {
   PLATFORM_AUTH_COOKIE,
   PLATFORM_AUTH_COOKIE_MAX_AGE_SEC,
@@ -26,6 +27,10 @@ function timingSafeStringEq(a: string, b: string): boolean {
 }
 
 export async function POST(req: Request) {
+  const ip = getRequestIp(req);
+  const limited = checkRateLimit(`platform-login:${ip}`, 20, 15 * 60 * 1000);
+  if (!limited.ok) return limited.response;
+
   const adminEmail = process.env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase().replace(/\r$/, "");
   const adminPassword = (process.env.PLATFORM_ADMIN_PASSWORD ?? "").trim().replace(/\r$/, "");
 

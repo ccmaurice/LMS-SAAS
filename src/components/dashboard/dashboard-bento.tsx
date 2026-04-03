@@ -6,6 +6,8 @@ import { MessageCircle, MessagesSquare, FileChartColumn, Award, Home } from "luc
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import type { DashboardCalendarItemJson } from "@/lib/calendar/dashboard-calendar-shared";
+import { DashboardSchoolCalendar } from "@/components/dashboard/dashboard-school-calendar";
 
 export type DashboardBentoProps = {
   slug: string;
@@ -52,6 +54,7 @@ export type DashboardBentoProps = {
     maxScore: number | null;
   }[];
   certificates: { courseId: string; courseTitle: string }[];
+  calendarItems: DashboardCalendarItemJson[];
 };
 
 function scoreLabel(total: number | null, max: number | null): string {
@@ -114,6 +117,12 @@ export function DashboardBento(props: DashboardBentoProps) {
           {props.userRole.toLowerCase()}) in {props.orgName}.
         </p>
       </motion.div>
+
+      <DashboardSchoolCalendar
+        slug={props.slug}
+        isAdmin={props.userRole === "ADMIN"}
+        initialItems={props.calendarItems}
+      />
 
       <BentoCard className="p-6 md:p-7" delay={0.02}>
         <div className="flex flex-wrap items-start gap-4">

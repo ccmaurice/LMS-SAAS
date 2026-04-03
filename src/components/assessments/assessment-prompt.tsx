@@ -8,10 +8,8 @@ function renderKatex(inner: string, displayMode: boolean, key: number): ReactNod
   try {
     const html = katex.renderToString(inner, { displayMode, throwOnError: false });
     return displayMode ? (
-      // eslint-disable-next-line react/no-danger -- KaTeX output is trusted math markup
       <div key={key} className="my-3 overflow-x-auto text-center" dangerouslySetInnerHTML={{ __html: html }} />
     ) : (
-      // eslint-disable-next-line react/no-danger
       <span key={key} className="mx-0.5 inline-block align-middle" dangerouslySetInnerHTML={{ __html: html }} />
     );
   } catch {

@@ -38,6 +38,9 @@ export async function proxy(request: NextRequest) {
 
   const slug = match[1];
   const secret = process.env.JWT_SECRET ?? "";
+  if (!secret || secret.length < 16) {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
   const key = new TextEncoder().encode(secret);
 
   const token = request.cookies.get(AUTH_COOKIE)?.value;

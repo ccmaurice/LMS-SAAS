@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getOutcomeAttentionRollupByOrganization } from "@/lib/platform/tenant-assessment-outcome-signals";
 import {
   MOMENTUM_WEIGHTS,
   PUBLIC_EXTRA_SECTIONS_WEIGHT_CAP,
@@ -34,6 +35,8 @@ export type TenantUsageCounts = {
   courseChatMessages: number;
   learningResources: number;
   blogPosts: number;
+  schoolCalendarEvents: number;
+  assessmentScheduleEntries: number;
   /** CmsEntry rows whose keys start with `school.public.` (public one-pager + cards). */
   schoolPublicCmsRows: number;
   /** Parsed count of custom sections from `school.public.extraCards`; included in weighted index. */
@@ -59,6 +62,10 @@ export type TenantUsageCounts = {
   enrollmentsLast7Days: number;
   enrollmentsLast30Days: number;
   enrollmentsLast90Days: number;
+  /** Published assessments (excludes drafts). */
+  publishedAssessments: number;
+  /** Published assessments flagged by the same rules as school “Assessment outcomes → Needs attention”. */
+  outcomeAttentionAssessments: number;
 };
 
 export type TenantUsageAnalytics = TenantUsageCounts & {
@@ -103,6 +110,8 @@ export function computeTotalDataRows(r: TenantUsageCounts): number {
     "courseChatMessages",
     "learningResources",
     "blogPosts",
+    "schoolCalendarEvents",
+    "assessmentScheduleEntries",
     "cmsEntries",
     "orgMessages",
     "dmThreads",
@@ -152,6 +161,8 @@ function normalizeRow(raw: Record<string, unknown>): TenantUsageCounts {
     courseChatMessages: pick("courseChatMessages"),
     learningResources: pick("learningResources"),
     blogPosts: pick("blogPosts"),
+    schoolCalendarEvents: pick("schoolCalendarEvents"),
+    assessmentScheduleEntries: pick("assessmentScheduleEntries"),
     schoolPublicCmsRows: pick("schoolPublicCmsRows"),
     publicExtraSections: pick("publicExtraSections"),
     cmsEntries: pick("cmsEntries"),
@@ -175,6 +186,8 @@ function normalizeRow(raw: Record<string, unknown>): TenantUsageCounts {
     enrollmentsLast7Days: pick("enrollmentsLast7Days"),
     enrollmentsLast30Days: pick("enrollmentsLast30Days"),
     enrollmentsLast90Days: pick("enrollmentsLast90Days"),
+    publishedAssessments: 0,
+    outcomeAttentionAssessments: 0,
   };
 }
 
@@ -182,7 +195,8 @@ function normalizeRow(raw: Record<string, unknown>): TenantUsageCounts {
  * Fetches usage analytics for every organization. PostgreSQL only.
  */
 export async function getTenantUsageAnalytics(): Promise<TenantUsageAnalytics[]> {
-  const raw = await prisma.$queryRaw<Record<string, unknown>[]>`
+  const [raw, outcomeByOrg] = await Promise.all([
+    prisma.$queryRaw<Record<string, unknown>[]>`
     SELECT
       o."id",
       o."name",
@@ -224,6 +238,11 @@ export async function getTenantUsageAnalytics(): Promise<TenantUsageAnalytics[]>
       (SELECT COUNT(*)::int FROM "CourseChatMessage" ccm INNER JOIN "Course" c ON c."id" = ccm."courseId" WHERE c."organizationId" = o."id") AS "courseChatMessages",
       (SELECT COUNT(*)::int FROM "LearningResource" lr WHERE lr."organizationId" = o."id") AS "learningResources",
       (SELECT COUNT(*)::int FROM "BlogPost" bp WHERE bp."organizationId" = o."id") AS "blogPosts",
+      (SELECT COUNT(*)::int FROM "SchoolCalendarEvent" sce WHERE sce."organizationId" = o."id") AS "schoolCalendarEvents",
+      (SELECT COUNT(*)::int FROM "AssessmentScheduleEntry" ase
+        INNER JOIN "Assessment" a ON a."id" = ase."assessmentId"
+        INNER JOIN "Course" c ON c."id" = a."courseId"
+        WHERE c."organizationId" = o."id") AS "assessmentScheduleEntries",
       (SELECT COUNT(*)::int FROM "CmsEntry" ce
         WHERE ce."organizationId" = o."id" AND ce."key" LIKE 'school.public.%') AS "schoolPublicCmsRows",
       (SELECT COUNT(*)::int FROM "CmsEntry" ce WHERE ce."organizationId" = o."id") AS "cmsEntries",
@@ -289,7 +308,9 @@ export async function getTenantUsageAnalytics(): Promise<TenantUsageAnalytics[]>
         AND e."enrolledAt" >= NOW() - INTERVAL '90 days') AS "enrollmentsLast90Days"
     FROM "Organization" o
     ORDER BY o."name" ASC
-  `;
+    `,
+    getOutcomeAttentionRollupByOrganization(),
+  ]);
 
   const extraCardRows = await prisma.cmsEntry.findMany({
     where: { key: SCHOOL_PUBLIC_EXTRA_CARDS_KEY },
@@ -302,9 +323,12 @@ export async function getTenantUsageAnalytics(): Promise<TenantUsageAnalytics[]>
 
   return raw.map((row) => {
     const base = normalizeRow(row);
+    const outcome = outcomeByOrg.get(base.id) ?? { publishedAssessments: 0, outcomeAttentionAssessments: 0 };
     const counts: TenantUsageCounts = {
       ...base,
       publicExtraSections: extraSectionsByOrg.get(base.id) ?? 0,
+      publishedAssessments: outcome.publishedAssessments,
+      outcomeAttentionAssessments: outcome.outcomeAttentionAssessments,
     };
     const forWeightedIndex: TenantUsageCounts = {
       ...counts,

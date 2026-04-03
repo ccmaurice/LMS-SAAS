@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { checkRateLimit, getRequestIp } from "@/lib/api/rate-limit";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { isValidOrgSlug, normalizeOrgSlug } from "@/lib/slug";
@@ -14,6 +15,10 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const ip = getRequestIp(req);
+  const limited = checkRateLimit(`auth-register:${ip}`, 5, 60 * 60 * 1000);
+  if (!limited.ok) return limited.response;
+
   let json: unknown;
   try {
     json = await req.json();
@@ -42,7 +47,7 @@ export async function POST(req: Request) {
 
   const passwordHash = await hashPassword(password);
 
-  const { org, user } = await prisma.$transaction(async (tx) => {
+  const { org } = await prisma.$transaction(async (tx) => {
     const orgRow = await tx.organization.create({
       data: {
         name: organizationName.trim(),

@@ -4,16 +4,20 @@ import { ImpersonateOrgButton } from "@/components/platform/impersonate-org-butt
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { getOutcomeAttentionRollupByOrganization } from "@/lib/platform/tenant-assessment-outcome-signals";
 
 const statusOrder = { PENDING: 0, ACTIVE: 1, REJECTED: 2 } as const;
 
 export default async function PlatformHomePage() {
-  const orgsRaw = await prisma.organization.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      _count: { select: { users: true, courses: true } },
-    },
-  });
+  const [orgsRaw, outcomeByOrg] = await Promise.all([
+    prisma.organization.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        _count: { select: { users: true, courses: true } },
+      },
+    }),
+    getOutcomeAttentionRollupByOrganization(),
+  ]);
 
   const orgs = [...orgsRaw].sort((a, b) => {
     const d = statusOrder[a.status] - statusOrder[b.status];
@@ -22,6 +26,13 @@ export default async function PlatformHomePage() {
   });
 
   const pendingCount = orgs.filter((o) => o.status === "PENDING").length;
+  const fleetOutcomeAttentionAssessments = orgs.reduce(
+    (s, o) => s + (outcomeByOrg.get(o.id)?.outcomeAttentionAssessments ?? 0),
+    0,
+  );
+  const activeSchoolsWithOutcomeAttention = orgs.filter(
+    (o) => o.status === "ACTIVE" && (outcomeByOrg.get(o.id)?.outcomeAttentionAssessments ?? 0) > 0,
+  ).length;
 
   return (
     <div className="space-y-8">
@@ -37,6 +48,20 @@ export default async function PlatformHomePage() {
             below or your notifications.
           </p>
         ) : null}
+        {fleetOutcomeAttentionAssessments > 0 ? (
+          <p className="mt-3 rounded-lg border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-sm text-sky-950 dark:border-sky-400/25 dark:bg-sky-400/10 dark:text-sky-50">
+            <strong>{fleetOutcomeAttentionAssessments}</strong> published assessment
+            {fleetOutcomeAttentionAssessments === 1 ? "" : "s"} fleet-wide match school{" "}
+            <em>Assessment outcomes</em> “needs attention” rules (low mean or reach).{" "}
+            <strong>{activeSchoolsWithOutcomeAttention}</strong> active school
+            {activeSchoolsWithOutcomeAttention === 1 ? "" : "s"} affected. See the{" "}
+            <Link href="/platform/usage" className="font-medium text-foreground underline underline-offset-2">
+              usage & analysis
+            </Link>{" "}
+            table (columns <span className="font-medium">Pub. asmt.</span> / <span className="font-medium">Out. attn.</span>
+            ).
+          </p>
+        ) : null}
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
             href="/platform/usage"
@@ -45,10 +70,11 @@ export default async function PlatformHomePage() {
               "inline-flex items-center gap-2 shadow-sm",
             )}
           >
-            Usage &amp; billing signals
+            Usage & analysis
           </Link>
           <p className="max-w-xl text-sm text-muted-foreground">
-            Row counts, 30-day activity, weighted index per school — rank tenants for pricing and capacity.
+            Row counts, 30-day activity, weighted index, and outcome-attention rollups per school — rank tenants and spot
+            courses that may need staff follow-up.
           </p>
         </div>
       </div>

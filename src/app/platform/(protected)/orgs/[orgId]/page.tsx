@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { OrgApprovalActions } from "@/components/platform/org-approval-actions";
 import { PlatformUserActions } from "@/components/platform/platform-user-actions";
 import { SchoolMessagesPanel } from "@/components/messages/school-messages-panel";
+import { getSingleOrgOutcomeRollup } from "@/lib/platform/tenant-assessment-outcome-signals";
 
 export default async function PlatformOrgDetailPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
@@ -24,15 +25,21 @@ export default async function PlatformOrgDetailPage({ params }: { params: Promis
 
   if (!org) notFound();
 
-  const [schoolPublicCmsRows, extraCardEntry] = await Promise.all([
-    prisma.cmsEntry.count({
-      where: { organizationId: org.id, key: { startsWith: "school.public." } },
-    }),
-    prisma.cmsEntry.findUnique({
-      where: { organizationId_key: { organizationId: org.id, key: SCHOOL_PUBLIC_EXTRA_CARDS_KEY } },
-      select: { value: true },
-    }),
-  ]);
+  const [schoolPublicCmsRows, extraCardEntry, assessmentOutcomeRollup, schoolCalendarEventCount, assessmentScheduleEntryCount] =
+    await Promise.all([
+      prisma.cmsEntry.count({
+        where: { organizationId: org.id, key: { startsWith: "school.public." } },
+      }),
+      prisma.cmsEntry.findUnique({
+        where: { organizationId_key: { organizationId: org.id, key: SCHOOL_PUBLIC_EXTRA_CARDS_KEY } },
+        select: { value: true },
+      }),
+      getSingleOrgOutcomeRollup(org.id),
+      prisma.schoolCalendarEvent.count({ where: { organizationId: org.id } }),
+      prisma.assessmentScheduleEntry.count({
+        where: { assessment: { course: { organizationId: org.id } } },
+      }),
+    ]);
   const publicExtraSections = parseSchoolPublicExtraCards(extraCardEntry?.value).length;
 
   return (
@@ -77,6 +84,33 @@ export default async function PlatformOrgDetailPage({ params }: { params: Promis
       </div>
 
       <div className="surface-bento p-5">
+        <h2 className="text-sm font-semibold tracking-tight">Assessment outcome signals</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <strong className="text-foreground">{assessmentOutcomeRollup.publishedAssessments}</strong> published assessment
+          {assessmentOutcomeRollup.publishedAssessments === 1 ? "" : "s"} ·{" "}
+          <strong
+            className={
+              assessmentOutcomeRollup.outcomeAttentionAssessments > 0
+                ? "text-amber-900 dark:text-amber-100"
+                : "text-foreground"
+            }
+          >
+            {assessmentOutcomeRollup.outcomeAttentionAssessments}
+          </strong>{" "}
+          would show <span className="text-foreground">Needs attention</span> on school{" "}
+          <em>Course → Assessment outcomes</em> (low class mean with enough scored attempts, or low participation with
+          enough enrollments). Open as an admin and review each course’s outcomes or item analysis.
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Fleet rollups and sorting:{" "}
+          <Link href="/platform/usage" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Tenant usage & analysis
+          </Link>
+          .
+        </p>
+      </div>
+
+      <div className="surface-bento p-5">
         <h2 className="text-sm font-semibold tracking-tight">Public school page</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Live site:{" "}
@@ -97,6 +131,27 @@ export default async function PlatformOrgDetailPage({ params }: { params: Promis
           ; usage metrics also appear on{" "}
           <Link href="/platform/usage" className="font-medium text-foreground underline-offset-4 hover:underline">
             Tenant usage
+          </Link>
+          .
+        </p>
+      </div>
+
+      <div className="surface-bento p-5">
+        <h2 className="text-sm font-semibold tracking-tight">School calendar &amp; assessment schedules</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          <strong className="text-foreground">{schoolCalendarEventCount}</strong> school calendar event
+          {schoolCalendarEventCount === 1 ? "" : "s"} ·{" "}
+          <strong className="text-foreground">{assessmentScheduleEntryCount}</strong> assessment schedule row
+          {assessmentScheduleEntryCount === 1 ? "" : "s"}. Matches{" "}
+          <Link href="/platform/usage" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Tenant usage &amp; analysis
+          </Link>{" "}
+          (Cal. evt. / Sched. rows columns and weighted index). Admins manage the school calendar at{" "}
+          <Link
+            href={`/o/${org.slug}/admin/calendar`}
+            className="font-medium text-foreground underline-offset-4 hover:underline"
+          >
+            /o/{org.slug}/admin/calendar
           </Link>
           .
         </p>

@@ -40,6 +40,8 @@ export type TenantUsageRowJson = {
   courseChatMessages: number;
   learningResources: number;
   blogPosts: number;
+  schoolCalendarEvents: number;
+  assessmentScheduleEntries: number;
   schoolPublicCmsRows: number;
   publicExtraSections: number;
   cmsEntries: number;
@@ -63,6 +65,8 @@ export type TenantUsageRowJson = {
   enrollmentsLast7Days: number;
   enrollmentsLast30Days: number;
   enrollmentsLast90Days: number;
+  publishedAssessments: number;
+  outcomeAttentionAssessments: number;
   weightedUsageIndex: number;
   totalDataRows: number;
   momentumIndex7: number;
@@ -84,7 +88,11 @@ type SortKey =
   | "courses"
   | "answers"
   | "schoolPublicCmsRows"
-  | "publicExtraSections";
+  | "publicExtraSections"
+  | "schoolCalendarEvents"
+  | "assessmentScheduleEntries"
+  | "publishedAssessments"
+  | "outcomeAttentionAssessments";
 
 type StatusFilter = "ALL" | "ACTIVE" | "PENDING" | "REJECTED";
 type RankMode = "weighted" | "momentum";
@@ -200,6 +208,17 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
         if (av === bv) return a.name.localeCompare(b.name);
         return dir * (av > bv ? 1 : -1);
       }
+      if (
+        sortKey === "publishedAssessments" ||
+        sortKey === "outcomeAttentionAssessments" ||
+        sortKey === "schoolCalendarEvents" ||
+        sortKey === "assessmentScheduleEntries"
+      ) {
+        const av = a[sortKey];
+        const bv = b[sortKey];
+        if (av === bv) return a.name.localeCompare(b.name);
+        return dir * (av > bv ? 1 : -1);
+      }
       const av = a[sortKey] as number;
       const bv = b[sortKey] as number;
       if (av === bv) return a.name.localeCompare(b.name);
@@ -222,6 +241,7 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
     let submissions = 0;
     let subWindow = 0;
     let momWindow = 0;
+    let outcomeAttention = 0;
     for (const t of tenants) {
       weighted += t.weightedUsageIndex;
       rows += t.totalDataRows;
@@ -229,8 +249,9 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
       submissions += t.submissions;
       subWindow += getActivitySubmissions(t, activityWindow);
       momWindow += getMomentum(t, activityWindow);
+      outcomeAttention += t.outcomeAttentionAssessments;
     }
-    return { weighted, rows, users, submissions, subWindow, momWindow };
+    return { weighted, rows, users, submissions, subWindow, momWindow, outcomeAttention };
   }, [tenants, activityWindow]);
 
   const maxRankValue = useMemo(() => {
@@ -297,6 +318,10 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
       { key: "schoolPublicCmsRows" as const, label: "Public school CMS rows" },
       { key: "publicExtraSections" as const, label: "Custom public sections" },
       { key: "cmsEntries" as const, label: "CMS entries (all keys)" },
+      { key: "publishedAssessments" as const, label: "Published assessments" },
+      { key: "outcomeAttentionAssessments" as const, label: "Outcome attention (published)" },
+      { key: "schoolCalendarEvents" as const, label: "School calendar events" },
+      { key: "assessmentScheduleEntries" as const, label: "Assessment schedule rows" },
     ] as { key: keyof TenantUsageRowJson; label: string }[];
   }, [activityWindow]);
 
@@ -351,6 +376,10 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
       "schoolPublicCmsRows",
       "publicExtraSections",
       "publicExtraSectionsForIndex",
+      "publishedAssessments",
+      "outcomeAttentionAssessments",
+      "schoolCalendarEvents",
+      "assessmentScheduleEntries",
     ];
     const mom30Sum = tenants.reduce((s, t) => s + t.momentumIndex30, 0);
     const lines = [
@@ -391,6 +420,10 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
           schoolPublicCmsRows: t.schoolPublicCmsRows,
           publicExtraSections: t.publicExtraSections,
           publicExtraSectionsForIndex: Math.min(t.publicExtraSections, PUBLIC_EXTRA_SECTIONS_WEIGHT_CAP),
+          publishedAssessments: t.publishedAssessments,
+          outcomeAttentionAssessments: t.outcomeAttentionAssessments,
+          schoolCalendarEvents: t.schoolCalendarEvents,
+          assessmentScheduleEntries: t.assessmentScheduleEntries,
         };
         return headers
           .map((h) => {
@@ -430,11 +463,19 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
           <strong className="text-foreground">% platform</strong> uses full-fleet weighted sum;{" "}
           <strong className="text-foreground">% mom.</strong> uses the sum of momentum for the selected window. CSV export
           includes <code className="rounded bg-muted px-1">publicExtraSectionsForIndex</code> (capped count used in the
-          weighted index) next to the raw card count.
+          weighted index) next to the raw card count.{" "}
+          <strong className="text-foreground">Published assessments</strong> and{" "}
+          <strong className="text-foreground">outcome attention</strong> use the same staff rules as each school’s{" "}
+          <em>Assessment outcomes → Needs attention</em> (low class mean with enough scored attempts, or low participation
+          with enough enrollments); they are not part of the billing-weighted index.{" "}
+          <strong className="text-foreground">School calendar events</strong> and{" "}
+          <strong className="text-foreground">assessment schedule rows</strong> count org-wide calendar entries and
+          structured assessment windows (dashboard calendar + notifications); both contribute to{" "}
+          <code className="rounded bg-muted px-1">USAGE_WEIGHTS</code> like other content tables.
         </p>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
         <div className="surface-bento p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Organizations</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">{tenants.length}</p>
@@ -458,6 +499,11 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
         <div className="surface-bento p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Σ momentum ({wLabel})</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">{totals.momWindow.toLocaleString()}</p>
+        </div>
+        <div className="surface-bento p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Σ outcome attention</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{totals.outcomeAttention.toLocaleString()}</p>
+          <p className="mt-1 text-[10px] leading-tight text-muted-foreground">Published asmt. staff flags (fleet)</p>
         </div>
       </div>
 
@@ -630,7 +676,7 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
           </Button>
         </div>
         <div className="surface-table-wrap overflow-x-auto">
-          <table className="w-full min-w-[1480px] text-sm">
+          <table className="w-full min-w-[1820px] text-sm">
             <thead className="text-left text-xs font-medium text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">
@@ -725,6 +771,42 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
                   <button
                     type="button"
                     className="underline-offset-2 hover:underline"
+                    onClick={() => toggleSort("publishedAssessments")}
+                  >
+                    Pub. asmt. {sortKey === "publishedAssessments" ? (sortDir === "desc" ? "↓" : "↑") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    className="underline-offset-2 hover:underline"
+                    onClick={() => toggleSort("outcomeAttentionAssessments")}
+                  >
+                    Out. attn. {sortKey === "outcomeAttentionAssessments" ? (sortDir === "desc" ? "↓" : "↑") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    className="underline-offset-2 hover:underline"
+                    onClick={() => toggleSort("schoolCalendarEvents")}
+                  >
+                    Cal. evt. {sortKey === "schoolCalendarEvents" ? (sortDir === "desc" ? "↓" : "↑") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    className="underline-offset-2 hover:underline"
+                    onClick={() => toggleSort("assessmentScheduleEntries")}
+                  >
+                    Sched. rows {sortKey === "assessmentScheduleEntries" ? (sortDir === "desc" ? "↓" : "↑") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    className="underline-offset-2 hover:underline"
                     onClick={() => toggleSort("answers")}
                   >
                     Ans. {sortKey === "answers" ? (sortDir === "desc" ? "↓" : "↑") : ""}
@@ -797,6 +879,21 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
                     {getActivityEnrollments(t, activityWindow).toLocaleString()}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{t.submissions.toLocaleString()}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{t.publishedAssessments.toLocaleString()}</td>
+                  <td
+                    className={cn(
+                      "px-3 py-2 text-right tabular-nums",
+                      t.outcomeAttentionAssessments > 0 && "font-medium text-amber-900 dark:text-amber-100",
+                    )}
+                  >
+                    {t.outcomeAttentionAssessments.toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                    {t.schoolCalendarEvents.toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                    {t.assessmentScheduleEntries.toLocaleString()}
+                  </td>
                   <td className="px-3 py-2 text-right tabular-nums">{t.answers.toLocaleString()}</td>
                   <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                     {t.totalDataRows.toLocaleString()}

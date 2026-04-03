@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { CourseChatPanel } from "@/components/courses/course-chat-panel";
+import { assessmentOutcomeNeedsAttention } from "@/lib/assessments/assessment-outcome-health";
+import { submitParticipationPercent, summarizeOutcomeSubmissions } from "@/lib/assessments/course-assessment-outcomes";
 
 export default async function CourseDetailPage({
   params,
@@ -65,6 +67,37 @@ export default async function CourseDetailPage({
     lessonsComplete &&
     (!!enrollment || parentViaChild);
 
+  let attentionPublishedCount = 0;
+  if (canEdit) {
+    const [enrolledForOutcomes, publishedForRollup] = await Promise.all([
+      prisma.enrollment.count({ where: { courseId } }),
+      prisma.assessment.findMany({
+        where: { courseId, published: true },
+        select: {
+          submissions: {
+            where: { status: "SUBMITTED" },
+            select: { totalScore: true, maxScore: true, userId: true },
+          },
+        },
+      }),
+    ]);
+    for (const a of publishedForRollup) {
+      const s = summarizeOutcomeSubmissions(a.submissions);
+      const p = submitParticipationPercent(s.distinctStudents, enrolledForOutcomes);
+      if (
+        assessmentOutcomeNeedsAttention({
+          published: true,
+          mean: s.mean,
+          scoredAttemptCount: s.scoredAttemptCount,
+          participationPercent: p,
+          enrolledCount: enrolledForOutcomes,
+        })
+      ) {
+        attentionPublishedCount += 1;
+      }
+    }
+  }
+
   return (
     <div className="space-y-8">
       <div className="surface-bento p-6">
@@ -86,6 +119,14 @@ export default async function CourseDetailPage({
             <Link href={`${base}/assessments`} className={cn(buttonVariants({ variant: "secondary" }))}>
               Assessments
             </Link>
+            {canEdit ? (
+              <Link
+                href={`${base}/assessment-outcomes`}
+                className={cn(buttonVariants({ variant: "outline" }))}
+              >
+                Assessment outcomes
+              </Link>
+            ) : null}
             {eligibleForCertificate ? (
               <Link
                 href={`${base}/certificate${parentViaChild ? `?child=${encodeURIComponent(gate.progressUserId)}` : ""}`}
@@ -105,6 +146,21 @@ export default async function CourseDetailPage({
           </div>
         </div>
       </div>
+
+      {canEdit && attentionPublishedCount > 0 ? (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+          <span className="font-medium">
+            {attentionPublishedCount} published assessment{attentionPublishedCount === 1 ? "" : "s"}
+          </span>{" "}
+          may need attention (low mean or participation).{" "}
+          <Link
+            href={`${base}/assessment-outcomes?attention=flagged`}
+            className="font-medium text-primary underline underline-offset-2"
+          >
+            Review outcomes
+          </Link>
+        </div>
+      ) : null}
 
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Curriculum</h2>

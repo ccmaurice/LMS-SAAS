@@ -57,6 +57,30 @@ enum AssessmentKind {
   EXAM
 }
 
+/// Scheduled moments or windows for an assessment (dashboard calendar, notifications). Replaces ad-hoc availableFrom/dueAt when entries exist.
+enum AssessmentScheduleKind {
+  CA_OPENS
+  CA_DUE
+  EXAM_WINDOW
+}
+
+/// School-wide calendar entries (resumption, breaks, events) managed by admins.
+enum SchoolCalendarEventKind {
+  RESUMPTION
+  CLOSURE
+  HOLIDAY
+  EVENT
+  ACTIVITY
+  OTHER
+}
+
+/// How the student take experience behaves: practice vs monitored browser vs stricter lockdown-style UI.
+enum AssessmentDeliveryMode {
+  FORMATIVE
+  SECURE_ONLINE
+  LOCKDOWN
+}
+
 enum SubmissionStatus {
   DRAFT
   SUBMITTED
@@ -86,6 +110,13 @@ enum OrganizationStatus {
   ACTIVE
   PENDING
   REJECTED
+}
+
+/// Curriculum family for shared question bank items (IB, Cambridge, AP style prompts).
+enum QuestionBankFramework {
+  IB
+  CAMBRIDGE
+  AP
 }
 
 model Organization {
@@ -133,9 +164,11 @@ model Organization {
   promotionSnapshots      StudentPromotionSnapshot[]
   parentLinks             ParentStudentLink[]       @relation("ParentOrg")
   learningStandards       LearningStandard[]
+  questionBankItems       QuestionBankItem[]
   gradingAuditLogs        GradingAuditLog[]
   proctoringEvents        ProctoringEvent[]
   academicTerms           AcademicTerm[]
+  schoolCalendarEvents    SchoolCalendarEvent[]
   schoolCohorts           SchoolCohort[]
   facultyDivisions        FacultyDivision[]
   academicDepartments     AcademicDepartment[]
@@ -159,6 +192,39 @@ model AcademicTerm {
 
   @@unique([organizationId, code])
   @@index([organizationId])
+}
+
+model SchoolCalendarEvent {
+  id             String                   @id @default(cuid())
+  organizationId String
+  kind           SchoolCalendarEventKind  @default(EVENT)
+  title          String
+  description    String?                  @db.Text
+  /// When `allDay` is true, store start-of-day / end-of-day in UTC for the chosen calendar date.
+  startsAt       DateTime
+  endsAt         DateTime?
+  allDay         Boolean                  @default(false)
+  createdById    String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation("SchoolCalendarEventAuthor", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, startsAt])
+}
+
+/// Prevents duplicate in-app notifications for the same calendar signal per user.
+model CalendarNotificationDedupe {
+  id        String   @id @default(cuid())
+  userId    String
+  dedupeKey String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dedupeKey])
+  @@index([userId])
 }
 
 /// Primary / secondary homeroom or form group (students assigned by admin).
@@ -389,6 +455,30 @@ model QuestionStandard {
   @@index([standardId])
 }
 
+/// Reusable assessment items (platform-wide when organizationId is null; org-scoped when set).
+model QuestionBankItem {
+  id             String                @id @default(cuid())
+  organizationId String?
+  framework      QuestionBankFramework
+  subject        String
+  gradeLabel     String?
+  standardCode   String?
+  type           QuestionType
+  prompt         String                @db.Text
+  points         Float                 @default(1)
+  options        Json?
+  correctAnswer  String?
+  markingScheme  String?               @db.Text
+  questionSchema Json?
+
+  createdAt DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([framework, subject])
+}
+
 /// Client-reported proctoring signals (blur, fullscreen exit, etc.).
 model ProctoringEvent {
   id             String   @id @default(cuid())
@@ -478,6 +568,8 @@ model User {
   answersGraded    Answer[]       @relation("AnswerGradedBy")
   invitesSent      UserInvite[]   @relation("InviteCreatedBy")
   notifications    Notification[]
+  calendarNotificationDedupes CalendarNotificationDedupe[]
+  schoolCalendarEventsAuthored  SchoolCalendarEvent[] @relation("SchoolCalendarEventAuthor")
   blogPosts        BlogPost[]
   courseChatMessages CourseChatMessage[]
   resourceProgress ResourceProgress[]
@@ -793,7 +885,12 @@ model Assessment {
   maxAttemptsPerStudent  Int     @default(1)
   /// After max attempts, student may request another attempt for staff approval.
   retakeRequiresApproval Boolean @default(true)
+  /// Student take UI: no integrity UI / monitored + leave warnings / stricter copy & context-menu limits.
+  deliveryMode     AssessmentDeliveryMode @default(FORMATIVE)
   createdById      String
+  /// Optional: when this assessment appears / is due on the school dashboard calendar (staff set on edit page).
+  availableFrom    DateTime?
+  dueAt            DateTime?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -805,8 +902,29 @@ model Assessment {
   assessmentCohorts AssessmentCohort[]
   assessmentDepartments AssessmentDepartment[]
   retakeRequests AssessmentRetakeRequest[]
+  scheduleEntries AssessmentScheduleEntry[]
 
   @@index([courseId])
+  /// Published-assessment scans (platform outcome rollups, org-level stats).
+  @@index([published, courseId])
+}
+
+model AssessmentScheduleEntry {
+  id           String                 @id @default(cuid())
+  assessmentId String
+  kind         AssessmentScheduleKind
+  startsAt     DateTime
+  endsAt       DateTime?
+  allDay       Boolean                @default(false)
+  label        String?                @db.VarChar(200)
+  sortOrder    Int                    @default(0)
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@index([assessmentId])
+  @@index([startsAt])
 }
 
 model AssessmentRetakeRequest {
@@ -900,6 +1018,7 @@ model Submission {
   retakeRequestsOriginating AssessmentRetakeRequest[]
 
   @@index([assessmentId])
+  @@index([assessmentId, status])
   @@index([userId])
 }
 

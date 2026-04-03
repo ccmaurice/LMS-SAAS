@@ -17,6 +17,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "npx tsx prisma/seed.ts",
+    "db:seed-question-bank": "npx tsx scripts/seed-question-bank.ts",
     "db:bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-db.ps1",
     "postinstall": "prisma generate"
   },

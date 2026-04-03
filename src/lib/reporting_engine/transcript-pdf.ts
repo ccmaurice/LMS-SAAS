@@ -25,6 +25,8 @@ export async function buildTranscriptPdfBuffer(opts: {
   rows: TranscriptPdfRow[];
   /** Shown below the course list when `showGpaColumn` is true */
   semesterSummaries?: TranscriptPdfSemesterSummary[];
+  /** Calendar filter line (terms or semesters, from `AcademicTerm`). */
+  scopeSubtitle?: string | null;
   orgSettings?: OrganizationSettings;
   /** Optional school logo (PNG/JPEG/WebP/GIF) */
   logoBuffer?: Buffer | null;
@@ -52,6 +54,9 @@ export async function buildTranscriptPdfBuffer(opts: {
     doc.fontSize(16).text(opts.orgName, { underline: true });
     doc.moveDown(0.5);
     doc.fontSize(11).text(`Academic transcript · ${opts.academicYearLabel}`);
+    if (opts.scopeSubtitle?.trim()) {
+      doc.fontSize(10).text(opts.scopeSubtitle.trim());
+    }
     doc.text(`Student: ${opts.studentLabel}`);
     if (opts.showGpaColumn) {
       doc.text(`Cumulative GPA: ${opts.cumulativeGpa} · Credits (graded): ${opts.creditsAttempted}`);
