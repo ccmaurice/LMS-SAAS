@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import { generateInviteToken } from "@/lib/invites/token";
+import { getAppOrigin } from "@/lib/seo/metadata-base";
 
 const createSchema = z.object({
   email: z.string().email(),
@@ -79,8 +80,7 @@ export async function POST(req: Request) {
     include: { createdBy: { select: { name: true, email: true } } },
   });
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
-  const inviteUrl = `${appUrl}/invite/${token}`;
+  const inviteUrl = `${getAppOrigin()}/invite/${token}`;
   const orgName = user.organization.name;
   void sendTransactionalEmail({
     to: email,

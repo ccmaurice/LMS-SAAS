@@ -2,7 +2,7 @@ import { getMetadataBase } from "@/lib/seo/metadata-base";
 
 /**
  * Browsers and many crawlers expect absolute favicon / touch-icon URLs.
- * Resolves same-origin paths against `metadataBase` (`NEXT_PUBLIC_APP_URL` or `VERCEL_URL`).
+ * Resolves same-origin paths against `metadataBase` (see `getMetadataBase()` in `metadata-base.ts`).
  */
 export function toAbsoluteMetadataUrl(href: string): string {
   const h = href.trim();

@@ -5,9 +5,10 @@ import { verifyGoogleOAuthState } from "@/lib/auth/oauth-state";
 import { signSessionToken } from "@/lib/auth/jwt";
 import { applySessionCookie } from "@/lib/auth/session-cookie";
 import { prisma } from "@/lib/db";
+import { getAppOrigin } from "@/lib/seo/metadata-base";
 
 function appOrigin() {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  return getAppOrigin();
 }
 
 function loginError(slug: string, error: string) {

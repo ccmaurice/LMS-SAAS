@@ -1,4 +1,5 @@
 **Live app:** [https://saas-lms-khaki.vercel.app/](https://saas-lms-khaki.vercel.app/)  
+**Custom domain:** add the hostname under Vercel → *Project → Settings → Domains*, point DNS as instructed, then set **`NEXT_PUBLIC_APP_URL`** to `https://your-domain` (Production) and add the same origin’s `/api/auth/google/callback` in Google OAuth. Details: [docs/vercel-deploy.md](docs/vercel-deploy.md#custom-domain).  
 **Designed by** CcMaurice, aka SkillTech
 
 # SaaS LMS

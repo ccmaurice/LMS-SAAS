@@ -3,9 +3,10 @@ import { checkRateLimit, getRequestIp } from "@/lib/api/rate-limit";
 import { signGoogleOAuthState } from "@/lib/auth/oauth-state";
 import { isValidOrgSlug, normalizeOrgSlug } from "@/lib/slug";
 import { prisma } from "@/lib/db";
+import { getAppOrigin } from "@/lib/seo/metadata-base";
 
 function appOrigin() {
-  return (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
+  return getAppOrigin();
 }
 
 export async function GET(request: Request) {

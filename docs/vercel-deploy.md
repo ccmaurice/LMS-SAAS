@@ -6,7 +6,7 @@
 - `npm run lint` and `npm test` pass; `npm run build` succeeds (or delete a stale `.next` folder if TypeScript validator errors appear, then rebuild).
 - Commit **all** `prisma/migrations/*` folders (Production runs `prisma migrate deploy` during build when `VERCEL_ENV=production`).
 - Do **not** commit `.env`, `.env.local`, or secrets — only `.env.example` is tracked.
-- After connecting the repo, confirm Vercel **Production** has `DATABASE_URL`, **`DIRECT_URL`** (Supabase), `JWT_SECRET` (≥16 chars), and `NEXT_PUBLIC_APP_URL` matching your deployment URL.
+- After connecting the repo, confirm Vercel **Production** has `DATABASE_URL`, **`DIRECT_URL`** (Supabase), and `JWT_SECRET` (≥16 chars). Set **`NEXT_PUBLIC_APP_URL`** to your canonical public URL (`https://your-custom-domain.com` or `https://your-project.vercel.app`) if you want it fixed in client bundles; if omitted, **Production** server-side links use Vercel’s **`VERCEL_PROJECT_PRODUCTION_URL`** (your primary hostname, including a configured custom domain).
 - **Health checks:** `GET /api/health` is a cheap liveness probe (no database). `GET /api/health/ready` runs `SELECT 1` against Postgres — use after deploy or in uptime monitoring to catch bad `DATABASE_URL` / firewall issues early.
 
 Vercel runs **Next.js** well. The app uses **PostgreSQL** via **Prisma** and the **`pg`** driver (Supabase-compatible). The database must be reachable from Vercel’s build (migrations) and serverless runtime.
@@ -59,7 +59,7 @@ Use this when you do **not** connect a Git provider. Each deploy uploads your **
    - Preview: `npx vercel`  
    - Production: `npx vercel --prod`
 
-5. **After the first production deploy**, set `NEXT_PUBLIC_APP_URL` to your real production URL (e.g. `https://your-project.vercel.app`) and redeploy if OAuth or absolute links depend on it.
+5. **After the first production deploy**, set `NEXT_PUBLIC_APP_URL` to your canonical URL (custom domain or `https://your-project.vercel.app`) and redeploy if you want that value in client bundles and guaranteed OAuth redirect parity. Server-side links still resolve without it via `VERCEL_PROJECT_PRODUCTION_URL` on Production.
 
 **Note:** CLI deploys do not auto-deploy on `git push`; run `npx vercel` or `npx vercel --prod` again when you change code.
 
@@ -71,6 +71,20 @@ If you prefer continuous deploys from a host:
 2. In Vercel → **Add New…** → **Project** → **Import** the repository.
 3. **Framework Preset:** Next.js. **Build Command** comes from `vercel.json` (`node scripts/vercel-build.mjs`). **Install:** default (`npm install`); `postinstall` runs `prisma generate`.
 
+## Custom domain
+
+1. In Vercel: **Project → Settings → Domains** → add your hostname (e.g. `lms.school.org` or `www.school.org`).
+2. At your DNS provider, add the **A** / **CNAME** records Vercel shows until the domain is **Valid**.
+3. Set the domain as **production** if Vercel offers multiple domains (so it becomes the primary hostname).
+
+**How the app picks the public URL**
+
+- **`NEXT_PUBLIC_APP_URL`** (Production) — optional but **recommended** for Google OAuth and any code that reads this at build time in the browser. Use your custom origin with **no trailing slash**, e.g. `https://lms.school.org`.
+- If unset, **Production** server routes and certificate QR codes use **`VERCEL_PROJECT_PRODUCTION_URL`** (Vercel system variable: primary production host, which becomes your custom domain once assigned). Leave **Automatically expose System Environment Variables** enabled under **Project → Settings → Environment Variables**.
+- **Preview** deployments still use the per-deployment **`VERCEL_URL`** so preview links stay on the preview host.
+
+**Google OAuth:** In Google Cloud Console → **Credentials** → your OAuth client, add **Authorized redirect URI** `https://<your-domain>/api/auth/google/callback` (keep a `*.vercel.app` URI too if you still test on the default URL).
+
 ## 4. Environment variables
 
 In **Project → Settings → Environment Variables**, add at least:
@@ -80,7 +94,7 @@ In **Project → Settings → Environment Variables**, add at least:
 | `DATABASE_URL` | Supabase **pooler** `postgresql://…:6543/…?pgbouncer=true` (runtime + optional migrate if no `DIRECT_URL`) |
 | `DIRECT_URL` | Supabase **direct/session** `postgresql://…:5432/…` — **strongly recommended** for Production so `prisma migrate deploy` during build succeeds |
 | `JWT_SECRET` | Long random string (≥32 chars recommended) |
-| `NEXT_PUBLIC_APP_URL` | `https://your-project.vercel.app` (no trailing slash) |
+| `NEXT_PUBLIC_APP_URL` | Canonical site URL, no trailing slash (e.g. `https://lms.school.org` or `https://your-project.vercel.app`). **Recommended** for OAuth; optional on Production if you rely on `VERCEL_PROJECT_PRODUCTION_URL` for server-only absolute URLs. |
 | `PLATFORM_JWT_SECRET` | Long random, if you use `/platform` |
 | `PLATFORM_ADMIN_EMAIL` | Platform operator login email |
 | `PLATFORM_ADMIN_PASSWORD` | Platform operator password |
