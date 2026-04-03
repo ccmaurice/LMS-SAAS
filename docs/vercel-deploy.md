@@ -94,7 +94,7 @@ In **Project → Settings → Environment Variables**, add at least:
 | `DATABASE_URL` | Supabase **pooler** `postgresql://…:6543/…?pgbouncer=true` (runtime + optional migrate if no `DIRECT_URL`) |
 | `DIRECT_URL` | Supabase **direct/session** `postgresql://…:5432/…` — **strongly recommended** for Production so `prisma migrate deploy` during build succeeds |
 | `JWT_SECRET` | Long random string (≥32 chars recommended) |
-| `NEXT_PUBLIC_APP_URL` | Canonical site URL, no trailing slash (e.g. `https://lms.school.org` or `https://your-project.vercel.app`). **Recommended** for OAuth; optional on Production if you rely on `VERCEL_PROJECT_PRODUCTION_URL` for server-only absolute URLs. |
+| `NEXT_PUBLIC_APP_URL` | Canonical site URL, no trailing slash (e.g. `https://lms.school.org` or `https://your-project.vercel.app`). **Recommended** for OAuth; optional on Production if you rely on `VERCEL_PROJECT_PRODUCTION_URL` for server-only absolute URLs. **Do not** leave `http://localhost:3000` in Vercel envs—if you do, the app ignores it on Production/Preview for absolute URLs (certificates, OAuth base, etc.) and falls back to Vercel hostnames. |
 | `PLATFORM_JWT_SECRET` | Long random, if you use `/platform` |
 | `PLATFORM_ADMIN_EMAIL` | Platform operator login email |
 | `PLATFORM_ADMIN_PASSWORD` | Platform operator password |
