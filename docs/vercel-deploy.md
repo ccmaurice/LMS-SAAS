@@ -83,6 +83,7 @@ In **Project → Settings → Environment Variables**, add at least:
 | `PLATFORM_ADMIN_EMAIL` | Platform operator login email |
 | `PLATFORM_ADMIN_PASSWORD` | Platform operator password |
 | `BLOB_READ_WRITE_TOKEN` | **Recommended on Vercel:** from **Storage → Blob** in the Vercel dashboard (read-write). Enables persistent uploads (lessons, CMS assets, avatars, etc.). Add to **Production** and **Preview** if previews should upload files. |
+| `SKIP_PRISMA_MIGRATE_ON_VERCEL` | Optional **`true`**: skip `prisma migrate deploy` during the Vercel build (use only if you apply migrations yourself in CI or before deploy). |
 
 Optional: `OPENAI_API_KEY`, `GOOGLE_*`, `RESEND_*`, `GEMINI_*`, `PG_POOL_MAX`, etc., as in `.env.example`.
 

@@ -2,6 +2,9 @@
   "name": "saas-lms",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "scripts": {
     "dev": "next dev",
     "dev:browser": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/open-clean-browser.ps1",

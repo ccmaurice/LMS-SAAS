@@ -23,6 +23,7 @@ export function OrgBrandMark({
         ? "h-9 max-h-9"
         : "h-12 max-h-12";
   return (
+    // eslint-disable-next-line @next/next/no-img-element -- dynamic school logo URLs (CMS / blob / API)
     <img
       src={url}
       alt=""
