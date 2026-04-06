@@ -40,7 +40,11 @@ export default async function GradebookPage({
   const proctorRows =
     submissionIds.length > 0
       ? await prisma.proctoringEvent.findMany({
-          where: { assessmentId, submissionId: { in: submissionIds } },
+          where: {
+            assessmentId,
+            submissionId: { in: submissionIds },
+            dismissedAt: null,
+          },
           select: { submissionId: true, eventType: true },
         })
       : [];
@@ -72,6 +76,7 @@ export default async function GradebookPage({
       </div>
       <GradebookRetakeRequests assessmentId={assessmentId} />
       <GradebookTable
+        assessmentId={assessmentId}
         initial={JSON.parse(JSON.stringify(submissions))}
         proctorBySubmissionId={proctorBySubmissionId}
       />

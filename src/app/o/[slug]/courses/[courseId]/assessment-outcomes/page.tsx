@@ -100,7 +100,7 @@ export default async function CourseAssessmentOutcomesPage({
     ids.length > 0
       ? await prisma.proctoringEvent.groupBy({
           by: ["assessmentId"],
-          where: { assessmentId: { in: ids } },
+          where: { assessmentId: { in: ids }, dismissedAt: null },
           _count: { id: true },
         })
       : [];

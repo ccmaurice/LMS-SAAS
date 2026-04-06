@@ -490,13 +490,19 @@ model ProctoringEvent {
   eventType      String
   payload        Json?
   createdAt      DateTime @default(now())
+  /// Staff excused this row (audit: row kept; excluded from gradebook / outcome counts).
+  dismissedAt    DateTime?
+  dismissedById  String?
+  dismissNote    String?   @db.Text
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dismissedBy  User?        @relation("ProctoringEventDismissedBy", fields: [dismissedById], references: [id], onDelete: SetNull)
 
   @@index([assessmentId])
   @@index([organizationId, createdAt(sort: Desc)])
   @@index([userId])
+  @@index([dismissedAt])
 }
 
 model GradingAuditLog {
@@ -584,6 +590,7 @@ model User {
   parentOfLinks          ParentStudentLink[] @relation("ParentOf")
   studentOfParentLinks   ParentStudentLink[] @relation("StudentOf")
   proctoringEvents         ProctoringEvent[]
+  proctoringEventsDismissed ProctoringEvent[] @relation("ProctoringEventDismissedBy")
   gradingAuditsPerformed   GradingAuditLog[] @relation("GradingAuditActor")
   cohortMemberships        CohortMembership[]
   homeroomCohorts          SchoolCohort[]      @relation("HomeroomTeacher")

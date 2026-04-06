@@ -7,6 +7,7 @@ import { formatProctorSummaryLine, type ProctorEventAgg } from "@/lib/assessment
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ProctoringExcuseSubmissionButton } from "@/components/assessments/proctoring-excuse-button";
 
 type AnswerRow = {
   id: string;
@@ -30,9 +31,11 @@ type SubRow = {
 };
 
 export function GradebookTable({
+  assessmentId,
   initial,
   proctorBySubmissionId = {},
 }: {
+  assessmentId: string;
   initial: SubRow[];
   proctorBySubmissionId?: Record<string, ProctorEventAgg[]>;
 }) {
@@ -87,9 +90,12 @@ export function GradebookTable({
               const agg = proctorBySubmissionId[s.id];
               if (!agg?.length) return null;
               return (
-                <p className="mt-1 text-xs text-amber-900/90 dark:text-amber-200/90">
-                  Integrity signals: {formatProctorSummaryLine(agg)}
-                </p>
+                <>
+                  <p className="mt-1 text-xs text-amber-900/90 dark:text-amber-200/90">
+                    Integrity signals: {formatProctorSummaryLine(agg)}
+                  </p>
+                  <ProctoringExcuseSubmissionButton assessmentId={assessmentId} submissionId={s.id} />
+                </>
               );
             })()}
           </div>

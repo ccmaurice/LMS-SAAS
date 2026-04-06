@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ export function IntegrityLogFilters({
   initialEventType,
   initialFrom,
   initialTo,
+  initialHideExcused,
   currentPage,
   totalCount,
 }: {
@@ -31,6 +32,7 @@ export function IntegrityLogFilters({
   initialEventType: string;
   initialFrom: string;
   initialTo: string;
+  initialHideExcused: boolean;
   currentPage: number;
   totalCount: number;
 }) {
@@ -39,6 +41,11 @@ export function IntegrityLogFilters({
   const [eventType, setEventType] = useState(initialEventType);
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
+  const [hideExcused, setHideExcused] = useState(initialHideExcused);
+
+  useEffect(() => {
+    setHideExcused(initialHideExcused);
+  }, [initialHideExcused]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / INTEGRITY_PAGE_SIZE));
 
@@ -48,6 +55,7 @@ export function IntegrityLogFilters({
     if (eventType) p.set("eventType", eventType);
     if (from) p.set("from", from);
     if (to) p.set("to", to);
+    if (hideExcused) p.set("hideExcused", "1");
     if (page > 1) p.set("page", String(page));
     return p;
   }
@@ -61,6 +69,7 @@ export function IntegrityLogFilters({
     setEventType("");
     setFrom("");
     setTo("");
+    setHideExcused(false);
     router.push(integrityPath);
   }
 
@@ -69,6 +78,7 @@ export function IntegrityLogFilters({
     eventType: initialEventType,
     fromDate: initialFrom,
     toDate: initialTo,
+    hideExcused: initialHideExcused,
   }).toString();
   const exportHref = `${exportApiPath}${exportQs ? `?${exportQs}` : ""}`;
 
@@ -107,6 +117,16 @@ export function IntegrityLogFilters({
         <div className="space-y-1">
           <Label htmlFor="int-to">To (UTC date)</Label>
           <Input id="int-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+        <div className="flex items-end sm:col-span-2 lg:col-span-4">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={hideExcused}
+              onChange={(e) => setHideExcused(e.target.checked)}
+            />
+            Hide excused events (show only active signals)
+          </label>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">

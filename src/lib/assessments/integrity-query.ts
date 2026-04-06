@@ -28,6 +28,8 @@ export type IntegrityListFilters = {
   /** YYYY-MM-DD inclusive end of day UTC */
   toDate: string;
   page: number;
+  /** When true, list only rows not yet excused by staff (dismissedAt is null). */
+  hideExcused: boolean;
 };
 
 const DEFAULT_PAGE = 1;
@@ -41,20 +43,26 @@ export function parseIntegrityListFilters(
   sp: Record<string, string | string[] | undefined>,
 ): IntegrityListFilters {
   const pageRaw = Number.parseInt(firstParam(sp.page), 10);
+  const hideRaw = firstParam(sp.hideExcused).toLowerCase();
   return {
     student: firstParam(sp.student).trim(),
     eventType: firstParam(sp.eventType).trim(),
     fromDate: firstParam(sp.from).trim(),
     toDate: firstParam(sp.to).trim(),
     page: Number.isFinite(pageRaw) && pageRaw >= 1 ? pageRaw : DEFAULT_PAGE,
+    hideExcused: hideRaw === "1" || hideRaw === "true" || hideRaw === "yes",
   };
 }
 
 export function buildProctoringWhere(
   assessmentId: string,
-  f: Pick<IntegrityListFilters, "student" | "eventType" | "fromDate" | "toDate">,
+  f: Pick<IntegrityListFilters, "student" | "eventType" | "fromDate" | "toDate" | "hideExcused">,
 ): Prisma.ProctoringEventWhereInput {
   const and: Prisma.ProctoringEventWhereInput[] = [{ assessmentId }];
+
+  if (f.hideExcused) {
+    and.push({ dismissedAt: null });
+  }
 
   if (f.eventType && INTEGRITY_EVENT_TYPES.includes(f.eventType as (typeof INTEGRITY_EVENT_TYPES)[number])) {
     and.push({ eventType: f.eventType });
@@ -89,7 +97,7 @@ export function buildProctoringWhere(
 }
 
 export function integrityExportSearchParams(
-  f: Pick<IntegrityListFilters, "student" | "eventType" | "fromDate" | "toDate">,
+  f: Pick<IntegrityListFilters, "student" | "eventType" | "fromDate" | "toDate" | "hideExcused">,
 ): URLSearchParams {
   const p = new URLSearchParams();
   if (f.student) p.set("student", f.student);
@@ -98,6 +106,7 @@ export function integrityExportSearchParams(
   }
   if (f.fromDate) p.set("from", f.fromDate);
   if (f.toDate) p.set("to", f.toDate);
+  if (f.hideExcused) p.set("hideExcused", "1");
   return p;
 }
 

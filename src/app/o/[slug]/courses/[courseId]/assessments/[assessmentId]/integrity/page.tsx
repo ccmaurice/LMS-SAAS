@@ -17,6 +17,7 @@ import {
 } from "@/lib/assessments/integrity-query";
 import { proctorEventTypeLabel } from "@/lib/assessments/proctoring-summary";
 import { IntegrityLogFilters } from "@/components/assessments/integrity-log-filters";
+import { ProctoringExcuseEventButton } from "@/components/assessments/proctoring-excuse-button";
 
 export default async function AssessmentIntegrityPage({
   params,
@@ -43,6 +44,7 @@ export default async function AssessmentIntegrityPage({
     eventType: filters.eventType,
     fromDate: filters.fromDate,
     toDate: filters.toDate,
+    hideExcused: filters.hideExcused,
   });
 
   const totalCount = await prisma.proctoringEvent.count({ where });
@@ -65,6 +67,7 @@ export default async function AssessmentIntegrityPage({
     take: INTEGRITY_PAGE_SIZE,
     include: {
       user: { select: { name: true, email: true } },
+      dismissedBy: { select: { name: true, email: true } },
     },
   });
 
@@ -96,6 +99,9 @@ export default async function AssessmentIntegrityPage({
               </span>
             ) : null}
           </p>
+          <p className="mt-2 max-w-xl text-xs text-muted-foreground">
+            Excused rows stay in the log for audit but no longer count toward gradebook warnings or outcome totals.
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`${base}/${assessmentId}/gradebook`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
@@ -117,12 +123,13 @@ export default async function AssessmentIntegrityPage({
         initialEventType={filters.eventType}
         initialFrom={filters.fromDate}
         initialTo={filters.toDate}
+        initialHideExcused={filters.hideExcused}
         currentPage={filters.page}
         totalCount={totalCount}
       />
 
       <div className="overflow-x-auto rounded-xl border border-border dark:border-white/10">
-        <table className="w-full min-w-[640px] border-collapse text-sm">
+        <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left dark:border-white/10">
               <th className="px-3 py-2 font-medium">Time (UTC)</th>
@@ -130,35 +137,78 @@ export default async function AssessmentIntegrityPage({
               <th className="px-3 py-2 font-medium">Submission</th>
               <th className="px-3 py-2 font-medium">Event</th>
               <th className="px-3 py-2 font-medium">Payload</th>
+              <th className="px-3 py-2 font-medium">Status</th>
+              <th className="px-3 py-2 font-medium">Excused</th>
+              <th className="px-3 py-2 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
             {events.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
                   No integrity events match these filters.
                 </td>
               </tr>
             ) : (
-              events.map((e) => (
-                <tr key={e.id} className="border-b border-border/80 dark:border-white/10">
-                  <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
-                    {e.createdAt.toISOString().replace("T", " ").slice(0, 19)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span className="font-medium text-foreground">{e.user?.name ?? "—"}</span>
-                    <br />
-                    <span className="text-xs text-muted-foreground">{e.user?.email ?? "—"}</span>
-                  </td>
-                  <td className="max-w-[140px] truncate px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {e.submissionId ?? "—"}
-                  </td>
-                  <td className="px-3 py-2">{proctorEventTypeLabel(e.eventType)}</td>
-                  <td className="max-w-xs truncate px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {formatIntegrityPayloadForDisplay(e.payload)}
-                  </td>
-                </tr>
-              ))
+              events.map((e) => {
+                const excused = e.dismissedAt != null;
+                return (
+                  <tr
+                    key={e.id}
+                    className={cn(
+                      "border-b border-border/80 dark:border-white/10",
+                      excused && "bg-muted/20 text-muted-foreground",
+                    )}
+                  >
+                    <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
+                      {e.createdAt.toISOString().replace("T", " ").slice(0, 19)}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span className="font-medium text-foreground">{e.user?.name ?? "—"}</span>
+                      <br />
+                      <span className="text-xs text-muted-foreground">{e.user?.email ?? "—"}</span>
+                    </td>
+                    <td className="max-w-[140px] truncate px-3 py-2 font-mono text-xs text-muted-foreground">
+                      {e.submissionId ?? "—"}
+                    </td>
+                    <td className="px-3 py-2">{proctorEventTypeLabel(e.eventType)}</td>
+                    <td className="max-w-[200px] truncate px-3 py-2 font-mono text-xs text-muted-foreground">
+                      {formatIntegrityPayloadForDisplay(e.payload)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2">
+                      {excused ? (
+                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-800 dark:text-emerald-200">
+                          Excused
+                        </span>
+                      ) : (
+                        <span className="text-xs">Active</span>
+                      )}
+                    </td>
+                    <td className="max-w-[200px] px-3 py-2 text-xs">
+                      {excused ? (
+                        <>
+                          <div className="text-muted-foreground">
+                            {e.dismissedAt?.toISOString().replace("T", " ").slice(0, 16)} UTC
+                          </div>
+                          <div>{e.dismissedBy?.name ?? e.dismissedBy?.email ?? "—"}</div>
+                          {e.dismissNote ? (
+                            <div className="mt-1 line-clamp-2 text-muted-foreground">{e.dismissNote}</div>
+                          ) : null}
+                        </>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right align-top">
+                      <ProctoringExcuseEventButton
+                        assessmentId={assessmentId}
+                        eventId={e.id}
+                        disabled={excused}
+                      />
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

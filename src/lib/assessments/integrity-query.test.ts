@@ -16,6 +16,11 @@ describe("parseIntegrityListFilters", () => {
     expect(f.student).toBe("bob");
     expect(f.page).toBe(3);
   });
+
+  it("parses hideExcused", () => {
+    expect(parseIntegrityListFilters({ hideExcused: "1" }).hideExcused).toBe(true);
+    expect(parseIntegrityListFilters({}).hideExcused).toBe(false);
+  });
 });
 
 describe("formatIntegrityPayloadForDisplay", () => {
@@ -35,9 +40,22 @@ describe("buildProctoringWhere", () => {
       eventType: "window_blur",
       fromDate: "2026-01-01",
       toDate: "2026-01-31",
+      hideExcused: false,
     });
     expect(w.AND).toBeDefined();
     expect(Array.isArray(w.AND)).toBe(true);
     expect((w.AND as unknown[]).length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("filters dismissed when hideExcused", () => {
+    const w = buildProctoringWhere("aid", {
+      student: "",
+      eventType: "",
+      fromDate: "",
+      toDate: "",
+      hideExcused: true,
+    });
+    const and = w.AND as Record<string, unknown>[];
+    expect(and.some((x) => x.dismissedAt === null)).toBe(true);
   });
 });

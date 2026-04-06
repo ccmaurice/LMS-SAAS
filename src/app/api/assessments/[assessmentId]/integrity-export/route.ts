@@ -37,16 +37,30 @@ export async function GET(req: Request, ctx: { params: Promise<{ assessmentId: s
     eventType: listFilters.eventType,
     fromDate: listFilters.fromDate,
     toDate: listFilters.toDate,
+    hideExcused: listFilters.hideExcused,
   });
 
   const events = await prisma.proctoringEvent.findMany({
     where,
     orderBy: { createdAt: "desc" },
     take: MAX_EXPORT,
-    include: { user: { select: { name: true, email: true } } },
+    include: {
+      user: { select: { name: true, email: true } },
+      dismissedBy: { select: { name: true, email: true } },
+    },
   });
 
-  const header = ["createdAt", "email", "name", "submissionId", "eventType", "payloadJson"];
+  const header = [
+    "createdAt",
+    "email",
+    "name",
+    "submissionId",
+    "eventType",
+    "payloadJson",
+    "excusedAt",
+    "excusedByEmail",
+    "excuseNote",
+  ];
   const lines = [
     header.join("\t"),
     ...events.map((e) =>
@@ -57,6 +71,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ assessmentId: s
         e.submissionId ?? "",
         e.eventType,
         e.payload == null ? "" : JSON.stringify(e.payload),
+        e.dismissedAt?.toISOString() ?? "",
+        e.dismissedBy?.email ?? "",
+        e.dismissNote ?? "",
       ]
         .map((c) => escapeTsvField(String(c)))
         .join("\t"),
