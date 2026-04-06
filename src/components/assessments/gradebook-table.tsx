@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ProctoringExcuseSubmissionButton } from "@/components/assessments/proctoring-excuse-button";
+import {
+  GradebookDiscardDraftButton,
+  GradebookGrantExtraAttempt,
+} from "@/components/assessments/gradebook-student-attempt-actions";
 
 type AnswerRow = {
   id: string;
@@ -26,7 +30,7 @@ type SubRow = {
   status: string;
   totalScore: number | null;
   maxScore: number | null;
-  user: { name: string | null; email: string };
+  user: { id: string; name: string | null; email: string };
   answers: AnswerRow[];
 };
 
@@ -98,6 +102,14 @@ export function GradebookTable({
                 </>
               );
             })()}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <GradebookGrantExtraAttempt
+                assessmentId={assessmentId}
+                studentUserId={s.user.id}
+                fromSubmissionId={s.id}
+              />
+              <GradebookDiscardDraftButton submissionId={s.id} disabled={s.status !== "DRAFT"} />
+            </div>
           </div>
           <ul className="mt-4 space-y-4">
             {s.answers.map((a) => (

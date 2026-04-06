@@ -58,6 +58,10 @@ export function GradebookRetakeRequests({ assessmentId }: { assessmentId: string
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card/30 p-4 dark:border-white/10">
       <h2 className="text-lg font-semibold">Retake requests</h2>
+      <p className="text-xs text-muted-foreground">
+        Approve student requests here, or use <strong>Grant extra attempt</strong> on a gradebook row to add an
+        approved retake without a student request (quizzes and exams).
+      </p>
       {pending.length === 0 ? (
         <p className="text-sm text-muted-foreground">No pending requests.</p>
       ) : (

@@ -71,14 +71,14 @@ export async function resolveStudentStartAttempt(
     return { kind: "new", submission };
   }
 
-  if (opts.retakeRequiresApproval) {
-    const grantId = await consumeNextApprovedRetakeGrant(assessmentId, userId);
-    if (grantId) {
-      const submission = await prisma.submission.create({
-        data: { assessmentId, userId, status: "DRAFT" },
-      });
-      return { kind: "new", submission };
-    }
+  // Staff-approved grants (or prior student-request approvals) apply whenever the learner is at max,
+  // even if the assessment does not require retake requests for extra tries.
+  const grantId = await consumeNextApprovedRetakeGrant(assessmentId, userId);
+  if (grantId) {
+    const submission = await prisma.submission.create({
+      data: { assessmentId, userId, status: "DRAFT" },
+    });
+    return { kind: "new", submission };
   }
 
   const lockedSubmission =
