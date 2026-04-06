@@ -5,13 +5,15 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { INTEGRITY_EVENT_TYPES, integrityExportSearchParams } from "@/lib/assessments/integrity-query";
+import {
+  INTEGRITY_EVENT_TYPES,
+  INTEGRITY_PAGE_SIZE,
+  integrityExportSearchParams,
+} from "@/lib/assessments/integrity-query";
 import { proctorEventTypeLabel } from "@/lib/assessments/proctoring-summary";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-
-const PAGE_SIZE = 50;
 
 export function IntegrityLogFilters({
   integrityPath,
@@ -38,7 +40,7 @@ export function IntegrityLogFilters({
   const [from, setFrom] = useState(initialFrom);
   const [to, setTo] = useState(initialTo);
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(totalCount / INTEGRITY_PAGE_SIZE));
 
   function buildListParams(page: number): URLSearchParams {
     const p = new URLSearchParams();
@@ -124,5 +126,3 @@ export function IntegrityLogFilters({
     </div>
   );
 }
-
-export const INTEGRITY_PAGE_SIZE = PAGE_SIZE;

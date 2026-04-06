@@ -10,14 +10,13 @@ import { cn } from "@/lib/utils";
 import { deliveryModeShortLabel } from "@/lib/assessments/delivery-mode";
 import {
   buildProctoringWhere,
+  formatIntegrityPayloadForDisplay,
+  INTEGRITY_PAGE_SIZE,
   integrityListSearchParams,
   parseIntegrityListFilters,
 } from "@/lib/assessments/integrity-query";
 import { proctorEventTypeLabel } from "@/lib/assessments/proctoring-summary";
-import {
-  INTEGRITY_PAGE_SIZE,
-  IntegrityLogFilters,
-} from "@/components/assessments/integrity-log-filters";
+import { IntegrityLogFilters } from "@/components/assessments/integrity-log-filters";
 
 export default async function AssessmentIntegrityPage({
   params,
@@ -147,16 +146,16 @@ export default async function AssessmentIntegrityPage({
                     {e.createdAt.toISOString().replace("T", " ").slice(0, 19)}
                   </td>
                   <td className="px-3 py-2">
-                    <span className="font-medium text-foreground">{e.user.name ?? "—"}</span>
+                    <span className="font-medium text-foreground">{e.user?.name ?? "—"}</span>
                     <br />
-                    <span className="text-xs text-muted-foreground">{e.user.email}</span>
+                    <span className="text-xs text-muted-foreground">{e.user?.email ?? "—"}</span>
                   </td>
                   <td className="max-w-[140px] truncate px-3 py-2 font-mono text-xs text-muted-foreground">
                     {e.submissionId ?? "—"}
                   </td>
                   <td className="px-3 py-2">{proctorEventTypeLabel(e.eventType)}</td>
                   <td className="max-w-xs truncate px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {e.payload == null ? "—" : JSON.stringify(e.payload)}
+                    {formatIntegrityPayloadForDisplay(e.payload)}
                   </td>
                 </tr>
               ))

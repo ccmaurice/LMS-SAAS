@@ -1,5 +1,20 @@
 import type { Prisma } from "@/generated/prisma/client";
 
+/** Pagination size for integrity log UI and API export caps (keep in sync with filters UI). */
+export const INTEGRITY_PAGE_SIZE = 50;
+
+/** Safe display of JSONB payloads (avoids render crash on BigInt / circular refs). */
+export function formatIntegrityPayloadForDisplay(payload: unknown): string {
+  if (payload == null) return "—";
+  try {
+    return JSON.stringify(payload, (_key, value) =>
+      typeof value === "bigint" ? value.toString() : value,
+    );
+  } catch {
+    return "[payload]";
+  }
+}
+
 /** Event types emitted by `AssessmentProctorHooks` (extend as new types are logged). */
 export const INTEGRITY_EVENT_TYPES = ["window_blur", "document_hidden", "fullscreen_exit"] as const;
 

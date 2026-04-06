@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildProctoringWhere, parseIntegrityListFilters } from "@/lib/assessments/integrity-query";
+import {
+  buildProctoringWhere,
+  formatIntegrityPayloadForDisplay,
+  parseIntegrityListFilters,
+} from "@/lib/assessments/integrity-query";
 
 describe("parseIntegrityListFilters", () => {
   it("defaults page to 1", () => {
@@ -11,6 +15,16 @@ describe("parseIntegrityListFilters", () => {
     const f = parseIntegrityListFilters({ student: "  bob  ", page: "3" });
     expect(f.student).toBe("bob");
     expect(f.page).toBe(3);
+  });
+});
+
+describe("formatIntegrityPayloadForDisplay", () => {
+  it("returns em dash for null", () => {
+    expect(formatIntegrityPayloadForDisplay(null)).toBe("—");
+  });
+
+  it("stringifies plain objects", () => {
+    expect(formatIntegrityPayloadForDisplay({ a: 1 })).toBe('{"a":1}');
   });
 });
 
