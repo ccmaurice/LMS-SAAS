@@ -10,6 +10,17 @@ loadEnv({ path: resolve(root, ".env") });
 if (existsSync(resolve(root, ".env.local"))) {
   loadEnv({ path: resolve(root, ".env.local"), override: true });
 }
+// e.g. PRISMA_ENV_FILE=.env.production.local npx prisma migrate deploy
+// Strip prior DB URLs so .env.local DIRECT_URL cannot linger when the overlay only sets DATABASE_URL.
+const prismaEnvOverlay = process.env.PRISMA_ENV_FILE?.trim();
+if (prismaEnvOverlay) {
+  const overlayPath = resolve(root, prismaEnvOverlay);
+  if (existsSync(overlayPath)) {
+    delete process.env.DIRECT_URL;
+    delete process.env.DATABASE_URL;
+    loadEnv({ path: overlayPath, override: true });
+  }
+}
 
 const migrateUrl =
   process.env.DIRECT_URL?.trim() || process.env.DATABASE_URL?.trim() || "";
