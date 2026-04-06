@@ -50,7 +50,7 @@ export function AppShell({
         <SidebarNav base={base} role={role} orgSlug={slug} educationLevel={educationLevel} />
       </aside>
       <div className="relative z-10 flex min-w-0 min-h-0 flex-1 flex-col print:h-auto print:min-h-0">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-4 py-3 shadow-sm backdrop-blur-md print:hidden dark:border-white/10 dark:bg-background/55 md:px-6">
+        <header className="relative z-30 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-4 py-3 shadow-sm backdrop-blur-md print:hidden dark:border-white/10 dark:bg-background/55 md:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <UserAvatar user={user} size={40} />
             <p className="min-w-0 truncate text-sm text-muted-foreground">
@@ -66,7 +66,7 @@ export function AppShell({
             <SignOutButton />
           </div>
         </header>
-        <main className="flex-1 overflow-visible p-4 pb-24 md:p-8 md:pb-8 print:h-auto print:max-h-none print:overflow-visible print:pb-6">
+        <main className="relative z-0 flex-1 overflow-visible p-4 pb-24 md:p-8 md:pb-8 print:h-auto print:max-h-none print:overflow-visible print:pb-6">
           <div className="mx-auto w-full max-w-7xl print:max-w-none">
             <OrgPageTransition>{children}</OrgPageTransition>
           </div>

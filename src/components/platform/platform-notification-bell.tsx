@@ -3,6 +3,7 @@
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { NotificationFloatingPanel } from "@/components/notifications/notification-floating-panel";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ export function PlatformNotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const refreshList = useCallback(async () => {
@@ -44,11 +46,10 @@ export function PlatformNotificationBell() {
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
-        const btn = (e.target as HTMLElement).closest("[data-platform-notification-bell-trigger]");
-        if (btn) return;
-        setOpen(false);
-      }
+      const t = e.target as Node;
+      if (panelRef.current?.contains(t)) return;
+      if (triggerRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
@@ -75,8 +76,9 @@ export function PlatformNotificationBell() {
   }
 
   return (
-    <div className="relative" ref={panelRef}>
+    <div className="relative">
       <button
+        ref={triggerRef}
         type="button"
         data-platform-notification-bell-trigger
         className={cn(
@@ -96,8 +98,8 @@ export function PlatformNotificationBell() {
           </span>
         ) : null}
       </button>
-      {open ? (
-        <div className="absolute right-0 z-50 mt-2 w-[min(100vw-2rem,22rem)] rounded-lg border border-border bg-popover shadow-lg">
+      <NotificationFloatingPanel open={open} anchorRef={triggerRef} panelRef={panelRef}>
+        <>
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
             <p className="text-sm font-medium">Notifications</p>
             {unreadCount > 0 ? (
@@ -149,8 +151,8 @@ export function PlatformNotificationBell() {
               </ul>
             )}
           </div>
-        </div>
-      ) : null}
+        </>
+      </NotificationFloatingPanel>
     </div>
   );
 }
