@@ -6,7 +6,8 @@ import {
   canStudentTakeAssessment,
   getAssessmentInOrg,
 } from "@/lib/assessments/access";
-import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
+import { isStaffRole } from "@/lib/courses/access";
 import { countCompletedAttempts } from "@/lib/assessments/retake";
 
 function clampAttempts(n: number): number {
@@ -31,7 +32,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: 
   if (!assessment) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canTeacherManageCourse(user, assessment.course.createdById)) {
+  if (!(await canTeacherActOnAssessmentCourse(user, assessment.courseId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

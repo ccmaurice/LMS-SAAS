@@ -2,6 +2,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import type { EducationLevel, Role } from "@/generated/prisma/enums";
 import { getEnrollment, isStaffRole } from "@/lib/courses/access";
+import { findActiveDraft } from "@/lib/assessments/retake";
 import { getStudentCohortIds } from "@/lib/school/cohort-access";
 import {
   assessmentVisibleToHeStudentWhere,
@@ -89,6 +90,29 @@ export async function canStudentTakeAssessment(
   },
 ): Promise<boolean> {
   return canStudentViewAssessment(userId, "STUDENT", assessment);
+}
+
+/**
+ * Student may open the take UI: visible assessment, and either attempts are not locked or they already have a draft.
+ */
+export async function canStudentOpenTakeUi(
+  userId: string,
+  assessmentId: string,
+  assessment: {
+    published: boolean;
+    studentAttemptsLocked: boolean;
+    courseId: string;
+    course: {
+      organizationId: string;
+      organization: { educationLevel: EducationLevel };
+    };
+    assessmentCohorts: { cohortId: string }[];
+    assessmentDepartments: { departmentId: string }[];
+  },
+): Promise<boolean> {
+  if (!(await canStudentTakeAssessment(userId, assessment))) return false;
+  if (!assessment.studentAttemptsLocked) return true;
+  return Boolean(await findActiveDraft(assessmentId, userId));
 }
 
 /** K–12: untargeted or cohort match. */

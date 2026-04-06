@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
-import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
+import { isStaffRole } from "@/lib/courses/access";
 import { AssessmentEditor } from "@/components/assessments/assessment-editor";
 import type { ScheduleEntryClient } from "@/components/assessments/assessment-schedule-editor";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -53,7 +54,7 @@ export default async function EditAssessmentPage({
 
   const assessment = await getAssessmentInOrg(assessmentId, user.organizationId);
   if (!assessment || assessment.courseId !== courseId) notFound();
-  if (!canTeacherManageCourse(user, assessment.course.createdById)) {
+  if (!(await canTeacherActOnAssessmentCourse(user, courseId))) {
     redirect(`/o/${slug}/courses/${courseId}/assessments`);
   }
 
@@ -122,6 +123,7 @@ export default async function EditAssessmentPage({
           semester: assessment.semester,
           timeLimitMinutes: assessment.timeLimitMinutes,
           published: assessment.published,
+          studentAttemptsLocked: assessment.studentAttemptsLocked,
           shuffleQuestions: assessment.shuffleQuestions,
           shuffleOptions: assessment.shuffleOptions,
           showAnswersToStudents: assessment.showAnswersToStudents,

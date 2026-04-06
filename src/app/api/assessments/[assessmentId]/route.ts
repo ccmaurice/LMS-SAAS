@@ -10,7 +10,8 @@ import {
 import { userInstructsCohort } from "@/lib/school/cohort-access";
 import { userFacultyOfDepartment } from "@/lib/school/department-access";
 import { questionToStudentJson } from "@/lib/assessments/sanitize";
-import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
+import { isStaffRole } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
 import { resolveQuestionsForStudentTake } from "@/lib/assessment_engine";
 
 const patchSchema = z.object({
@@ -20,6 +21,8 @@ const patchSchema = z.object({
   semester: z.union([z.literal(1), z.literal(2), z.literal(3), z.null()]).optional(),
   timeLimitMinutes: z.number().int().min(1).max(600).optional().nullable(),
   published: z.boolean().optional(),
+  /** When true, students cannot start a new attempt (draft in progress may still submit). */
+  studentAttemptsLocked: z.boolean().optional(),
   shuffleQuestions: z.boolean().optional(),
   shuffleOptions: z.boolean().optional(),
   showAnswersToStudents: z.boolean().optional(),
@@ -67,8 +70,14 @@ export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: 
   }
 
   const staffUser = isStaffRole(user.role);
-  const privilegedStaff =
-    staffUser && (user.role === "ADMIN" || user.id === assessment.course.createdById);
+  let privilegedStaff = false;
+  if (staffUser) {
+    if (user.role === "ADMIN") {
+      privilegedStaff = true;
+    } else if (user.role === "TEACHER") {
+      privilegedStaff = await canTeacherActOnAssessmentCourse(user, assessment.courseId);
+    }
+  }
   const studentAllowed = await canStudentViewAssessment(user.id, user.role, assessment);
 
   if (!privilegedStaff && !studentAllowed) {
@@ -109,6 +118,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: 
       semester: assessment.semester,
       timeLimitMinutes: assessment.timeLimitMinutes,
       published: assessment.published,
+      studentAttemptsLocked: assessment.studentAttemptsLocked,
       shuffleQuestions: assessment.shuffleQuestions,
       shuffleOptions: assessment.shuffleOptions,
       showAnswersToStudents: assessment.showAnswersToStudents,
@@ -139,8 +149,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ assessmentId:
   if (!canManageAssessments(user.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (!canTeacherManageCourse(user, existing.course.createdById)) {
-    return NextResponse.json({ error: "Only the course author or an admin can change this assessment" }, { status: 403 });
+  if (!(await canTeacherActOnAssessmentCourse(user, existing.courseId))) {
+    return NextResponse.json({ error: "You do not have permission to change this assessment" }, { status: 403 });
   }
 
   let body: unknown;
@@ -253,6 +263,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ assessmentId:
         timeLimitMinutes: parsed.data.timeLimitMinutes,
       }),
       ...(parsed.data.published !== undefined && { published: parsed.data.published }),
+      ...(parsed.data.studentAttemptsLocked !== undefined && {
+        studentAttemptsLocked: parsed.data.studentAttemptsLocked,
+      }),
       ...(parsed.data.shuffleQuestions !== undefined && {
         shuffleQuestions: parsed.data.shuffleQuestions,
       }),
@@ -316,8 +329,8 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ assessmentI
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canTeacherManageCourse(user, existing.course.createdById)) {
-    return NextResponse.json({ error: "Only the course author or an admin can delete this assessment" }, { status: 403 });
+  if (!(await canTeacherActOnAssessmentCourse(user, existing.courseId))) {
+    return NextResponse.json({ error: "You do not have permission to delete this assessment" }, { status: 403 });
   }
 
   await prisma.assessment.delete({ where: { id: assessmentId } });

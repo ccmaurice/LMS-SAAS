@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/api/guard";
 import { canStudentTakeAssessment, getAssessmentInOrg } from "@/lib/assessments/access";
-import { resolveStudentStartAttempt } from "@/lib/assessments/retake";
+import { findActiveDraft, resolveStudentStartAttempt } from "@/lib/assessments/retake";
 
 function clampAttempts(n: number): number {
   if (!Number.isFinite(n)) return 1;
@@ -20,6 +20,19 @@ export async function POST(_req: Request, ctx: { params: Promise<{ assessmentId:
 
   if (!(await canStudentTakeAssessment(user.id, assessment))) {
     return NextResponse.json({ error: "Not available" }, { status: 403 });
+  }
+
+  if (assessment.studentAttemptsLocked) {
+    const draft = await findActiveDraft(assessmentId, user.id);
+    if (!draft) {
+      return NextResponse.json(
+        {
+          error: "This assessment is closed to new attempts right now.",
+          code: "ATTEMPTS_LOCKED",
+        },
+        { status: 403 },
+      );
+    }
   }
 
   const maxAttempts = clampAttempts(assessment.maxAttemptsPerStudent);

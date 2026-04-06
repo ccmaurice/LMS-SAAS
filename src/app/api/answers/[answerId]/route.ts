@@ -3,7 +3,7 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
-import { canTeacherManageCourse } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
 import { recomputeSubmissionTotals } from "@/lib/assessments/score";
 import { notifySubmissionGradedIfNew } from "@/lib/notifications/assessment-graded";
 
@@ -29,7 +29,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ answerId: str
     include: {
       submission: {
         include: {
-          assessment: { include: { course: { select: { organizationId: true, createdById: true } } } },
+          assessment: { include: { course: { select: { organizationId: true, id: true } } } },
         },
       },
       question: true,
@@ -39,8 +39,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ answerId: str
   if (!answer) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canTeacherManageCourse(user, answer.submission.assessment.course.createdById)) {
-    return NextResponse.json({ error: "Only the course author or an admin can grade this answer" }, { status: 403 });
+  if (!(await canTeacherActOnAssessmentCourse(user, answer.submission.assessment.course.id))) {
+    return NextResponse.json({ error: "You do not have permission to grade this answer" }, { status: 403 });
   }
 
   let body: unknown;

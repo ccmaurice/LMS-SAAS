@@ -26,6 +26,7 @@ type AssessmentMeta = {
   semester: number | null;
   timeLimitMinutes: number | null;
   published: boolean;
+  studentAttemptsLocked: boolean;
   shuffleQuestions: boolean;
   shuffleOptions: boolean;
   showAnswersToStudents: boolean;
@@ -78,6 +79,9 @@ export function AssessmentEditor({
   const [title, setTitle] = useState(initialAssessment.title);
   const [description, setDescription] = useState(initialAssessment.description ?? "");
   const [published, setPublished] = useState(initialAssessment.published);
+  const [studentAttemptsLocked, setStudentAttemptsLocked] = useState(
+    initialAssessment.studentAttemptsLocked,
+  );
   const [shuffle, setShuffle] = useState(initialAssessment.shuffleQuestions);
   const [shuffleOpts, setShuffleOpts] = useState(initialAssessment.shuffleOptions);
   const [showAnswers, setShowAnswers] = useState(initialAssessment.showAnswersToStudents);
@@ -126,6 +130,7 @@ export function AssessmentEditor({
           title,
           description: description.trim() || null,
           published,
+          studentAttemptsLocked,
           shuffleQuestions: shuffle,
           shuffleOptions: shuffleOpts,
           showAnswersToStudents: showAnswers,
@@ -373,6 +378,19 @@ export function AssessmentEditor({
           <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} />
           Published
         </label>
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={studentAttemptsLocked}
+              onChange={(e) => setStudentAttemptsLocked(e.target.checked)}
+            />
+            Lock new student attempts
+          </label>
+          <p className="text-xs text-muted-foreground pl-6">
+            Blocks starting a fresh attempt. Students with an in-progress draft can still save answers and submit.
+          </p>
+        </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} />
           Shuffle questions for students

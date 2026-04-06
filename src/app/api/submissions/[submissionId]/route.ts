@@ -3,7 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/api/guard";
 import { submissionTimedOut } from "@/lib/assessments/time";
-import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
+import { isStaffRole } from "@/lib/courses/access";
 
 const patchBodySchema = z.object({
   answers: z.record(z.string(), z.string()),
@@ -39,7 +40,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ submissionId: 
 
   const isSubmitter = submission.userId === user.id;
   const privilegedStaff =
-    isStaffRole(user.role) && canTeacherManageCourse(user, submission.assessment.course.createdById);
+    isStaffRole(user.role) &&
+    (await canTeacherActOnAssessmentCourse(user, submission.assessment.course.id));
 
   let authorized = isSubmitter || privilegedStaff;
   if (!authorized && user.role === "PARENT") {

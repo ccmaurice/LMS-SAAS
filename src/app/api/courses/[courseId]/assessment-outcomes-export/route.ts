@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { assertCourseInOrg } from "@/lib/assessments/access";
-import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
+import { isStaffRole } from "@/lib/courses/access";
 import { deliveryModeShortLabel } from "@/lib/assessments/delivery-mode";
 import {
   assessmentOutcomeHealth,
@@ -26,7 +27,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ courseId: strin
 
   const course = await assertCourseInOrg(courseId, user.organizationId);
   if (!course) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canTeacherManageCourse(user, course.createdById)) {
+  if (!(await canTeacherActOnAssessmentCourse(user, courseId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

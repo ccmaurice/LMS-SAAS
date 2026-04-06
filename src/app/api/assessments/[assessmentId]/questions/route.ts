@@ -4,7 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
-import { canTeacherManageCourse } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
 import { parseMcqOptions } from "@/lib/assessments/mcq";
 import { parseDragDropFromQuestionSchema } from "@/lib/assessments/drag-drop-schema";
 
@@ -98,8 +98,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ assessmentId: 
   if (!assessment) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canTeacherManageCourse(user, assessment.course.createdById)) {
-    return NextResponse.json({ error: "Only the course author or an admin can edit questions" }, { status: 403 });
+  if (!(await canTeacherActOnAssessmentCourse(user, assessment.courseId))) {
+    return NextResponse.json({ error: "You do not have permission to edit questions for this assessment" }, { status: 403 });
   }
 
   let body: unknown;

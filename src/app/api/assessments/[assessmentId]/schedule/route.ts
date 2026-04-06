@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
-import { canTeacherManageCourse } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
 import { legacyDatesFromScheduleEntries } from "@/lib/assessment-schedule/sync-legacy-dates";
 
 const KINDS = ["CA_OPENS", "CA_DUE", "EXAM_WINDOW"] as const;
@@ -66,7 +66,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: 
 
   const existing = await getAssessmentInOrg(assessmentId, user.organizationId);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canTeacherManageCourse(user, existing.course.createdById)) {
+  if (!(await canTeacherActOnAssessmentCourse(user, existing.courseId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -97,7 +97,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ assessmentId: s
 
   const existing = await getAssessmentInOrg(assessmentId, user.organizationId);
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!canTeacherManageCourse(user, existing.course.createdById)) {
+  if (!(await canTeacherActOnAssessmentCourse(user, existing.courseId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

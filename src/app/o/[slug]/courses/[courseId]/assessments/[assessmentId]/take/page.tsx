@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
-import { canStudentTakeAssessment, getAssessmentInOrg } from "@/lib/assessments/access";
+import { canStudentOpenTakeUi, getAssessmentInOrg } from "@/lib/assessments/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
 import { isStaffRole } from "@/lib/courses/access";
 import { TakeAssessment } from "@/components/assessments/take-assessment";
 
@@ -18,13 +19,13 @@ export default async function TakeAssessmentPage({
 
   if (isStaffRole(user.role)) {
     const privilegedStaff =
-      user.role === "ADMIN" || user.id === assessment.course.createdById;
+      user.role === "ADMIN" || (await canTeacherActOnAssessmentCourse(user, courseId));
     if (privilegedStaff) {
       redirect(`/o/${slug}/courses/${courseId}/assessments/${assessmentId}/edit`);
     }
   }
 
-  if (!(await canStudentTakeAssessment(user.id, assessment))) {
+  if (!(await canStudentOpenTakeUi(user.id, assessmentId, assessment))) {
     redirect(`/o/${slug}/courses/${courseId}/assessments`);
   }
 

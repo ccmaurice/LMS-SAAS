@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
-import { canTeacherManageCourse } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
 const patchSchema = z.object({
   moderationState: z.enum([
     "NONE",
@@ -23,15 +23,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ submissionId:
   const submission = await prisma.submission.findFirst({
     where: { id: submissionId, assessment: { course: { organizationId: user.organizationId } } },
     include: {
-      assessment: { include: { course: { select: { organizationId: true, createdById: true } } } },
+      assessment: { include: { course: { select: { organizationId: true, id: true } } } },
     },
   });
 
   if (!submission) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canTeacherManageCourse(user, submission.assessment.course.createdById)) {
-    return NextResponse.json({ error: "Only the course author or an admin can update moderation" }, { status: 403 });
+  if (!(await canTeacherActOnAssessmentCourse(user, submission.assessment.course.id))) {
+    return NextResponse.json({ error: "You do not have permission to update moderation" }, { status: 403 });
   }
 
   let body: unknown;

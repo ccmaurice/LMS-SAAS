@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
-import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
+import { isStaffRole } from "@/lib/courses/access";
 import { buildProctoringWhere, parseIntegrityListFilters } from "@/lib/assessments/integrity-query";
 
 const MAX_EXPORT = 15_000;
@@ -25,7 +26,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ assessmentId: s
   if (!assessment) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canTeacherManageCourse(user, assessment.course.createdById)) {
+  if (!(await canTeacherActOnAssessmentCourse(user, assessment.courseId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

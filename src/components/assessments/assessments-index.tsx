@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
+import { AssessmentStaffLockToggle } from "@/components/assessments/assessment-staff-lock-toggle";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +11,7 @@ export type AssessmentStaffRow = {
   id: string;
   title: string;
   course: { id: string; title: string };
+  studentAttemptsLocked: boolean;
 };
 
 export type AssessmentStudentRow = {
@@ -16,6 +19,9 @@ export type AssessmentStudentRow = {
   title: string;
   course: { id: string; title: string };
   latestSubmissionId?: string | null;
+  /** Blocks new attempts unless student has a draft (parent view ignores for navigation). */
+  studentAttemptsLocked?: boolean;
+  hasDraft?: boolean;
 };
 
 export function AssessmentsStaffList({ slug, rows }: { slug: string; rows: AssessmentStaffRow[] }) {
@@ -38,7 +44,13 @@ export function AssessmentsStaffList({ slug, rows }: { slug: string; rows: Asses
             <p className="font-semibold tracking-tight">{a.title}</p>
             <p className="mt-1 text-sm text-muted-foreground">{a.course.title}</p>
           </div>
-          <div className="relative z-10 flex flex-wrap gap-2">
+          <div className="relative z-10 flex flex-wrap items-center gap-2">
+            {a.studentAttemptsLocked ? (
+              <Badge variant="outline" className="border-amber-500/50 text-amber-950 dark:text-amber-100">
+                Attempts locked
+              </Badge>
+            ) : null}
+            <AssessmentStaffLockToggle assessmentId={a.id} initialLocked={a.studentAttemptsLocked} />
             <Link
               href={`/o/${slug}/courses/${a.course.id}/assessments/${a.id}/edit`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
@@ -87,6 +99,15 @@ export function AssessmentsStudentList({
             <span className={cn(buttonVariants({ variant: "secondary" }), "shrink-0 cursor-not-allowed opacity-70")}>
               No submission yet
             </span>
+          ) : viewer === "student" && a.studentAttemptsLocked && !a.hasDraft ? (
+            <span
+              className={cn(
+                buttonVariants({ variant: "secondary" }),
+                "shrink-0 cursor-not-allowed text-center opacity-80",
+              )}
+            >
+              Closed to new attempts
+            </span>
           ) : (
             <Link
               href={
@@ -96,7 +117,7 @@ export function AssessmentsStudentList({
               }
               className={cn(buttonVariants(), "shrink-0")}
             >
-              {viewer === "parent" ? "View results" : "Open"}
+              {viewer === "parent" ? "View results" : a.studentAttemptsLocked && a.hasDraft ? "Resume" : "Open"}
             </Link>
           )}
         </motion.li>

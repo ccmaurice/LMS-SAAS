@@ -3,7 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { assertCourseInOrg, assessmentWhereForStudent } from "@/lib/assessments/access";
-import { canTeacherManageCourse, getEnrollment, isStaffRole } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
+import { getEnrollment, isStaffRole } from "@/lib/courses/access";
 import { getStudentCohortIds } from "@/lib/school/cohort-access";
 import { getStudentDepartmentIds } from "@/lib/school/department-access";
 
@@ -26,7 +27,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ courseId: stri
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const privilegedStaff = isStaffRole(user.role) && canTeacherManageCourse(user, course.createdById);
+  const privilegedStaff =
+    isStaffRole(user.role) && (await canTeacherActOnAssessmentCourse(user, courseId));
 
   if (privilegedStaff) {
     const assessments = await prisma.assessment.findMany({
@@ -75,8 +77,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ courseId: stri
   if (!course) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canTeacherManageCourse(user, course.createdById)) {
-    return NextResponse.json({ error: "Only the course author or an admin can add assessments" }, { status: 403 });
+  if (!(await canTeacherActOnAssessmentCourse(user, courseId))) {
+    return NextResponse.json({ error: "You do not have permission to add assessments to this course" }, { status: 403 });
   }
 
   let body: unknown;

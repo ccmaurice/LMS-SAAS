@@ -898,6 +898,8 @@ model Assessment {
   semester         Int?
   timeLimitMinutes Int?
   published        Boolean        @default(false)
+  /// When true, students cannot start a new attempt; those with an in-progress draft may still save and submit.
+  studentAttemptsLocked Boolean   @default(false)
   shuffleQuestions Boolean        @default(false)
   shuffleOptions   Boolean        @default(false)
   /// When false, students (and submission API for students) do not see keys, correct answers, or full question payloads after submit.

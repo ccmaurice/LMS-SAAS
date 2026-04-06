@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
+import { OrgAssessmentsAttemptsLockPanel } from "@/components/admin/org-assessments-attempts-lock";
 import { GradingPromotionPanel } from "@/components/admin/grading-promotion-panel";
 import { SchoolSettingsForm } from "@/components/admin/school-settings-form";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -71,6 +72,9 @@ export default async function AdminSchoolPage({ params }: { params: Promise<{ sl
             gpaBands: orgSettings.gpaBands,
           }}
         />
+      </section>
+      <section className="surface-bento p-6">
+        <OrgAssessmentsAttemptsLockPanel />
       </section>
       <section className="surface-bento p-6">
         <GradingPromotionPanel

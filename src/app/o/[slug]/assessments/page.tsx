@@ -5,6 +5,7 @@ import type { EducationLevel } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { assessmentWhereForStudent } from "@/lib/assessments/access";
+import { courseWhereTeacherAssessmentAccess } from "@/lib/assessments/staff-access";
 import { isStaffRole } from "@/lib/courses/access";
 import { getStudentCohortIds } from "@/lib/school/cohort-access";
 import { getStudentDepartmentIds } from "@/lib/school/department-access";
@@ -109,10 +110,10 @@ export default async function OrgAssessmentsPage({
     const filterDept = typeof q.dept === "string" && q.dept.length > 0 ? q.dept : null;
 
     const where: Prisma.AssessmentWhereInput = {
-      course: {
-        organizationId: user.organizationId,
-        ...(user.role === "TEACHER" ? { createdById: user.id } : {}),
-      },
+      course:
+        user.role === "TEACHER"
+          ? courseWhereTeacherAssessmentAccess(user.organizationId, user.id)
+          : { organizationId: user.organizationId },
     };
     const andFilters: Prisma.AssessmentWhereInput[] = [];
 
@@ -188,7 +189,7 @@ export default async function OrgAssessmentsPage({
           <h1 className="page-title">All assessments</h1>
           <p className="text-muted-foreground">
             {user.role === "TEACHER"
-              ? "Assessments on courses you created. Use filters to narrow by department, class, or year."
+              ? "Assessments on courses you author or where you instruct a linked class or department. Use filters to narrow by department, class, or year."
               : educationLevel === "HIGHER_ED"
                 ? "Filter by academic department. Link departments to courses, then target assessments to specific departments from the assessment editor."
                 : "Filter by class or academic year. Link classes to courses, then target assessments to specific homerooms or form groups."}
@@ -203,7 +204,15 @@ export default async function OrgAssessmentsPage({
             departments={departments}
           />
         </Suspense>
-        <AssessmentsStaffList slug={slug} rows={rows} />
+        <AssessmentsStaffList
+          slug={slug}
+          rows={rows.map((a) => ({
+            id: a.id,
+            title: a.title,
+            course: a.course,
+            studentAttemptsLocked: a.studentAttemptsLocked,
+          }))}
+        />
         {rows.length === 0 ? <p className="text-muted-foreground">No assessments match these filters.</p> : null}
       </div>
     );
@@ -211,7 +220,7 @@ export default async function OrgAssessmentsPage({
 
   const cohortIds = await getStudentCohortIds(user.id, user.organizationId);
   const deptIds = await getStudentDepartmentIds(user.id, user.organizationId);
-  const rows = await prisma.assessment.findMany({
+  const assessments = await prisma.assessment.findMany({
     where: {
       published: true,
       course: {
@@ -221,8 +230,29 @@ export default async function OrgAssessmentsPage({
       ...assessmentWhereForStudent(educationLevel, cohortIds, deptIds),
     },
     orderBy: { title: "asc" },
-    include: { course: { select: { id: true, title: true } } },
+    select: {
+      id: true,
+      title: true,
+      studentAttemptsLocked: true,
+      course: { select: { id: true, title: true } },
+    },
   });
+  const ids = assessments.map((a) => a.id);
+  const draftRows =
+    ids.length > 0
+      ? await prisma.submission.findMany({
+          where: { userId: user.id, status: "DRAFT", assessmentId: { in: ids } },
+          select: { assessmentId: true },
+        })
+      : [];
+  const draftSet = new Set(draftRows.map((r) => r.assessmentId));
+  const rows = assessments.map((a) => ({
+    id: a.id,
+    title: a.title,
+    course: a.course,
+    studentAttemptsLocked: a.studentAttemptsLocked,
+    hasDraft: draftSet.has(a.id),
+  }));
 
   return (
     <div className="space-y-6">

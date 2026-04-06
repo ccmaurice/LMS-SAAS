@@ -7,7 +7,8 @@ import {
   assessmentWhereForStudent,
   assessmentVisibleToStudentWhere,
 } from "@/lib/assessments/access";
-import { canTeacherManageCourse, getEnrollment, isStaffRole } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
+import { getEnrollment, isStaffRole } from "@/lib/courses/access";
 import { getStudentCohortIds } from "@/lib/school/cohort-access";
 import { getStudentDepartmentIds } from "@/lib/school/department-access";
 import type { AssessmentDeliveryMode, EducationLevel } from "@/generated/prisma/enums";
@@ -20,6 +21,7 @@ import {
 } from "@/lib/assessments/delivery-mode";
 import { assessmentOutcomeNeedsAttention } from "@/lib/assessments/assessment-outcome-health";
 import { submitParticipationPercent, summarizeOutcomeSubmissions } from "@/lib/assessments/course-assessment-outcomes";
+import { AssessmentStaffLockToggle } from "@/components/assessments/assessment-staff-lock-toggle";
 
 function deliveryBadgeVariant(
   mode: AssessmentDeliveryMode,
@@ -44,7 +46,7 @@ export default async function CourseAssessmentsPage({
   const courseBase = `/o/${slug}/courses/${courseId}`;
   const base = `${courseBase}/assessments`;
 
-  if (isStaffRole(user.role) && canTeacherManageCourse(user, course.createdById)) {
+  if (isStaffRole(user.role) && (await canTeacherActOnAssessmentCourse(user, courseId))) {
     const orgLevel = (await prisma.organization.findUnique({
       where: { id: user.organizationId },
       select: { educationLevel: true },
@@ -59,6 +61,7 @@ export default async function CourseAssessmentsPage({
           id: true,
           title: true,
           published: true,
+          studentAttemptsLocked: true,
           deliveryMode: true,
           submissions: {
             where: { status: "SUBMITTED" },
@@ -153,6 +156,12 @@ export default async function CourseAssessmentsPage({
                     </Badge>
                   ) : null}
                   <Badge variant={deliveryBadgeVariant(a.deliveryMode)}>{deliveryModeBadgeLabel(a.deliveryMode)}</Badge>
+                  {a.studentAttemptsLocked ? (
+                    <Badge variant="outline" className="border-amber-500/50 text-amber-950 dark:text-amber-100">
+                      Attempts locked
+                    </Badge>
+                  ) : null}
+                  <AssessmentStaffLockToggle assessmentId={a.id} initialLocked={a.studentAttemptsLocked} />
                   <Link href={`${base}/${a.id}/edit`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
                     Edit
                   </Link>
@@ -214,8 +223,28 @@ export default async function CourseAssessmentsPage({
         : assessmentVisibleToStudentWhere(studentCohortIds)),
     },
     orderBy: { title: "asc" },
-    include: { _count: { select: { questions: true } } },
+    select: {
+      id: true,
+      title: true,
+      deliveryMode: true,
+      studentAttemptsLocked: true,
+      _count: { select: { questions: true } },
+    },
   });
+
+  const assessmentIds = assessments.map((x) => x.id);
+  const draftRows =
+    assessmentIds.length > 0
+      ? await prisma.submission.findMany({
+          where: {
+            userId: user.id,
+            status: "DRAFT",
+            assessmentId: { in: assessmentIds },
+          },
+          select: { assessmentId: true },
+        })
+      : [];
+  const draftSet = new Set(draftRows.map((r) => r.assessmentId));
 
   return (
     <div className="space-y-6">
@@ -224,6 +253,8 @@ export default async function CourseAssessmentsPage({
       <ul className="space-y-3">
         {assessments.map((a) => {
           const integrityNote = deliveryModeStudentNote(a.deliveryMode);
+          const hasDraft = draftSet.has(a.id);
+          const blocked = a.studentAttemptsLocked && !hasDraft;
           return (
           <li key={a.id} className="surface-bento flex flex-wrap items-center justify-between gap-3 p-5">
             <div className="min-w-0 flex-1">
@@ -232,14 +263,25 @@ export default async function CourseAssessmentsPage({
               {integrityNote ? (
                 <p className="mt-1 text-xs text-muted-foreground">{integrityNote}</p>
               ) : null}
+              {blocked ? (
+                <p className="mt-1 text-xs text-amber-800 dark:text-amber-200/90">
+                  Your instructor has paused new attempts. If you were already started, use Resume.
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
               {a.deliveryMode !== "FORMATIVE" ? (
                 <Badge variant={deliveryBadgeVariant(a.deliveryMode)}>{deliveryModeBadgeLabel(a.deliveryMode)}</Badge>
               ) : null}
-              <Link href={`${base}/${a.id}/take`} className={cn(buttonVariants())}>
-                Start
-              </Link>
+              {blocked ? (
+                <span className={cn(buttonVariants({ variant: "secondary" }), "cursor-not-allowed opacity-80")}>
+                  Closed
+                </span>
+              ) : (
+                <Link href={`${base}/${a.id}/take`} className={cn(buttonVariants())}>
+                  {a.studentAttemptsLocked && hasDraft ? "Resume" : "Start"}
+                </Link>
+              )}
             </div>
           </li>
           );

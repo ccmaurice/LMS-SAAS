@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
-import { canTeacherManageCourse } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: string }> }) {
   const { assessmentId } = await ctx.params;
@@ -15,8 +15,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ assessmentId: 
   if (!assessment) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canTeacherManageCourse(user, assessment.course.createdById)) {
-    return NextResponse.json({ error: "Only the course author or an admin can open this gradebook" }, { status: 403 });
+  if (!(await canTeacherActOnAssessmentCourse(user, assessment.courseId))) {
+    return NextResponse.json({ error: "You do not have permission to open this gradebook" }, { status: 403 });
   }
 
   const submissions = await prisma.submission.findMany({

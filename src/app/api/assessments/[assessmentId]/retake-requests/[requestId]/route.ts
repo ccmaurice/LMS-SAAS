@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { getAssessmentInOrg } from "@/lib/assessments/access";
-import { canTeacherManageCourse } from "@/lib/courses/access";
+import { canTeacherActOnAssessmentCourse } from "@/lib/assessments/staff-access";
 
 const patchSchema = z.object({
   status: z.enum(["APPROVED", "DENIED"]),
@@ -21,7 +21,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ assessmentId:
   if (!assessment) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (!canTeacherManageCourse(user, assessment.course.createdById)) {
+  if (!(await canTeacherActOnAssessmentCourse(user, assessment.courseId))) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
