@@ -1,4 +1,5 @@
 import type { Role } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { isStaffRole } from "@/lib/courses/access";
 
@@ -18,20 +19,30 @@ export async function getRecentDiscussionMessages(args: {
   organizationId: string;
   role: Role;
   take?: number;
+  /** Required context for PARENT: only courses where at least one of these students is enrolled. */
+  linkedStudentUserIds?: string[];
 }): Promise<RecentDiscussionMessage[]> {
   const take = args.take ?? 6;
 
+  const courseWhere: Prisma.CourseWhereInput = {
+    organizationId: args.organizationId,
+  };
+
+  if (args.role === "STUDENT") {
+    courseWhere.enrollments = { some: { userId: args.userId } };
+  } else if (args.role === "TEACHER") {
+    courseWhere.createdById = args.userId;
+  } else if (args.role === "PARENT") {
+    const kids = args.linkedStudentUserIds ?? [];
+    if (kids.length === 0) {
+      return [];
+    }
+    courseWhere.enrollments = { some: { userId: { in: kids } } };
+  }
+  // ADMIN: organizationId only (org-wide visibility for school admins)
+
   const rows = await prisma.courseChatMessage.findMany({
-    where: {
-      course: {
-        organizationId: args.organizationId,
-        ...(args.role === "STUDENT"
-          ? { enrollments: { some: { userId: args.userId } } }
-          : args.role === "TEACHER"
-            ? { createdById: args.userId }
-            : {}),
-      },
-    },
+    where: { course: courseWhere },
     orderBy: { createdAt: "desc" },
     take,
     include: {

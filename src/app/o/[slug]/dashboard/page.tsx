@@ -84,6 +84,7 @@ export default async function DashboardPage({
       organizationId: user.organizationId,
       role: user.role,
       take: 6,
+      linkedStudentUserIds: user.role === "PARENT" ? parentChildIds : undefined,
     }),
     reportRowsPromise,
     getEligibleCertificates(user.id, user.organizationId, user.role),

@@ -4,6 +4,11 @@ type Bucket = { windowStart: number; count: number };
 
 const buckets = new Map<string, Bucket>();
 
+/** Clears fixed-window state; used by Vitest only. */
+export function clearRateLimitBucketsForTests() {
+  buckets.clear();
+}
+
 function pruneStale(now: number, windowMs: number) {
   if (buckets.size < 5000 || Math.random() > 0.02) return;
   const cutoff = now - windowMs * 2;

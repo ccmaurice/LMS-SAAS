@@ -8,6 +8,7 @@ Multi-tenant **learning management system**: schools (organizations) on shared i
 
 ## Documentation
 
+- **[One-pager: schools + technical / hiring](docs/ONE-PAGER-SCHOOLS-AND-TECH.md)** — buyer-facing summary and engineering signals (print to PDF for proposals or job packets).
 - **[Application guide (features, routes, login)](docs/APP-GUIDE.md)** — full itinerary of areas, roles, demo accounts, and how to save that document as PDF from your browser.
 - **[Porting prompt (logic to another stack)](docs/PORTING-PROMPT.md)** — copy-paste prompt to reuse assessment, gradebook, reporting, and education-level logic elsewhere.
 

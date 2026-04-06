@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  fieldValidationErrorResponse,
+  invalidJsonResponse,
+  messageErrorResponse,
+} from "@/lib/api/api-json";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
@@ -37,12 +42,12 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return invalidJsonResponse();
   }
 
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten().fieldErrors }, { status: 400 });
+    return fieldValidationErrorResponse(parsed.error);
   }
 
   const email = parsed.data.email.toLowerCase().trim();
@@ -53,7 +58,10 @@ export async function POST(req: Request) {
     where: { organizationId_email: { organizationId: user.organizationId, email } },
   });
   if (existingUser) {
-    return NextResponse.json({ error: "A user with this email already belongs to your organization." }, { status: 409 });
+    return messageErrorResponse(
+      "A user with this email already belongs to your organization.",
+      409,
+    );
   }
 
   const pending = await prisma.userInvite.findFirst({
@@ -64,7 +72,7 @@ export async function POST(req: Request) {
     },
   });
   if (pending) {
-    return NextResponse.json({ error: "An active invite for this email already exists." }, { status: 409 });
+    return messageErrorResponse("An active invite for this email already exists.", 409);
   }
 
   const token = generateInviteToken();

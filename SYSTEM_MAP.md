@@ -31,7 +31,7 @@
 | Email | `src/lib/email/send.ts` | Resend optional. |
 | AI | `src/lib/ai/*` | OpenAI optional for long-answer grading. |
 
-**Middleware** (`src/middleware.ts`): protects `/o/[slug]/*` and `/platform/*` (except platform login). **Note:** Next 16 deprecation warning for “middleware” naming — migrate to `proxy` when upgrading.
+**Edge proxy** (`src/proxy.ts`, Next.js 16 “proxy” convention): protects `/o/[slug]/*` and `/platform/*` (except platform login). Sets `X-Request-Id`; optional `ENABLE_REQUEST_LOG` JSON logs via `console.info` (no PII).
 
 ---
 
