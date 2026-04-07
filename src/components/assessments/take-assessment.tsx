@@ -12,13 +12,13 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { AssessmentPrompt } from "@/components/assessments/assessment-prompt";
+import { AssessmentQuestionText } from "@/components/assessments/assessment-question-text";
+import { AssessmentRichTextField } from "@/components/assessments/assessment-rich-text-field";
+import { stripHtmlToPlainText } from "@/lib/assessments/html-text";
 import { AssessmentDeliveryIntegrity } from "@/components/assessments/assessment-delivery-integrity";
 import { AssessmentLockdownGuards } from "@/components/assessments/assessment-lockdown-guards";
 import { AssessmentProctorHooks } from "@/components/assessments/assessment-proctor-hooks";
@@ -75,7 +75,7 @@ function isQuestionAnswered(q: QuestionRow, raw: string | undefined): boolean {
     case "SHORT_ANSWER":
     case "LONG_ANSWER":
     case "ESSAY_RICH":
-      return v.trim().length > 0;
+      return stripHtmlToPlainText(v).length > 0;
     case "TRUE_FALSE": {
       try {
         const j = JSON.parse(v || "{}") as { value?: boolean };
@@ -565,7 +565,7 @@ export function TakeAssessment({
                     <FileQuestion className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                     Question {displayIndex} of {n}
                   </div>
-                  <AssessmentPrompt
+                  <AssessmentQuestionText
                     text={q.prompt}
                     className="mt-3 text-lg font-medium leading-snug tracking-tight text-foreground"
                   />
@@ -642,7 +642,7 @@ export function TakeAssessment({
                               checked={checked}
                               onChange={() => setAnswer(q.id, JSON.stringify({ choiceId: c.id }))}
                             />
-                            <AssessmentPrompt text={c.text} className="flex-1 leading-relaxed" />
+                            <AssessmentQuestionText text={c.text} className="flex-1 leading-relaxed" />
                           </label>
                         );
                       })}
@@ -650,21 +650,24 @@ export function TakeAssessment({
                   ) : null}
 
                   {q.type === "SHORT_ANSWER" ? (
-                    <Input
-                      className="text-base"
-                      data-lockdown-allow-input
+                    <AssessmentRichTextField
                       value={answers[q.id] ?? ""}
-                      onChange={(e) => setAnswer(q.id, e.target.value)}
+                      onChange={(html) => setAnswer(q.id, html)}
+                      placeholder="Type your answer…"
+                      editorMinHeightClass="min-h-[100px]"
+                      lockdownAllowInput
+                      variant="respondent"
                     />
                   ) : null}
 
                   {q.type === "LONG_ANSWER" || q.type === "ESSAY_RICH" ? (
-                    <Textarea
-                      className="min-h-[160px] text-base"
-                      rows={6}
-                      data-lockdown-allow-input
+                    <AssessmentRichTextField
                       value={answers[q.id] ?? ""}
-                      onChange={(e) => setAnswer(q.id, e.target.value)}
+                      onChange={(html) => setAnswer(q.id, html)}
+                      placeholder="Write your response…"
+                      editorMinHeightClass={q.type === "ESSAY_RICH" ? "min-h-[220px]" : "min-h-[180px]"}
+                      lockdownAllowInput
+                      variant="respondent"
                     />
                   ) : null}
 

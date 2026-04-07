@@ -2,12 +2,26 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import {
+  AlignLeft,
+  CheckCircle2,
+  FileText,
+  GripVertical,
+  ListChecks,
+  PenLine,
+  Plus,
+  Sigma,
+  Sparkles,
+  ToggleLeft,
+  Trash2,
+} from "lucide-react";
 import { AssessmentQuestionBankPanel } from "@/components/assessments/assessment-question-bank-panel";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
@@ -17,6 +31,9 @@ import {
   AssessmentScheduleEditor,
   type ScheduleEntryClient,
 } from "@/components/assessments/assessment-schedule-editor";
+import { AssessmentFormFieldRow } from "@/components/assessments/assessment-form-field-row";
+import { AssessmentRichTextField } from "@/components/assessments/assessment-rich-text-field";
+import { isRichTextEmpty, stripHtmlToPlainText } from "@/lib/assessments/html-text";
 
 type AssessmentMeta = {
   id: string;
@@ -48,6 +65,35 @@ type LinkedDepartment = {
   code: string | null;
   facultyDivisionName: string | null;
 };
+
+type BuilderQType =
+  | "MCQ"
+  | "SHORT_ANSWER"
+  | "LONG_ANSWER"
+  | "TRUE_FALSE"
+  | "DRAG_DROP"
+  | "FORMULA"
+  | "ESSAY_RICH";
+
+const BUILDER_TYPE_OPTIONS: {
+  value: BuilderQType;
+  label: string;
+  hint: string;
+  icon: typeof ListChecks;
+}[] = [
+  { value: "MCQ", label: "Multiple choice", hint: "Single correct option", icon: ListChecks },
+  { value: "SHORT_ANSWER", label: "Short answer", hint: "Exact text match", icon: AlignLeft },
+  { value: "LONG_ANSWER", label: "Long answer", hint: "Manual / AI assist", icon: FileText },
+  { value: "TRUE_FALSE", label: "True / false", hint: "Binary choice", icon: ToggleLeft },
+  { value: "DRAG_DROP", label: "Drag & drop", hint: "Match pairs", icon: GripVertical },
+  { value: "FORMULA", label: "Formula", hint: "LaTeX answer", icon: Sigma },
+  { value: "ESSAY_RICH", label: "Rich essay", hint: "Extended response", icon: PenLine },
+];
+
+function questionTypeLabel(t: string): string {
+  const row = BUILDER_TYPE_OPTIONS.find((x) => x.value === t);
+  return row?.label ?? t;
+}
 
 export function AssessmentEditor({
   orgSlug,
@@ -155,7 +201,7 @@ export function AssessmentEditor({
   }
 
   async function addQuestion() {
-    if (!qPrompt.trim()) return;
+    if (isRichTextEmpty(qPrompt)) return;
     setBusy(true);
     try {
       let body: Record<string, unknown> = {
@@ -167,10 +213,10 @@ export function AssessmentEditor({
         const choices = mcqTexts
           .map((t, i) => ({
             id: String.fromCharCode(97 + i),
-            text: t.trim(),
+            text: t,
             correct: i === mcqCorrect,
           }))
-          .filter((c) => c.text.length > 0);
+          .filter((c) => stripHtmlToPlainText(c.text).length > 0);
         if (choices.length < 2) return;
         body = { ...body, options: { choices } };
       }
@@ -307,7 +353,7 @@ export function AssessmentEditor({
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-8 px-1 sm:px-0">
       <Link href={base} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
         ← Assessments
       </Link>
@@ -535,16 +581,28 @@ export function AssessmentEditor({
 
       <AssessmentScheduleEditor assessmentId={aid} initialEntries={initialScheduleEntries} />
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Questions</h2>
-        <div className="flex flex-wrap gap-2 border-b border-border pb-2 dark:border-white/10">
+      <section className="space-y-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold tracking-tight">Questions</h2>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Compose items for this quiz or exam. The take experience uses a clear card layout for students; this
+              studio matches that structure where it helps you preview choices and prompts.
+            </p>
+          </div>
+          <Badge variant="secondary" className="h-7 w-fit px-3 text-xs font-medium">
+            {questions.length} question{questions.length === 1 ? "" : "s"}
+          </Badge>
+        </div>
+
+        <div className="inline-flex rounded-xl border border-border/80 bg-muted/25 p-1 dark:border-white/10">
           <button
             type="button"
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "rounded-lg px-4 py-2 text-sm font-medium transition-all",
               questionTab === "build"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted",
+                ? "bg-card text-foreground shadow-sm ring-1 ring-border/60 dark:ring-white/10"
+                : "text-muted-foreground hover:text-foreground",
             )}
             onClick={() => setQuestionTab("build")}
           >
@@ -553,10 +611,10 @@ export function AssessmentEditor({
           <button
             type="button"
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              "rounded-lg px-4 py-2 text-sm font-medium transition-all",
               questionTab === "bank"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted",
+                ? "bg-card text-foreground shadow-sm ring-1 ring-border/60 dark:ring-white/10"
+                : "text-muted-foreground hover:text-foreground",
             )}
             onClick={() => setQuestionTab("bank")}
           >
@@ -574,222 +632,351 @@ export function AssessmentEditor({
             }}
           />
         ) : (
-          <>
-            <ul className="space-y-2">
-              {questions.map((q, i) => (
-                <li key={q.id} className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-border p-3">
-                  <div>
-                    <span className="text-xs text-muted-foreground">
-                      {i + 1}. {q.type} · {q.points} pts
-                    </span>
-                    <p className="text-sm whitespace-pre-wrap">{q.prompt}</p>
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
+            <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Outline</h3>
+              <ul className="max-h-[min(70vh,560px)] space-y-2 overflow-y-auto pr-1">
+                {questions.map((q, i) => (
+                  <li
+                    key={q.id}
+                    className="group rounded-xl border border-border/80 bg-card/80 p-3 shadow-sm transition-colors hover:border-amber-500/35 dark:border-white/10 dark:bg-card/50"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex min-w-0 flex-1 gap-2">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold text-muted-foreground dark:bg-white/10">
+                          {i + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge variant="outline" className="text-[10px] font-normal">
+                              {questionTypeLabel(q.type)}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">{q.points} pts</span>
+                          </div>
+                          <p className="mt-1 line-clamp-2 text-xs leading-snug text-foreground">
+                            {stripHtmlToPlainText(q.prompt) || "—"}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        title="Remove question"
+                        onClick={() => void removeQuestion(q.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {questions.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border/80 bg-muted/15 px-4 py-6 text-center text-sm text-muted-foreground dark:border-white/10">
+                  No questions yet. Use the composer to add your first item.
+                </div>
+              ) : null}
+            </aside>
+
+            <div className="min-w-0 space-y-6">
+              <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm dark:border-white/10">
+                <div className="border-b border-border/70 bg-gradient-to-r from-muted/40 via-transparent to-transparent px-5 py-4 dark:border-white/10">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden />
+                    <h3 className="font-semibold tracking-tight">Question composer</h3>
                   </div>
-                  <Button type="button" size="sm" variant="destructive" onClick={() => void removeQuestion(q.id)}>
-                    Delete
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Pick a type, write the prompt, then complete the fields below. Multiple-choice options mirror the
+                    student take layout.
+                  </p>
+                </div>
+
+                <div className="space-y-6 p-5">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Question type
+                    </Label>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                      {BUILDER_TYPE_OPTIONS.map((opt) => {
+                        const Icon = opt.icon;
+                        const active = qType === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setQType(opt.value)}
+                            className={cn(
+                              "flex flex-col items-start gap-1.5 rounded-xl border px-3 py-3 text-left text-sm transition-all",
+                              active
+                                ? "border-amber-500/70 bg-amber-500/10 shadow-sm ring-2 ring-amber-500/25 dark:border-amber-400/50 dark:bg-amber-500/15"
+                                : "border-border/80 bg-background hover:border-border hover:bg-muted/30 dark:border-white/10",
+                            )}
+                          >
+                            <Icon
+                              className={cn("h-4 w-4", active ? "text-amber-800 dark:text-amber-200" : "text-muted-foreground")}
+                              aria-hidden
+                            />
+                            <span className="font-medium leading-tight">{opt.label}</span>
+                            <span className="text-[11px] leading-snug text-muted-foreground">{opt.hint}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="-mx-5 border-t border-border/70 px-0 dark:border-white/10">
+                    <div className="px-5">
+                      <AssessmentFormFieldRow label="Mark" required>
+                        <Input
+                          id="q-points"
+                          className="max-w-[10rem] font-semibold tabular-nums"
+                          value={qPoints}
+                          onChange={(e) => setQPoints(e.target.value)}
+                          inputMode="decimal"
+                          aria-label="Marks for this question"
+                        />
+                      </AssessmentFormFieldRow>
+                      <AssessmentFormFieldRow label="Question" required>
+                        <AssessmentRichTextField
+                          id="q-prompt"
+                          value={qPrompt}
+                          onChange={setQPrompt}
+                          disabled={busy}
+                          placeholder="Enter the question. Use the toolbar for formatting and tables; type $inline$ or $$display$$ math anywhere in the text."
+                          editorMinHeightClass="min-h-[200px]"
+                        />
+                      </AssessmentFormFieldRow>
+                      <AssessmentFormFieldRow label="Image URL">
+                        <Input
+                          placeholder="https://… (optional)"
+                          value={mediaImageUrl}
+                          onChange={(e) => setMediaImageUrl(e.target.value)}
+                          disabled={busy}
+                        />
+                      </AssessmentFormFieldRow>
+                      <AssessmentFormFieldRow label="Audio URL">
+                        <Input
+                          placeholder="https://… (optional)"
+                          value={mediaAudioUrl}
+                          onChange={(e) => setMediaAudioUrl(e.target.value)}
+                          disabled={busy}
+                        />
+                      </AssessmentFormFieldRow>
+                    </div>
+                  </div>
+
+                  {qType === "MCQ" ? (
+                    <div className="space-y-0 pt-2">
+                      <p className="mb-3 text-xs text-muted-foreground">
+                        Each option uses the same editor as the question. Select which option is correct.
+                      </p>
+                      {mcqTexts.map((t, i) => {
+                        const isCorrect = mcqCorrect === i;
+                        return (
+                          <AssessmentFormFieldRow
+                            key={i}
+                            label={`Option ${i + 1}`}
+                            required
+                            className={i === mcqTexts.length - 1 ? "border-b-0" : undefined}
+                          >
+                            <div className="space-y-3">
+                              <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                                <span
+                                  className={cn(
+                                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
+                                    isCorrect
+                                      ? "border-emerald-600 bg-emerald-500/15 dark:border-emerald-400"
+                                      : "border-muted-foreground/35",
+                                  )}
+                                >
+                                  <input
+                                    type="radio"
+                                    name="mcq-correct"
+                                    className="sr-only"
+                                    checked={isCorrect}
+                                    onChange={() => setMcqCorrect(i)}
+                                  />
+                                  {isCorrect ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                  ) : null}
+                                </span>
+                                <span>Correct answer</span>
+                              </label>
+                              <AssessmentRichTextField
+                                value={t}
+                                onChange={(html) =>
+                                  setMcqTexts((prev) => prev.map((x, j) => (j === i ? html : x)))
+                                }
+                                disabled={busy}
+                                placeholder={`Option ${String.fromCharCode(65 + i)}`}
+                                editorMinHeightClass="min-h-[120px]"
+                                showFooterHint={false}
+                              />
+                            </div>
+                          </AssessmentFormFieldRow>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  {qType === "SHORT_ANSWER" ? (
+                    <div className="space-y-2 rounded-xl border border-border/70 bg-muted/10 p-4 dark:border-white/10">
+                      <Label>Correct answer (case-insensitive match)</Label>
+                      <Input value={shortCorrect} onChange={(e) => setShortCorrect(e.target.value)} />
+                    </div>
+                  ) : null}
+                  {qType === "TRUE_FALSE" ? (
+                    <div className="rounded-xl border border-border/70 bg-muted/10 p-4 dark:border-white/10">
+                      <label className="flex cursor-pointer items-center gap-3 text-sm">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-input"
+                          checked={tfTrue}
+                          onChange={(e) => setTfTrue(e.target.checked)}
+                        />
+                        <span>Correct answer is <strong>True</strong> (uncheck for False)</span>
+                      </label>
+                    </div>
+                  ) : null}
+                  {qType === "LONG_ANSWER" || qType === "ESSAY_RICH" ? (
+                    <div className="space-y-3 rounded-xl border border-border/70 bg-muted/10 p-4 dark:border-white/10">
+                      <Label>AI marking scheme helper</Label>
+                      <Input
+                        placeholder="Topic / focus"
+                        value={aiTopic}
+                        onChange={(e) => setAiTopic(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => void suggestRubric()}
+                      >
+                        Suggest rubric (AI or mock)
+                      </Button>
+                      {aiOut ? (
+                        <Textarea readOnly rows={5} value={aiOut} className="text-muted-foreground" />
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {qType === "FORMULA" ? (
+                    <div className="space-y-2 rounded-xl border border-border/70 bg-muted/10 p-4 dark:border-white/10">
+                      <Label>Correct LaTeX (normalized match: spacing / case ignored)</Label>
+                      <Input
+                        className="font-mono text-sm"
+                        value={formulaCorrect}
+                        onChange={(e) => setFormulaCorrect(e.target.value)}
+                        placeholder="e.g. x^2+1"
+                      />
+                    </div>
+                  ) : null}
+                  {qType === "DRAG_DROP" ? (
+                    <div className="space-y-3 rounded-xl border border-dashed border-border/80 bg-muted/10 p-4 dark:border-white/15">
+                      <p className="text-sm font-medium">Drop targets (labels shown to students)</p>
+                      {ddTargets.map((line, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input
+                            value={line}
+                            onChange={(e) =>
+                              setDdTargets((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))
+                            }
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setDdTargets((prev) => prev.filter((_, j) => j !== i));
+                              setDdMatch((prev) => prev.filter((_, j) => j !== i));
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setDdTargets((p) => [...p, ""])}>
+                        Add target
+                      </Button>
+                      <p className="text-sm font-medium">Answer bank (draggable items)</p>
+                      {ddBank.map((line, i) => (
+                        <div key={i} className="flex gap-2">
+                          <Input
+                            value={line}
+                            onChange={(e) =>
+                              setDdBank((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))
+                            }
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setDdBank((prev) => prev.filter((_, j) => j !== i));
+                              setDdMatch((prev) =>
+                                prev.map((bi) => {
+                                  if (bi === i) return 0;
+                                  if (bi > i) return bi - 1;
+                                  return bi;
+                                }),
+                              );
+                            }}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      ))}
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setDdBank((p) => [...p, ""])}>
+                        Add bank item
+                      </Button>
+                      <p className="text-sm font-medium">Correct match (each target → bank item)</p>
+                      <ul className="space-y-2">
+                        {ddTargets.map((label, ti) => (
+                          <li key={ti} className="flex flex-wrap items-center gap-2 text-sm">
+                            <span className="min-w-[100px] truncate text-muted-foreground">
+                              {label || `Target ${ti + 1}`}
+                            </span>
+                            <select
+                              className="h-8 rounded-md border border-input bg-background px-2"
+                              value={ddMatch[ti] ?? 0}
+                              onChange={(e) => {
+                                const v = Number(e.target.value);
+                                setDdMatch((prev) => {
+                                  const next = [...prev];
+                                  while (next.length <= ti) next.push(0);
+                                  next[ti] = v;
+                                  return next;
+                                });
+                              }}
+                            >
+                              {ddBank.map((b, bi) => (
+                                <option key={bi} value={bi}>
+                                  {b || `Item ${bi + 1}`}
+                                </option>
+                              ))}
+                            </select>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+
+                  <Button
+                    type="button"
+                    size="lg"
+                    className="w-full gap-2 sm:w-auto"
+                    disabled={busy}
+                    onClick={() => void addQuestion()}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add to assessment
                   </Button>
-                </li>
-              ))}
-            </ul>
-            {questions.length === 0 ? <p className="text-sm text-muted-foreground">No questions yet.</p> : null}
-          </>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </section>
-
-      <Separator />
-
-      {questionTab === "build" ? (
-      <section className="space-y-3 rounded-lg border border-dashed border-border p-4">
-        <h2 className="text-lg font-semibold">Add question</h2>
-        <div className="space-y-1">
-          <Label>Type</Label>
-          <select
-            className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm"
-            value={qType}
-            onChange={(e) => setQType(e.target.value as typeof qType)}
-          >
-            <option value="MCQ">Multiple choice</option>
-            <option value="SHORT_ANSWER">Short answer (auto-grade exact match)</option>
-            <option value="LONG_ANSWER">Long answer (AI / manual grade)</option>
-            <option value="TRUE_FALSE">True / false</option>
-            <option value="DRAG_DROP">Drag and drop (match labels to items)</option>
-            <option value="FORMULA">Math / formula (LaTeX, auto-grade exact match)</option>
-            <option value="ESSAY_RICH">Rich essay (manual / AI if marking scheme set)</option>
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label>Prompt</Label>
-          <Textarea
-            rows={3}
-            value={qPrompt}
-            onChange={(e) => setQPrompt(e.target.value)}
-            placeholder="Use $inline math$ or $$display math$$"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>Points</Label>
-          <Input className="max-w-[120px]" value={qPoints} onChange={(e) => setQPoints(e.target.value)} />
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label>Image URL (optional)</Label>
-            <Input
-              placeholder="https://…"
-              value={mediaImageUrl}
-              onChange={(e) => setMediaImageUrl(e.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Audio URL (optional)</Label>
-            <Input
-              placeholder="https://…"
-              value={mediaAudioUrl}
-              onChange={(e) => setMediaAudioUrl(e.target.value)}
-            />
-          </div>
-        </div>
-        {qType === "MCQ" ? (
-          <div className="space-y-2">
-            <Label>Choices (mark correct)</Label>
-            {mcqTexts.map((t, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="mcq-correct"
-                  checked={mcqCorrect === i}
-                  onChange={() => setMcqCorrect(i)}
-                />
-                <Input value={t} onChange={(e) => setMcqTexts((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))} />
-              </div>
-            ))}
-          </div>
-        ) : null}
-        {qType === "SHORT_ANSWER" ? (
-          <div className="space-y-1">
-            <Label>Correct answer (case-insensitive match)</Label>
-            <Input value={shortCorrect} onChange={(e) => setShortCorrect(e.target.value)} />
-          </div>
-        ) : null}
-        {qType === "TRUE_FALSE" ? (
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={tfTrue} onChange={(e) => setTfTrue(e.target.checked)} />
-            Correct answer is True (uncheck for False)
-          </label>
-        ) : null}
-        {qType === "LONG_ANSWER" || qType === "ESSAY_RICH" ? (
-          <div className="space-y-2">
-            <Label>AI marking scheme helper</Label>
-            <Input placeholder="Topic / focus" value={aiTopic} onChange={(e) => setAiTopic(e.target.value)} />
-            <Button type="button" variant="secondary" size="sm" disabled={busy} onClick={() => void suggestRubric()}>
-              Suggest rubric (AI or mock)
-            </Button>
-            {aiOut ? (
-              <Textarea readOnly rows={5} value={aiOut} className="text-muted-foreground" />
-            ) : null}
-          </div>
-        ) : null}
-        {qType === "FORMULA" ? (
-          <div className="space-y-1">
-            <Label>Correct LaTeX (normalized match: spacing / case ignored)</Label>
-            <Input
-              className="font-mono text-sm"
-              value={formulaCorrect}
-              onChange={(e) => setFormulaCorrect(e.target.value)}
-              placeholder="e.g. x^2+1"
-            />
-          </div>
-        ) : null}
-        {qType === "DRAG_DROP" ? (
-          <div className="space-y-3 rounded-lg border border-dashed border-border p-3 dark:border-white/15">
-            <p className="text-sm font-medium">Drop targets (labels shown to students)</p>
-            {ddTargets.map((line, i) => (
-              <div key={i} className="flex gap-2">
-                <Input
-                  value={line}
-                  onChange={(e) =>
-                    setDdTargets((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))
-                  }
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setDdTargets((prev) => prev.filter((_, j) => j !== i));
-                    setDdMatch((prev) => prev.filter((_, j) => j !== i));
-                  }}
-                >
-                  Remove
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="secondary" size="sm" onClick={() => setDdTargets((p) => [...p, ""])}>
-              Add target
-            </Button>
-            <p className="text-sm font-medium">Answer bank (draggable items)</p>
-            {ddBank.map((line, i) => (
-              <div key={i} className="flex gap-2">
-                <Input
-                  value={line}
-                  onChange={(e) =>
-                    setDdBank((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))
-                  }
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setDdBank((prev) => prev.filter((_, j) => j !== i));
-                    setDdMatch((prev) =>
-                      prev.map((bi) => {
-                        if (bi === i) return 0;
-                        if (bi > i) return bi - 1;
-                        return bi;
-                      }),
-                    );
-                  }}
-                >
-                  Remove
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="secondary" size="sm" onClick={() => setDdBank((p) => [...p, ""])}>
-              Add bank item
-            </Button>
-            <p className="text-sm font-medium">Correct match (each target → bank item)</p>
-            <ul className="space-y-2">
-              {ddTargets.map((label, ti) => (
-                <li key={ti} className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="min-w-[100px] truncate text-muted-foreground">{label || `Target ${ti + 1}`}</span>
-                  <select
-                    className="h-8 rounded-md border border-input bg-background px-2"
-                    value={ddMatch[ti] ?? 0}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      setDdMatch((prev) => {
-                        const next = [...prev];
-                        while (next.length <= ti) next.push(0);
-                        next[ti] = v;
-                        return next;
-                      });
-                    }}
-                  >
-                    {ddBank.map((b, bi) => (
-                      <option key={bi} value={bi}>
-                        {b || `Item ${bi + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-        <Button type="button" disabled={busy} onClick={() => void addQuestion()}>
-          Add question
-        </Button>
-      </section>
-      ) : null}
     </div>
   );
 }

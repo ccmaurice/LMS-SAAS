@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import type { Question } from "@/generated/prisma/client";
+import { looksLikeHtml, stripHtmlToPlainText } from "@/lib/assessments/html-text";
+import { cn } from "@/lib/utils";
 
 type BankItem = {
   id: string;
@@ -139,7 +142,21 @@ export function AssessmentQuestionBankPanel({
                   {it.gradeLabel ? ` · ${it.gradeLabel}` : ""}
                   {it.standardCode ? ` · ${it.standardCode}` : ""} · {it.type} · {it.points} pts
                 </p>
-                <p className="mt-1 whitespace-pre-wrap text-sm">{it.prompt}</p>
+                <div className="mt-1 flex flex-wrap items-start gap-2">
+                  {looksLikeHtml(it.prompt) ? (
+                    <Badge variant="secondary" className="shrink-0 text-[10px] font-normal">
+                      Formatted
+                    </Badge>
+                  ) : null}
+                  <p
+                    className={cn(
+                      "min-w-0 flex-1 text-sm leading-snug text-foreground",
+                      looksLikeHtml(it.prompt) ? "line-clamp-3" : "whitespace-pre-wrap line-clamp-4",
+                    )}
+                  >
+                    {looksLikeHtml(it.prompt) ? stripHtmlToPlainText(it.prompt) || "—" : it.prompt}
+                  </p>
+                </div>
               </div>
               <Button
                 type="button"

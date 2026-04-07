@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AssessmentPrompt } from "@/components/assessments/assessment-prompt";
+import { AssessmentQuestionText } from "@/components/assessments/assessment-question-text";
+import { isRichTextEmpty } from "@/lib/assessments/html-text";
 import { formatProctorSummaryLine, type ProctorEventAgg } from "@/lib/assessments/proctoring-summary";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,8 +119,12 @@ export function GradebookTable({
                   {a.question.type} · {a.question.points} pts
                   {a.autoGraded ? " · auto-graded" : ""}
                 </p>
-                <AssessmentPrompt text={a.question.prompt} className="mt-1 font-medium" />
-                <p className="mt-2 whitespace-pre-wrap text-muted-foreground">{a.content || "(empty)"}</p>
+                <AssessmentQuestionText text={a.question.prompt} className="mt-1 font-medium" />
+                {!a.content?.trim() || isRichTextEmpty(a.content) ? (
+                  <p className="mt-2 text-muted-foreground">(empty)</p>
+                ) : (
+                  <AssessmentQuestionText text={a.content} className="mt-2 text-muted-foreground" />
+                )}
                 <p className="mt-1 text-xs">
                   Auto/AI score: {a.score ?? "—"}
                   {a.aiScore != null && a.aiScore !== a.score ? ` (AI ${a.aiScore})` : ""} · Manual override:{" "}

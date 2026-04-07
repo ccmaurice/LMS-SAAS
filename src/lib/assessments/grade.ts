@@ -1,6 +1,7 @@
 import type { Question } from "@/generated/prisma/client";
 import { parseMcqOptions } from "@/lib/assessments/mcq";
 import { parseDragDropFromQuestionSchema } from "@/lib/assessments/drag-drop-schema";
+import { stripHtmlToPlainText } from "@/lib/assessments/html-text";
 
 export type GradeResult = {
   score: number;
@@ -46,7 +47,9 @@ export function gradeAnswer(
   }
 
   if (question.type === "SHORT_ANSWER" && question.correctAnswer != null && question.correctAnswer !== "") {
-    const ok = content.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase();
+    const got = stripHtmlToPlainText(content).toLowerCase();
+    const exp = question.correctAnswer.trim().toLowerCase();
+    const ok = got === exp;
     return { score: ok ? maxPoints : 0, maxPoints, autoGraded: true };
   }
 

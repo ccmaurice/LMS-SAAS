@@ -304,3 +304,81 @@
     display: none !important;
   }
 }
+
+/* Assessment rich text (TipTap + sanitized HTML) */
+.assessment-rich-html {
+  @apply text-[14px] leading-relaxed text-foreground;
+  word-break: break-word;
+}
+.assessment-rich-html p {
+  margin: 0.35em 0;
+}
+.assessment-rich-html p:first-child {
+  margin-top: 0;
+}
+.assessment-rich-html p:last-child {
+  margin-bottom: 0;
+}
+.assessment-rich-html ul,
+.assessment-rich-html ol {
+  margin: 0.35em 0;
+  padding-left: 1.35em;
+}
+.assessment-rich-html ul {
+  list-style-type: disc;
+}
+.assessment-rich-html ol {
+  list-style-type: decimal;
+}
+.assessment-rich-html a {
+  @apply text-primary underline underline-offset-2;
+}
+.assessment-rich-html img {
+  @apply my-2 max-h-64 max-w-full rounded-md border border-border object-contain;
+}
+.assessment-rich-html blockquote {
+  @apply my-2 border-l-2 border-muted-foreground/30 pl-3 text-muted-foreground;
+}
+.assessment-rich-html h2 {
+  @apply mt-2 text-lg font-semibold tracking-tight;
+}
+.assessment-rich-html h3 {
+  @apply mt-2 text-base font-semibold tracking-tight;
+}
+.assessment-rich-html table {
+  @apply my-3 w-full border-collapse text-[13px];
+}
+.assessment-rich-html th,
+.assessment-rich-html td {
+  @apply border border-border/80 px-2 py-1.5 align-top;
+}
+.assessment-rich-html th {
+  @apply bg-muted/35 font-semibold;
+}
+
+.assessment-tiptap-scope .ProseMirror {
+  @apply min-h-[inherit] text-[14px] leading-relaxed text-foreground outline-none;
+  font-family: Arial, Helvetica, ui-sans-serif, system-ui, sans-serif;
+}
+.assessment-tiptap-scope .ProseMirror p {
+  margin: 0.35em 0;
+}
+.assessment-tiptap-scope .ProseMirror ul,
+.assessment-tiptap-scope .ProseMirror ol {
+  margin: 0.35em 0;
+  padding-left: 1.35em;
+}
+.assessment-tiptap-scope .ProseMirror p.is-empty::before {
+  content: attr(data-placeholder);
+  @apply pointer-events-none float-left h-0 text-muted-foreground;
+}
+.assessment-tiptap-scope .ProseMirror table {
+  @apply my-3 w-full border-collapse text-[13px];
+}
+.assessment-tiptap-scope .ProseMirror th,
+.assessment-tiptap-scope .ProseMirror td {
+  @apply border border-border/80 px-2 py-1.5 align-top;
+}
+.assessment-tiptap-scope .ProseMirror th {
+  @apply bg-muted/35 font-semibold;
+}
