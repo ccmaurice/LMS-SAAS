@@ -101,6 +101,22 @@ export function DashboardBento(props: DashboardBentoProps) {
           className="pointer-events-none absolute -right-20 -top-20 size-64 rounded-full bg-glow-spot opacity-50 blur-3xl dark:opacity-70"
           aria-hidden
         />
+        <nav
+          className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
+          aria-label="Breadcrumb"
+        >
+          <Link
+            href={base}
+            className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-medium text-amber-800 transition-colors hover:bg-amber-500/10 hover:text-amber-950 dark:text-amber-200 dark:hover:bg-amber-500/15 dark:hover:text-amber-50"
+          >
+            <Home className="size-4 shrink-0" aria-hidden />
+            Home
+          </Link>
+          <span className="text-border" aria-hidden>
+            /
+          </span>
+          <span className="font-medium text-foreground">Dashboard</span>
+        </nav>
         <h1 className="page-title-lg">Dashboard</h1>
         {props.cmsWelcome ? (
           <p className="mt-3 text-balance text-lg font-medium tracking-tight text-foreground md:text-xl">
