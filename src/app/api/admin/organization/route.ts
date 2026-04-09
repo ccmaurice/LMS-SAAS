@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireUser, requireRoles } from "@/lib/api/guard";
 import { isValidHex6 } from "@/lib/org-branding";
 import {
+  isSafeOrgCertificateSignatureSettingKey,
   isSafeOrgHeroSettingKey,
   isSafeOrgHeroSettingStoredValue,
   isSafeOrgLogoSettingKey,
@@ -159,6 +160,23 @@ export async function PATCH(req: Request) {
   }
 
   if (parsed.data.organizationSettings !== undefined) {
+    const sig = parsed.data.organizationSettings.certificateSignatureImageUrl;
+    if (sig !== undefined) {
+      const t = sig.trim();
+      if (
+        t &&
+        !/^https?:\/\//i.test(t) &&
+        !isSafeOrgCertificateSignatureSettingKey(t, orgId)
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Certificate signature image must be an https URL, empty, or your uploaded signature file",
+          },
+          { status: 400 },
+        );
+      }
+    }
     const current = await prisma.organization.findUnique({
       where: { id: orgId },
       select: { organizationSettings: true },

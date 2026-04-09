@@ -12,6 +12,7 @@ import { ORG_THEME_TEMPLATES } from "@/lib/org-branding";
 import { cn } from "@/lib/utils";
 import { STANDARD_4_POINT_GPA_BANDS } from "@/lib/grading_engine/letter-gpa";
 import { academicCalendarCopy } from "@/lib/education_context/academic-period-labels";
+import { certificateSignatureImageDisplayUrl } from "@/lib/org/certificate-signature-display-url";
 
 type GpaBandRow = { minPercent: number; gpa: number };
 
@@ -26,6 +27,10 @@ type Org = {
   educationLevel: "PRIMARY" | "SECONDARY" | "HIGHER_ED";
   reportShowRank: boolean;
   gpaBands?: GpaBandRow[] | undefined;
+  certificateSignerName?: string;
+  certificateSignerTitle?: string;
+  certificateSignatureImageUrl?: string;
+  certificateCompletionPhrase?: string;
 };
 
 function sortGpaBandsDesc(bands: GpaBandRow[]): GpaBandRow[] {
@@ -49,6 +54,7 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
+  const signatureFileRef = useRef<HTMLInputElement>(null);
   const [reportOn, setReportOn] = useState(initial.reportCardsPublished);
   const [certOn, setCertOn] = useState(initial.certificatesPublished);
   const [template, setTemplate] = useState(initial.themeTemplate);
@@ -66,6 +72,11 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingSignature, setUploadingSignature] = useState(false);
+  const [certSignerName, setCertSignerName] = useState(initial.certificateSignerName ?? "");
+  const [certSignerTitle, setCertSignerTitle] = useState(initial.certificateSignerTitle ?? "");
+  const [certSignatureUrl, setCertSignatureUrl] = useState(initial.certificateSignatureImageUrl ?? "");
+  const [certPhrase, setCertPhrase] = useState(initial.certificateCompletionPhrase ?? "");
 
   const cal = academicCalendarCopy(educationLevel);
 
@@ -86,6 +97,8 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
         : heroUrl.trim().startsWith("orgs/")
           ? `/api/public/organizations/${slug}/hero`
           : null;
+
+  const signaturePreview = certificateSignatureImageDisplayUrl(slug, certSignatureUrl);
 
   async function save() {
     let gpaBandsPayload: GpaBandRow[] | undefined;
@@ -116,6 +129,10 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
           organizationSettings: {
             reportShowRank,
             ...(gpaBandsPayload ? { gpaBands: gpaBandsPayload } : {}),
+            certificateSignerName: certSignerName.trim(),
+            certificateSignerTitle: certSignerTitle.trim(),
+            certificateSignatureImageUrl: certSignatureUrl.trim(),
+            certificateCompletionPhrase: certPhrase.trim(),
           },
         }),
       });
@@ -158,6 +175,30 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
     } finally {
       setUploadingLogo(false);
       if (logoFileRef.current) logoFileRef.current.value = "";
+    }
+  }
+
+  async function uploadSignature(file: File) {
+    setUploadingSignature(true);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const res = await fetch("/api/admin/organization/certificate-signature", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      const data = (await res.json()) as { error?: string; certificateSignatureImageUrl?: string };
+      if (!res.ok) {
+        toast.error(data.error ?? "Upload failed");
+        return;
+      }
+      if (data.certificateSignatureImageUrl) setCertSignatureUrl(data.certificateSignatureImageUrl);
+      toast.success("Certificate signature uploaded");
+      router.refresh();
+    } finally {
+      setUploadingSignature(false);
+      if (signatureFileRef.current) signatureFileRef.current.value = "";
     }
   }
 
@@ -417,6 +458,87 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
           <input type="checkbox" checked={certOn} onChange={(e) => setCertOn(e.target.checked)} className="size-4 rounded border-input" />
           <span>Publish completion certificates (students can open certificates when eligible)</span>
         </label>
+      </section>
+
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold tracking-tight">Completion certificate</h3>
+        <p className="text-xs text-muted-foreground">
+          Shown on the printed / PDF completion certificate: formal layout with optional handwritten signature image, printed
+          signatory name and title, and a verification QR code. Leave fields blank to fall back to the school name and
+          &quot;School administrator&quot; under the signature line.
+        </p>
+        <div className="space-y-2">
+          <Label htmlFor="cert-phrase">Completion sentence (between learner name and course title)</Label>
+          <Input
+            id="cert-phrase"
+            placeholder='e.g. has successfully completed the course'
+            value={certPhrase}
+            onChange={(e) => setCertPhrase(e.target.value)}
+            maxLength={280}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cert-signer-name">Signatory printed name</Label>
+          <Input
+            id="cert-signer-name"
+            placeholder="e.g. Jane Smith"
+            value={certSignerName}
+            onChange={(e) => setCertSignerName(e.target.value)}
+            maxLength={120}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cert-signer-title">Signatory title</Label>
+          <Input
+            id="cert-signer-title"
+            placeholder='e.g. Principal, or "Senior Director, Programs"'
+            value={certSignerTitle}
+            onChange={(e) => setCertSignerTitle(e.target.value)}
+            maxLength={200}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="cert-signature-url">Signature image URL (optional)</Label>
+          <Input
+            id="cert-signature-url"
+            placeholder="https://… (PNG with transparent background works best)"
+            value={certSignatureUrl}
+            onChange={(e) => setCertSignatureUrl(e.target.value)}
+            maxLength={2000}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              ref={signatureFileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadSignature(f);
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={uploadingSignature}
+              onClick={() => signatureFileRef.current?.click()}
+            >
+              {uploadingSignature ? "Uploading…" : "Upload signature from device"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Upload stores the image on this server (or your configured blob store) and fills the field with the file
+            reference. You can still paste an external https image URL instead. If set, this image appears above the
+            signature line; otherwise the signatory name is shown in script when a name is provided.
+          </p>
+          {signaturePreview ? (
+            <div className="overflow-hidden rounded-lg border border-border/60 bg-white p-3 dark:border-white/10">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={signaturePreview} alt="" className="mx-auto max-h-24 object-contain" />
+            </div>
+          ) : null}
+        </div>
       </section>
 
       <section className="space-y-3">

@@ -19,6 +19,12 @@ export const organizationSettingsSchema = z
     reportShowRank: z.boolean().optional(),
     features: z.record(z.string(), z.boolean()).optional(),
     gradingProfileId: z.string().max(128).optional(),
+    /** Printed completion certificate — signatory (optional image + printed name/title). */
+    certificateSignerName: z.string().max(120).optional(),
+    certificateSignerTitle: z.string().max(200).optional(),
+    certificateSignatureImageUrl: z.string().max(2000).optional(),
+    /** Sentence between recipient name and course title, e.g. "has successfully completed the course". */
+    certificateCompletionPhrase: z.string().max(280).optional(),
   })
   .strict();
 
@@ -56,5 +62,25 @@ export function mergeOrganizationSettings(
     next.features = { ...base.features, ...patch.features };
   }
   if (patch.gradingProfileId !== undefined) next.gradingProfileId = patch.gradingProfileId;
+  if (patch.certificateSignerName !== undefined) {
+    const t = patch.certificateSignerName.trim();
+    if (t) next.certificateSignerName = t;
+    else delete next.certificateSignerName;
+  }
+  if (patch.certificateSignerTitle !== undefined) {
+    const t = patch.certificateSignerTitle.trim();
+    if (t) next.certificateSignerTitle = t;
+    else delete next.certificateSignerTitle;
+  }
+  if (patch.certificateSignatureImageUrl !== undefined) {
+    const t = patch.certificateSignatureImageUrl.trim();
+    if (t) next.certificateSignatureImageUrl = t;
+    else delete next.certificateSignatureImageUrl;
+  }
+  if (patch.certificateCompletionPhrase !== undefined) {
+    const t = patch.certificateCompletionPhrase.trim();
+    if (t) next.certificateCompletionPhrase = t;
+    else delete next.certificateCompletionPhrase;
+  }
   return parseOrganizationSettings(next);
 }

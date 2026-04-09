@@ -29,6 +29,11 @@ export function orgLogoSettingPath(orgId: string, ext: string): string {
   return path.posix.join("orgs", orgId, `logo${ext}`);
 }
 
+/** Completion certificate signature (`organizationSettings.certificateSignatureImageUrl`). */
+export function orgCertificateSignatureSettingPath(orgId: string, ext: string): string {
+  return path.posix.join("orgs", orgId, `signature${ext}`);
+}
+
 export function isSafeOrgHeroSettingKey(key: string, orgId: string): boolean {
   if (key.includes("..") || key.length > 500) return false;
   const re = new RegExp(`^orgs/${escapeOrgId(orgId)}/hero\\.(jpe?g|png|webp|gif)$`, "i");
@@ -38,6 +43,12 @@ export function isSafeOrgHeroSettingKey(key: string, orgId: string): boolean {
 export function isSafeOrgLogoSettingKey(key: string, orgId: string): boolean {
   if (key.includes("..") || key.length > 500) return false;
   const re = new RegExp(`^orgs/${escapeOrgId(orgId)}/logo\\.(jpe?g|png|webp|gif)$`, "i");
+  return re.test(key);
+}
+
+export function isSafeOrgCertificateSignatureSettingKey(key: string, orgId: string): boolean {
+  if (key.includes("..") || key.length > 500) return false;
+  const re = new RegExp(`^orgs/${escapeOrgId(orgId)}/signature\\.(jpe?g|png|webp|gif)$`, "i");
   return re.test(key);
 }
 
@@ -108,6 +119,10 @@ export function isSafeOrgHeroSettingStoredValue(key: string, orgId: string): boo
 
 export function isSafeOrgLogoSettingStoredValue(key: string, orgId: string): boolean {
   return isBlobStoredRef(key) || isSafeOrgLogoSettingKey(key, orgId);
+}
+
+export function isSafeOrgCertificateSignatureStoredValue(key: string, orgId: string): boolean {
+  return isBlobStoredRef(key) || isSafeOrgCertificateSignatureSettingKey(key, orgId);
 }
 
 export function isSafeOrgPublicCardImageStoredValue(key: string, orgId: string): boolean {

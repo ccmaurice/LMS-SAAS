@@ -3,17 +3,17 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { CertificatePrintButton } from "@/components/courses/certificate-print-button";
-import { OrgBrandMark } from "@/components/org/org-brand-mark";
+import { CourseCompletionCertificateView } from "@/components/courses/course-completion-certificate";
 import { getEnrollment, isStaffRole } from "@/lib/courses/access";
 import { getOrganizationLogoUrl } from "@/lib/org/org-logo";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
-import { CertificateVerifyQr } from "@/components/courses/certificate-verify-qr";
 import {
   completionCertificateVerifyPath,
   ensureCourseCompletionCertificate,
 } from "@/lib/certificates/completion-certificate";
 import { getAppOrigin } from "@/lib/seo/metadata-base";
+import { parseOrganizationSettings } from "@/lib/education_context";
 
 export default async function CourseCertificatePage({
   params,
@@ -47,7 +47,7 @@ export default async function CourseCertificatePage({
     subjectUserId = parentChildIds.includes(want) ? want : parentChildIds[0];
   }
 
-  const [course, orgPub, orgBrand] = await Promise.all([
+  const [course, orgRow] = await Promise.all([
     prisma.course.findFirst({
       where: { id: courseId, organizationId: user.organizationId },
       include: {
@@ -57,17 +57,22 @@ export default async function CourseCertificatePage({
     }),
     prisma.organization.findUnique({
       where: { id: user.organizationId },
-      select: { certificatesPublished: true },
-    }),
-    prisma.organization.findUnique({
-      where: { id: user.organizationId },
-      select: { id: true, slug: true, heroImageUrl: true, logoImageUrl: true },
+      select: {
+        certificatesPublished: true,
+        id: true,
+        slug: true,
+        heroImageUrl: true,
+        logoImageUrl: true,
+        organizationSettings: true,
+      },
     }),
   ]);
 
+  const orgSettings = orgRow != null ? parseOrganizationSettings(orgRow.organizationSettings) : {};
+
   const orgLogoUrl =
-    orgBrand != null
-      ? await getOrganizationLogoUrl(orgBrand.id, orgBrand.slug, orgBrand.logoImageUrl, orgBrand.heroImageUrl)
+    orgRow != null
+      ? await getOrganizationLogoUrl(orgRow.id, orgRow.slug, orgRow.logoImageUrl, orgRow.heroImageUrl)
       : null;
 
   if (!course) notFound();
@@ -90,7 +95,7 @@ export default async function CourseCertificatePage({
     notFound();
   }
 
-  if (!orgPub?.certificatesPublished) {
+  if (!orgRow?.certificatesPublished) {
     notFound();
   }
 
@@ -129,45 +134,32 @@ export default async function CourseCertificatePage({
   const childQuery = user.role === "PARENT" ? `?child=${encodeURIComponent(subjectUserId)}` : "";
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="mx-auto max-w-[960px] space-y-6 px-4 py-6 sm:px-6 print:max-w-none print:px-0 print:py-2">
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <Link href={`${base}${childQuery}`} className={cn(buttonVariants({ variant: "outline" }), "text-sm")}>
           ← Back to course
         </Link>
         <CertificatePrintButton />
       </div>
-      <article
-        className={cn(
-          "certificate-print surface-bento relative overflow-hidden border-primary/25 px-8 py-12 text-center",
-          "print:border-muted print:shadow-none",
-        )}
-      >
-        <div className="relative z-10 flex flex-col items-center gap-3">
-          <OrgBrandMark url={orgLogoUrl} size="lg" className="mx-auto max-w-[240px] object-center" />
-        </div>
-        <p className="relative z-10 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          Certificate of completion
-        </p>
-        <p className="relative z-10 mt-2 text-sm text-muted-foreground">{course.organization.name}</p>
-        <h1 className="relative z-10 mt-8 font-serif text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-          {displayName}
-        </h1>
-        <p className="relative z-10 mt-6 text-muted-foreground">has successfully completed</p>
-        <p className="relative z-10 mt-2 text-xl font-semibold text-foreground md:text-2xl">{course.title}</p>
-        <div className="relative z-10 mt-10 flex flex-col items-center gap-1 border-t border-border/80 pt-8 text-sm text-muted-foreground dark:border-white/10">
-          <p>Issued on {credential.issuedAt.toLocaleDateString(undefined, { dateStyle: "long" })}</p>
-          <p className="font-mono text-xs tracking-tight text-foreground">Credential ID: {credential.id}</p>
-          <p className="max-w-md text-xs text-muted-foreground print:max-w-none">
-            Verify at{" "}
-            <span className="break-all text-foreground">{verifyUrl}</span>
-          </p>
-        </div>
-        <div className="relative z-10 mt-8 flex justify-center print:mt-6">
-          <CertificateVerifyQr verifyUrl={verifyUrl} className="rounded-lg border border-border/60 bg-white p-2 dark:border-white/10 dark:bg-white" />
-        </div>
-      </article>
+      <CourseCompletionCertificateView
+        orgSlug={slug}
+        orgName={course.organization.name}
+        orgLogoUrl={orgLogoUrl}
+        recipientDisplayName={displayName}
+        courseTitle={course.title}
+        issuedAt={credential.issuedAt}
+        verifyUrl={verifyUrl}
+        credentialId={credential.id}
+        certificate={{
+          certificateSignerName: orgSettings.certificateSignerName,
+          certificateSignerTitle: orgSettings.certificateSignerTitle,
+          certificateSignatureImageUrl: orgSettings.certificateSignatureImageUrl,
+          certificateCompletionPhrase: orgSettings.certificateCompletionPhrase,
+        }}
+      />
       <p className="text-center text-xs text-muted-foreground print:hidden">
-        Use your browser&apos;s Print dialog to save as PDF. The sidebar hides automatically when printing.
+        Use your browser&apos;s Print dialog to save as PDF. The sidebar hides automatically when printing. Credential ID
+        and QR link to the public verify page for this school.
       </p>
     </div>
   );

@@ -70,6 +70,10 @@ export default async function AdminSchoolPage({ params }: { params: Promise<{ sl
             ...org,
             reportShowRank: orgSettings.reportShowRank ?? false,
             gpaBands: orgSettings.gpaBands,
+            certificateSignerName: orgSettings.certificateSignerName,
+            certificateSignerTitle: orgSettings.certificateSignerTitle,
+            certificateSignatureImageUrl: orgSettings.certificateSignatureImageUrl,
+            certificateCompletionPhrase: orgSettings.certificateCompletionPhrase,
           }}
         />
       </section>
