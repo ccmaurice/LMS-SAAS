@@ -14,6 +14,7 @@ import {
 } from "@/lib/certificates/completion-certificate";
 import { getAppOrigin } from "@/lib/seo/metadata-base";
 import { parseOrganizationSettings } from "@/lib/education_context";
+import { resolveOrganizationCertificateThemeHex } from "@/lib/org-branding";
 
 export default async function CourseCertificatePage({
   params,
@@ -64,6 +65,8 @@ export default async function CourseCertificatePage({
         heroImageUrl: true,
         logoImageUrl: true,
         organizationSettings: true,
+        themeTemplate: true,
+        customPrimaryHex: true,
       },
     }),
   ]);
@@ -133,6 +136,11 @@ export default async function CourseCertificatePage({
   const base = `/o/${slug}/courses/${courseId}`;
   const childQuery = user.role === "PARENT" ? `?child=${encodeURIComponent(subjectUserId)}` : "";
 
+  const themeInkHex = resolveOrganizationCertificateThemeHex(
+    orgRow?.themeTemplate ?? "DEFAULT",
+    orgRow?.customPrimaryHex ?? null,
+  );
+
   return (
     <div className="mx-auto max-w-[960px] space-y-6 px-4 py-6 sm:px-6 print:max-w-none print:px-0 print:py-2">
       <div className="flex flex-wrap items-center gap-2 print:hidden">
@@ -143,6 +151,7 @@ export default async function CourseCertificatePage({
       </div>
       <CourseCompletionCertificateView
         orgSlug={slug}
+        themeInkHex={themeInkHex}
         orgName={course.organization.name}
         orgLogoUrl={orgLogoUrl}
         recipientDisplayName={displayName}

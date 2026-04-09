@@ -60,6 +60,48 @@ function lightenHex(hex: string, amount: number): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
 
+function relativeLuminanceFromHex6(hex: string): number {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) / 255;
+  const g = ((n >> 8) & 0xff) / 255;
+  const b = (n & 0xff) / 255;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function mixHexToward(from: string, toward: string, amount: number): string {
+  const a = parseInt(from.slice(1), 16);
+  const t = parseInt(toward.slice(1), 16);
+  const ar = (a >> 16) & 0xff;
+  const ag = (a >> 8) & 0xff;
+  const ab = a & 0xff;
+  const tr = (t >> 16) & 0xff;
+  const tg = (t >> 8) & 0xff;
+  const tb = t & 0xff;
+  const r = Math.round(ar + (tr - ar) * amount);
+  const g = Math.round(ag + (tg - ag) * amount);
+  const b = Math.round(ab + (tb - ab) * amount);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+}
+
+/**
+ * Hex color for completion-certificate accents on white (SVG frame, school name, QR modules).
+ * Uses the same primary resolution as the org app shell: custom primary, else template preset,
+ * else a formal default. Light primaries are deepened so borders stay crisp in print/PDF.
+ */
+export function resolveOrganizationCertificateThemeHex(
+  themeTemplate: string,
+  customPrimaryHex: string | null | undefined,
+): string {
+  const customP = isValidHex6(customPrimaryHex) ? customPrimaryHex : null;
+  const preset = TEMPLATES[themeTemplate] ?? null;
+  const base = customP ?? preset?.light.primary ?? "#1d355e";
+  const L = relativeLuminanceFromHex6(base);
+  if (L > 0.52) {
+    return mixHexToward(base, "#0f172a", 0.68);
+  }
+  return base;
+}
+
 /** Build scoped CSS for org accent colors. Returns null to use global defaults only. */
 export function buildOrgBrandingCss(
   slug: string,
