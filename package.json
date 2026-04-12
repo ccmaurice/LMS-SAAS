@@ -22,8 +22,8 @@
     "db:seed": "npx tsx prisma/seed.ts",
     "db:seed-question-bank": "npx tsx scripts/seed-question-bank.ts",
     "db:bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/bootstrap-db.ps1",
-    "vercel:prod": "vercel deploy --prod --yes",
-    "vercel:prod:force": "vercel deploy --prod --yes --force",
+    "vercel:prod": "npx vercel deploy --prod --yes",
+    "vercel:prod:force": "npx vercel deploy --prod --yes --force",
     "postinstall": "prisma generate"
   },
   "prisma": {
