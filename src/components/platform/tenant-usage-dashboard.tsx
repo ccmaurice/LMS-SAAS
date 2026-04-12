@@ -59,6 +59,9 @@ export type TenantUsageRowJson = {
   submissionsLast7Days: number;
   submissionsLast30Days: number;
   submissionsLast90Days: number;
+  lessonCompletionsLast7Days: number;
+  lessonCompletionsLast30Days: number;
+  lessonCompletionsLast90Days: number;
   usersJoinedLast7Days: number;
   usersJoinedLast30Days: number;
   usersJoinedLast90Days: number;
@@ -78,6 +81,7 @@ type SortKey =
   | "weightedUsageIndex"
   | "momentumWindow"
   | "activitySubmissions"
+  | "activityLessonCompletions"
   | "activityUsersJoined"
   | "activityEnrollments"
   | "totalDataRows"
@@ -119,6 +123,12 @@ function getActivityEnrollments(t: TenantUsageRowJson, w: ActivityWindow): numbe
   if (w === "7") return t.enrollmentsLast7Days;
   if (w === "30") return t.enrollmentsLast30Days;
   return t.enrollmentsLast90Days;
+}
+
+function getActivityLessonCompletions(t: TenantUsageRowJson, w: ActivityWindow): number {
+  if (w === "7") return t.lessonCompletionsLast7Days;
+  if (w === "30") return t.lessonCompletionsLast30Days;
+  return t.lessonCompletionsLast90Days;
 }
 
 function windowLabel(w: ActivityWindow): string {
@@ -196,6 +206,12 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
         if (av === bv) return a.name.localeCompare(b.name);
         return dir * (av > bv ? 1 : -1);
       }
+      if (sortKey === "activityLessonCompletions") {
+        const av = getActivityLessonCompletions(a, activityWindow);
+        const bv = getActivityLessonCompletions(b, activityWindow);
+        if (av === bv) return a.name.localeCompare(b.name);
+        return dir * (av > bv ? 1 : -1);
+      }
       if (sortKey === "activityUsersJoined") {
         const av = getActivityUsersJoined(a, activityWindow);
         const bv = getActivityUsersJoined(b, activityWindow);
@@ -240,6 +256,7 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
     let users = 0;
     let submissions = 0;
     let subWindow = 0;
+    let lessonCmpWindow = 0;
     let momWindow = 0;
     let outcomeAttention = 0;
     for (const t of tenants) {
@@ -248,10 +265,11 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
       users += t.users;
       submissions += t.submissions;
       subWindow += getActivitySubmissions(t, activityWindow);
+      lessonCmpWindow += getActivityLessonCompletions(t, activityWindow);
       momWindow += getMomentum(t, activityWindow);
       outcomeAttention += t.outcomeAttentionAssessments;
     }
-    return { weighted, rows, users, submissions, subWindow, momWindow, outcomeAttention };
+    return { weighted, rows, users, submissions, subWindow, lessonCmpWindow, momWindow, outcomeAttention };
   }, [tenants, activityWindow]);
 
   const maxRankValue = useMemo(() => {
@@ -297,9 +315,16 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
         : w === "30"
           ? ("usersJoinedLast30Days" as const)
           : ("usersJoinedLast90Days" as const);
+    const lesKey =
+      w === "7"
+        ? ("lessonCompletionsLast7Days" as const)
+        : w === "30"
+          ? ("lessonCompletionsLast30Days" as const)
+          : ("lessonCompletionsLast90Days" as const);
     const wl = windowLabel(w);
     return [
       { key: subKey, label: `Submissions (${wl})` },
+      { key: lesKey, label: `Lesson completions (${wl})` },
       { key: enKey, label: `New enrollments (${wl})` },
       { key: uKey, label: `New users (${wl})` },
       { key: "momentumIndex7" as const, label: "Momentum (7d)" },
@@ -363,6 +388,9 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
       "submissionsLast7Days",
       "submissionsLast30Days",
       "submissionsLast90Days",
+      "lessonCompletionsLast7Days",
+      "lessonCompletionsLast30Days",
+      "lessonCompletionsLast90Days",
       "usersJoinedLast7Days",
       "usersJoinedLast30Days",
       "usersJoinedLast90Days",
@@ -407,6 +435,9 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
           submissionsLast7Days: t.submissionsLast7Days,
           submissionsLast30Days: t.submissionsLast30Days,
           submissionsLast90Days: t.submissionsLast90Days,
+          lessonCompletionsLast7Days: t.lessonCompletionsLast7Days,
+          lessonCompletionsLast30Days: t.lessonCompletionsLast30Days,
+          lessonCompletionsLast90Days: t.lessonCompletionsLast90Days,
           usersJoinedLast7Days: t.usersJoinedLast7Days,
           usersJoinedLast30Days: t.usersJoinedLast30Days,
           usersJoinedLast90Days: t.usersJoinedLast90Days,
@@ -456,6 +487,9 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
           one CMS entry each, up to <strong className="text-foreground">{PUBLIC_EXTRA_SECTIONS_WEIGHT_CAP}</strong> sections
           in the weighted index (full counts stay in the table and CSV); <strong className="text-foreground">public school CMS
           rows</strong> is informational (subset of total CMS entries).{" "}
+          <strong className="text-foreground">Lesson completions (7d / 30d / 90d)</strong> match each school’s{" "}
+          <strong className="text-foreground">Admin → Analytics → Last 7 days → Lesson completions</strong> when the
+          window is 7d (same SQL scope as submissions: org courses only).{" "}
           <strong className="text-foreground">Momentum</strong> scores are separate: only recent submissions, new users,
           and new enrollments for <strong className="text-foreground">7 / 30 / 90 days</strong> — good for spotting who
           is heating up without re-weighting the whole model. Tune momentum multipliers in{" "}
@@ -475,7 +509,7 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
         </p>
       </section>
 
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-8">
         <div className="surface-bento p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Organizations</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">{tenants.length}</p>
@@ -495,6 +529,11 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
         <div className="surface-bento p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Submitted ({wLabel})</p>
           <p className="mt-1 text-2xl font-semibold tabular-nums">{totals.subWindow.toLocaleString()}</p>
+        </div>
+        <div className="surface-bento p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Lessons done ({wLabel})</p>
+          <p className="mt-1 text-2xl font-semibold tabular-nums">{totals.lessonCmpWindow.toLocaleString()}</p>
+          <p className="mt-1 text-[10px] leading-tight text-muted-foreground">Fleet sum; mirrors school analytics</p>
         </div>
         <div className="surface-bento p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Σ momentum ({wLabel})</p>
@@ -676,7 +715,7 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
           </Button>
         </div>
         <div className="surface-table-wrap overflow-x-auto">
-          <table className="w-full min-w-[1820px] text-sm">
+          <table className="w-full min-w-[1920px] text-sm">
             <thead className="text-left text-xs font-medium text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">
@@ -736,6 +775,16 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
                   >
                     Sub {wLabel}{" "}
                     {sortKey === "activitySubmissions" ? (sortDir === "desc" ? "↓" : "↑") : ""}
+                  </button>
+                </th>
+                <th className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    className="underline-offset-2 hover:underline"
+                    onClick={() => toggleSort("activityLessonCompletions")}
+                  >
+                    Les. cmp. {wLabel}{" "}
+                    {sortKey === "activityLessonCompletions" ? (sortDir === "desc" ? "↓" : "↑") : ""}
                   </button>
                 </th>
                 <th className="px-3 py-2 text-right">
@@ -871,6 +920,9 @@ export function TenantUsageDashboard({ tenants }: { tenants: TenantUsageRowJson[
                   <td className="px-3 py-2 text-right tabular-nums">{t.enrollments.toLocaleString()}</td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {getActivitySubmissions(t, activityWindow).toLocaleString()}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">
+                    {getActivityLessonCompletions(t, activityWindow).toLocaleString()}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">
                     {getActivityUsersJoined(t, activityWindow).toLocaleString()}

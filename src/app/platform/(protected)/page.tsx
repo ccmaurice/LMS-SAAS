@@ -39,8 +39,13 @@ export default async function PlatformHomePage() {
       <div>
         <h1 className="page-title">Organizations</h1>
         <p className="mt-1 text-muted-foreground">
-          Open a school for full user management: suspend, edit name/role, or delete members (respects last-admin and
-          database constraints). Use “Open as admin” to sign in as that org’s first admin (or teacher, then any user).
+          Platform operator home: open a school for full user management (suspend, edit name/role, delete members — respects
+          last-admin and database constraints). Use “Open as admin” to sign in as that org’s first admin (or teacher, then any
+          user). Rolling submissions and lesson completions in{" "}
+          <Link href="/platform/usage" className="font-medium text-foreground underline underline-offset-2">
+            Usage &amp; analysis
+          </Link>{" "}
+          align with each school’s Admin → Analytics when you compare the same 7d / 30d / 90d window.
         </p>
         {pendingCount > 0 ? (
           <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-50">

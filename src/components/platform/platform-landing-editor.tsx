@@ -19,11 +19,14 @@ type Initial = {
   features: LandingFeature[];
   logoRaw: string;
   logoPreviewUrl: string | null;
+  faviconRaw: string;
+  faviconPreviewUrl: string | null;
 };
 
 export function PlatformLandingEditor({ initial }: { initial: Initial }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const faviconFileRef = useRef<HTMLInputElement>(null);
   const [kicker, setKicker] = useState(initial.kicker);
   const [headline, setHeadline] = useState(initial.headline);
   const [subheadline, setSubheadline] = useState(initial.subheadline);
@@ -31,8 +34,10 @@ export function PlatformLandingEditor({ initial }: { initial: Initial }) {
     initial.features.length > 0 ? initial.features : DEFAULT_LANDING.features,
   );
   const [logoPreviewUrl, setLogoPreviewUrl] = useState(initial.logoPreviewUrl);
+  const [faviconPreviewUrl, setFaviconPreviewUrl] = useState(initial.faviconPreviewUrl);
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingFavicon, setUploadingFavicon] = useState(false);
 
   async function saveCopy() {
     setBusy(true);
@@ -54,6 +59,28 @@ export function PlatformLandingEditor({ initial }: { initial: Initial }) {
         return;
       }
       toast.success("Landing page saved");
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearFavicon() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/platform/landing", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ clearFavicon: true }),
+      });
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: unknown };
+        toast.error(typeof data.error === "string" ? data.error : "Could not clear favicon");
+        return;
+      }
+      setFaviconPreviewUrl(null);
+      toast.success("Favicon removed");
       router.refresh();
     } finally {
       setBusy(false);
@@ -114,6 +141,30 @@ export function PlatformLandingEditor({ initial }: { initial: Initial }) {
     }
   }
 
+  async function uploadFavicon(file: File) {
+    setUploadingFavicon(true);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const res = await fetch("/api/platform/landing/favicon", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      const data = (await res.json()) as { error?: string; previewUrl?: string };
+      if (!res.ok) {
+        toast.error(data.error ?? "Upload failed");
+        return;
+      }
+      if (data.previewUrl) setFaviconPreviewUrl(data.previewUrl);
+      toast.success("Favicon uploaded");
+      router.refresh();
+    } finally {
+      setUploadingFavicon(false);
+      if (faviconFileRef.current) faviconFileRef.current.value = "";
+    }
+  }
+
   async function uploadLogo(file: File) {
     setUploading(true);
     try {
@@ -159,8 +210,9 @@ export function PlatformLandingEditor({ initial }: { initial: Initial }) {
           </Link>
           <h1 className="page-title mt-4">Marketing landing page</h1>
           <p className="mt-1 text-muted-foreground">
-            Controls the public home page (<code className="rounded bg-muted px-1">/</code>). Logo appears centered above the
-            kicker and is used as the browser tab icon (favicon) for that page when set.
+            Controls the public home page (<code className="rounded bg-muted px-1">/</code>). Upload a{" "}
+            <strong className="font-medium text-foreground">site favicon</strong> separately for browser tabs site-wide; the hero
+            logo is only for the landing layout.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -171,10 +223,59 @@ export function PlatformLandingEditor({ initial }: { initial: Initial }) {
       </div>
 
       <section className="surface-bento space-y-4 p-6">
-        <h2 className="text-lg font-semibold tracking-tight">Logo</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Site favicon (browser tab)</h2>
         <p className="text-sm text-muted-foreground">
-          Shown centered above the kicker and as the favicon for <code className="rounded bg-muted px-1">/</code>. Prefer a
-          square or wide mark; max 2 MB.
+          Used as the tab icon across the whole app (except school workspaces, which use the school logo when set). Upload
+          from your device: PNG, ICO, SVG, WebP, JPEG, or GIF — square 32–512 px recommended; max 512 KB.
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            ref={faviconFileRef}
+            type="file"
+            accept="image/png,image/x-icon,image/vnd.microsoft.icon,image/svg+xml,image/jpeg,image/webp,image/gif,.ico"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void uploadFavicon(f);
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={uploadingFavicon}
+            onClick={() => faviconFileRef.current?.click()}
+          >
+            {uploadingFavicon ? "Uploading…" : "Upload favicon"}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={busy || !faviconPreviewUrl}
+            onClick={() => void clearFavicon()}
+          >
+            Remove favicon
+          </Button>
+        </div>
+        {faviconPreviewUrl ? (
+          <div className="flex items-center gap-4 rounded-lg border border-border/60 p-4 dark:border-white/10">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-border/80 bg-muted/40 dark:border-white/15">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={faviconPreviewUrl} alt="" className="max-h-10 max-w-10 object-contain" />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Preview at tab size. Clear your browser favicon cache if you don&apos;t see the update immediately.
+            </p>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="surface-bento space-y-4 p-6">
+        <h2 className="text-lg font-semibold tracking-tight">Landing hero logo</h2>
+        <p className="text-sm text-muted-foreground">
+          Shown centered above the kicker on the public home page only. Does not replace the site favicon unless no favicon is
+          uploaded (then the logo is used as a fallback tab icon). Max 2 MB.
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <input

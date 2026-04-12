@@ -2,25 +2,32 @@ import type { Metadata, Viewport } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { Providers } from "@/components/providers";
+import { getPlatformSiteIconHref } from "@/lib/platform/landing-settings";
 import { getMetadataBase } from "@/lib/seo/metadata-base";
+import { toAbsoluteMetadataUrl } from "@/lib/seo/to-absolute-metadata-url";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  metadataBase: getMetadataBase(),
-  title: "SaaS LMS",
-  description: "Multi-tenant learning management platform",
-  manifest: "/site.webmanifest",
-  /** Default tab icon — avoids host/generic fallbacks (e.g. Vercel triangle on *.vercel.app). Overridden by / when platform logo is set, and by /o/[slug] when a school logo exists. */
-  icons: {
-    icon: [{ url: "/brand-icon.svg", type: "image/svg+xml" }],
-    shortcut: ["/brand-icon.svg"],
-    apple: [{ url: "/brand-icon.svg" }],
-  },
-  appleWebApp: {
-    capable: true,
+export async function generateMetadata(): Promise<Metadata> {
+  const base = getMetadataBase();
+  const href = await getPlatformSiteIconHref();
+  const fallbackPath = "/brand-icon.svg";
+  const iconUrl = href ? toAbsoluteMetadataUrl(href) : new URL(fallbackPath, base).toString();
+  return {
+    metadataBase: base,
     title: "SaaS LMS",
-  },
-};
+    description: "Multi-tenant learning management platform",
+    manifest: "/site.webmanifest",
+    icons: {
+      icon: [{ url: iconUrl }],
+      shortcut: [iconUrl],
+      apple: [{ url: iconUrl }],
+    },
+    appleWebApp: {
+      capable: true,
+      title: "SaaS LMS",
+    },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: [

@@ -37,8 +37,11 @@ export default async function PlatformUsagePage() {
           Per-school database activity and a configurable weighted index to prioritize commercial follow-up. Row counts
           approximate how much each tenant stresses PostgreSQL; combine with your own Blob bandwidth and support costs.
           Public marketing pages surface as CMS row counts plus custom section cards; only the first twelve sections count
-          toward the weighted index (see tenant usage dashboard). <strong className="text-foreground">School calendar</strong>{" "}
-          and <strong className="text-foreground">assessment schedule</strong> row counts match Admin → School calendar and
+          toward the weighted index (see tenant usage dashboard). <strong className="text-foreground">Rolling submissions</strong>{" "}
+          and <strong className="text-foreground">lesson completions</strong> use the same definitions as each tenant’s{" "}
+          <strong className="text-foreground">Admin → Analytics</strong> “Last 7 days” block when this page’s activity window
+          is 7d (30d/90d here extend the same rules). <strong className="text-foreground">School calendar</strong> and{" "}
+          <strong className="text-foreground">assessment schedule</strong> row counts match Admin → School calendar and
           per-assessment schedule windows (same figures as the weighted index and CSV).{" "}
           <strong className="text-foreground">Outcome attention</strong> counts published assessments that would flag in each
           school’s Assessment outcomes (same thresholds as staff “Needs attention”); use it for proactive support, not billing

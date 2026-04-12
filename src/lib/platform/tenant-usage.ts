@@ -56,6 +56,10 @@ export type TenantUsageCounts = {
   submissionsLast7Days: number;
   submissionsLast30Days: number;
   submissionsLast90Days: number;
+  /** LessonProgress rows with completedAt in window (same scope as school Admin → Analytics). */
+  lessonCompletionsLast7Days: number;
+  lessonCompletionsLast30Days: number;
+  lessonCompletionsLast90Days: number;
   usersJoinedLast7Days: number;
   usersJoinedLast30Days: number;
   usersJoinedLast90Days: number;
@@ -180,6 +184,9 @@ function normalizeRow(raw: Record<string, unknown>): TenantUsageCounts {
     submissionsLast7Days: pick("submissionsLast7Days"),
     submissionsLast30Days: pick("submissionsLast30Days"),
     submissionsLast90Days: pick("submissionsLast90Days"),
+    lessonCompletionsLast7Days: pick("lessonCompletionsLast7Days"),
+    lessonCompletionsLast30Days: pick("lessonCompletionsLast30Days"),
+    lessonCompletionsLast90Days: pick("lessonCompletionsLast90Days"),
     usersJoinedLast7Days: pick("usersJoinedLast7Days"),
     usersJoinedLast30Days: pick("usersJoinedLast30Days"),
     usersJoinedLast90Days: pick("usersJoinedLast90Days"),
@@ -285,6 +292,27 @@ export async function getTenantUsageAnalytics(): Promise<TenantUsageAnalytics[]>
         WHERE c."organizationId" = o."id"
         AND s."submittedAt" IS NOT NULL
         AND s."submittedAt" >= NOW() - INTERVAL '90 days') AS "submissionsLast90Days",
+      (SELECT COUNT(*)::int FROM "LessonProgress" lp
+        INNER JOIN "Lesson" l ON l."id" = lp."lessonId"
+        INNER JOIN "Module" m ON m."id" = l."moduleId"
+        INNER JOIN "Course" c ON c."id" = m."courseId"
+        WHERE c."organizationId" = o."id"
+        AND lp."completedAt" IS NOT NULL
+        AND lp."completedAt" >= NOW() - INTERVAL '7 days') AS "lessonCompletionsLast7Days",
+      (SELECT COUNT(*)::int FROM "LessonProgress" lp
+        INNER JOIN "Lesson" l ON l."id" = lp."lessonId"
+        INNER JOIN "Module" m ON m."id" = l."moduleId"
+        INNER JOIN "Course" c ON c."id" = m."courseId"
+        WHERE c."organizationId" = o."id"
+        AND lp."completedAt" IS NOT NULL
+        AND lp."completedAt" >= NOW() - INTERVAL '30 days') AS "lessonCompletionsLast30Days",
+      (SELECT COUNT(*)::int FROM "LessonProgress" lp
+        INNER JOIN "Lesson" l ON l."id" = lp."lessonId"
+        INNER JOIN "Module" m ON m."id" = l."moduleId"
+        INNER JOIN "Course" c ON c."id" = m."courseId"
+        WHERE c."organizationId" = o."id"
+        AND lp."completedAt" IS NOT NULL
+        AND lp."completedAt" >= NOW() - INTERVAL '90 days') AS "lessonCompletionsLast90Days",
       (SELECT COUNT(*)::int FROM "User" u
         WHERE u."organizationId" = o."id"
         AND u."createdAt" >= NOW() - INTERVAL '7 days') AS "usersJoinedLast7Days",

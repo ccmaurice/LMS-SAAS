@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import {
+  orgLessonCompletionsRollingWhere,
+  orgSubmissionsRollingWhere,
+} from "@/lib/analytics/org-rolling-activity";
 import { getCurrentUser } from "@/lib/auth/session";
 import { parseSchoolPublicExtraCards, SCHOOL_PUBLIC_EXTRA_CARDS_KEY } from "@/lib/school-public";
 
@@ -65,18 +69,8 @@ export default async function AdminAnalyticsPage({ params }: { params: Promise<{
     }),
     prisma.enrollment.count({ where: { course: { organizationId: orgId } } }),
     prisma.assessment.count({ where: { course: { organizationId: orgId } } }),
-    prisma.submission.count({
-      where: {
-        submittedAt: { gte: weekAgo },
-        assessment: { course: { organizationId: orgId } },
-      },
-    }),
-    prisma.lessonProgress.count({
-      where: {
-        completedAt: { gte: weekAgo },
-        lesson: { module: { course: { organizationId: orgId } } },
-      },
-    }),
+    prisma.submission.count({ where: orgSubmissionsRollingWhere(orgId, weekAgo) }),
+    prisma.lessonProgress.count({ where: orgLessonCompletionsRollingWhere(orgId, weekAgo) }),
     prisma.userInvite.count({
       where: { organizationId: orgId, expiresAt: { gt: new Date() } },
     }),
@@ -113,7 +107,15 @@ export default async function AdminAnalyticsPage({ params }: { params: Promise<{
     <div className="space-y-8">
       <div>
         <h1 className="page-title">Analytics</h1>
-        <p className="mt-1 text-muted-foreground">Snapshot of activity in your organization.</p>
+        <p className="mt-1 text-muted-foreground">
+          Snapshot of activity in your organization. Submissions and lesson completions in{" "}
+          <strong className="font-medium text-foreground">Last 7 days</strong> use the same definitions as{" "}
+          <Link href="/platform/usage" className="font-medium text-foreground underline-offset-4 hover:underline">
+            Platform → Usage &amp; analysis
+          </Link>{" "}
+          when that page’s activity window is set to <strong className="font-medium text-foreground">7d</strong> (rolling
+          from now; small differences only if the two pages load far apart in time).
+        </p>
       </div>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -162,7 +164,9 @@ export default async function AdminAnalyticsPage({ params }: { params: Promise<{
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="surface-bento p-6">
           <h2 className="text-lg font-semibold tracking-tight">Last 7 days</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Assessments submitted and lessons marked complete.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Submissions (timestamped) and lesson completions — same rollups as platform operators see per school at 7d.
+          </p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
             <div>
               <dt className="text-xs text-muted-foreground">Submissions</dt>

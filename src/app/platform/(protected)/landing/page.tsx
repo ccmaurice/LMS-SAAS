@@ -13,6 +13,7 @@ export default async function PlatformLandingAdminPage() {
 
   const [merged, raw] = await Promise.all([getPublicLandingPayload(), getRawLandingRowMap()]);
   const logoRaw = raw[LANDING_KEY.logo]?.trim() ?? "";
+  const faviconRaw = raw[LANDING_KEY.favicon]?.trim() ?? "";
 
   const initial = {
     kicker: merged.kicker,
@@ -21,6 +22,8 @@ export default async function PlatformLandingAdminPage() {
     features: merged.features,
     logoRaw,
     logoPreviewUrl: merged.logoSrc,
+    faviconRaw,
+    faviconPreviewUrl: merged.faviconSrc,
   };
 
   return (

@@ -23,9 +23,9 @@ export default async function PlatformProtectedLayout({ children }: { children: 
             <PlatformAvatar email={op.email} image={op.image} size={40} />
             <div className="min-w-0">
               <Link href="/platform" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "px-0")}>
-                Platform console
+                Platform operator
               </Link>
-              <p className="truncate text-xs text-muted-foreground">{op.email}</p>
+              <p className="truncate text-xs text-muted-foreground">Cross-tenant console · {op.email}</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

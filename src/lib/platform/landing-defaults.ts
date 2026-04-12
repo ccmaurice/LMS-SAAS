@@ -1,3 +1,4 @@
+import { isSafePlatformFaviconStoredValue } from "@/lib/platform/favicon-storage";
 import { isSafePlatformLogoStoredValue } from "@/lib/platform/logo-storage";
 
 export const LANDING_KEY = {
@@ -6,6 +7,8 @@ export const LANDING_KEY = {
   subheadline: "landing.subheadline",
   features: "landing.features",
   logo: "landing.logo",
+  /** Browser tab icon site-wide (separate from marketing hero logo). */
+  favicon: "landing.favicon",
 } as const;
 
 export type LandingFeature = { title: string; body: string; span: string };
@@ -53,8 +56,17 @@ export function resolvePlatformLogoSrc(logoValue: string | null | undefined): st
   return null;
 }
 
+export function resolvePlatformFaviconSrc(raw: string | null | undefined): string | null {
+  const v = raw?.trim();
+  if (!v) return null;
+  if (/^https?:\/\//i.test(v)) return v;
+  if (isSafePlatformFaviconStoredValue(v)) return "/api/public/platform/favicon";
+  return null;
+}
+
 export type PublicLandingPayload = {
   logoSrc: string | null;
+  faviconSrc: string | null;
   kicker: string;
   headline: string;
   subheadline: string;

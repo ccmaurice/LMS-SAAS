@@ -6,9 +6,11 @@ import {
   DEFAULT_LANDING,
   LANDING_KEY,
   parseLandingFeatures,
+  resolvePlatformFaviconSrc,
   resolvePlatformLogoSrc,
 } from "@/lib/platform/landing-defaults";
 import { getRawLandingRowMap } from "@/lib/platform/landing-settings";
+import { isSafePlatformFaviconStoredValue } from "@/lib/platform/favicon-storage";
 import { isSafePlatformLogoStoredValue } from "@/lib/platform/logo-storage";
 import { removeUpload } from "@/lib/uploads/storage";
 
@@ -25,10 +27,18 @@ const patchSchema = z
     subheadline: z.string().max(600).optional(),
     features: z.array(featureSchema).min(1).max(8).optional(),
     clearLogo: z.boolean().optional(),
+    clearFavicon: z.boolean().optional(),
   })
-  .refine((d) => d.kicker !== undefined || d.headline !== undefined || d.subheadline !== undefined || d.features !== undefined || d.clearLogo === true, {
-    message: "No changes",
-  });
+  .refine(
+    (d) =>
+      d.kicker !== undefined ||
+      d.headline !== undefined ||
+      d.subheadline !== undefined ||
+      d.features !== undefined ||
+      d.clearLogo === true ||
+      d.clearFavicon === true,
+    { message: "No changes" },
+  );
 
 export async function GET() {
   const gate = await requirePlatformOperator();
@@ -36,6 +46,7 @@ export async function GET() {
 
   const raw = await getRawLandingRowMap();
   const logoRaw = raw[LANDING_KEY.logo]?.trim() || "";
+  const faviconRaw = raw[LANDING_KEY.favicon]?.trim() || "";
   return NextResponse.json({
     kicker: raw[LANDING_KEY.kicker]?.trim() ?? "",
     headline: raw[LANDING_KEY.headline]?.trim() ?? "",
@@ -43,6 +54,8 @@ export async function GET() {
     features: parseLandingFeatures(raw[LANDING_KEY.features]),
     logoRaw,
     logoPreviewUrl: resolvePlatformLogoSrc(logoRaw || null),
+    faviconRaw,
+    faviconPreviewUrl: resolvePlatformFaviconSrc(faviconRaw || null),
     defaults: DEFAULT_LANDING,
   });
 }
@@ -74,6 +87,21 @@ export async function PATCH(req: Request) {
     await prisma.platformSetting.upsert({
       where: { key: LANDING_KEY.logo },
       create: { key: LANDING_KEY.logo, value: "" },
+      update: { value: "" },
+    });
+  }
+
+  if (parsed.data.clearFavicon) {
+    const row = await prisma.platformSetting.findUnique({
+      where: { key: LANDING_KEY.favicon },
+      select: { value: true },
+    });
+    if (row?.value && isSafePlatformFaviconStoredValue(row.value)) {
+      await removeUpload(row.value);
+    }
+    await prisma.platformSetting.upsert({
+      where: { key: LANDING_KEY.favicon },
+      create: { key: LANDING_KEY.favicon, value: "" },
       update: { value: "" },
     });
   }
