@@ -19,6 +19,10 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
+  // Browsers still request /favicon.ico by convention; without this they may 404 and keep an old or generic tab icon.
+  async rewrites() {
+    return [{ source: "/favicon.ico", destination: "/brand-icon.svg" }];
+  },
   async headers() {
     const headers = [...securityHeaders];
     if (process.env.NODE_ENV === "production") {
