@@ -10,6 +10,12 @@ export const metadata: Metadata = {
   title: "SaaS LMS",
   description: "Multi-tenant learning management platform",
   manifest: "/site.webmanifest",
+  /** Default tab icon — avoids host/generic fallbacks (e.g. Vercel triangle on *.vercel.app). Overridden by / when platform logo is set, and by /o/[slug] when a school logo exists. */
+  icons: {
+    icon: [{ url: "/brand-icon.svg", type: "image/svg+xml" }],
+    shortcut: ["/brand-icon.svg"],
+    apple: [{ url: "/brand-icon.svg" }],
+  },
   appleWebApp: {
     capable: true,
     title: "SaaS LMS",
