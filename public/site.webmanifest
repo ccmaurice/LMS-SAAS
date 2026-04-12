@@ -1,12 +1,30 @@
 {
-  "name": "SaaS LMS",
-  "short_name": "LMS",
-  "description": "Multi-tenant learning platform",
+  "name": "SkillTech LMS",
+  "short_name": "SkillTech",
+  "description": "Multi-tenant learning management platform",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fafafa",
-  "theme_color": "#171717",
+  "theme_color": "#312e81",
   "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
     {
       "src": "/favicon.ico",
       "sizes": "32x32",

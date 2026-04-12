@@ -12,19 +12,26 @@ export async function generateMetadata(): Promise<Metadata> {
   const href = await getPlatformSiteIconHref();
   const fallbackPath = "/brand-icon.svg";
   const primaryIcon = href ? toAbsoluteMetadataUrl(href) : new URL(fallbackPath, base).toString();
-  /** Real ICO — browsers often fetch `/favicon.ico` before parsing `link rel=icon` (SVG-only was unreliable). */
+  /** Real ICO — tab bar; PNGs are required for PWA “Install app” (Edge/Chrome ignore SVG/ICO there). */
   const icoAbs = new URL("/favicon.ico", base).toString();
-  const iconList: { url: string; type?: string }[] = [{ url: icoAbs, type: "image/x-icon" }];
-  if (primaryIcon !== icoAbs) {
+  const png192 = new URL("/icon-192.png", base).toString();
+  const png512 = new URL("/icon-512.png", base).toString();
+  const appleTouch = new URL("/apple-touch-icon.png", base).toString();
+  const iconList: { url: string; type?: string; sizes?: string }[] = [
+    { url: icoAbs, type: "image/x-icon" },
+    { url: png192, type: "image/png", sizes: "192x192" },
+    { url: png512, type: "image/png", sizes: "512x512" },
+  ];
+  if (primaryIcon !== icoAbs && primaryIcon !== png192 && primaryIcon !== png512) {
     const svg = primaryIcon.includes(".svg") || primaryIcon.includes("brand-icon");
     iconList.push(svg ? { url: primaryIcon, type: "image/svg+xml" } : { url: primaryIcon });
   }
-  const shortcutApple = [{ url: primaryIcon }];
+  const shortcutApple = [{ url: appleTouch, sizes: "180x180", type: "image/png" }];
   return {
     metadataBase: base,
-    title: "SaaS LMS",
+    title: "SkillTech LMS",
     description: "Multi-tenant learning management platform",
-    manifest: "/site.webmanifest",
+    manifest: "/site.webmanifest?v=3",
     icons: {
       icon: iconList,
       shortcut: shortcutApple,
@@ -32,7 +39,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     appleWebApp: {
       capable: true,
-      title: "SaaS LMS",
+      title: "SkillTech LMS",
     },
   };
 }
