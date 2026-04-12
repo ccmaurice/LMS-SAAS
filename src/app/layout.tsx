@@ -11,16 +11,24 @@ export async function generateMetadata(): Promise<Metadata> {
   const base = getMetadataBase();
   const href = await getPlatformSiteIconHref();
   const fallbackPath = "/brand-icon.svg";
-  const iconUrl = href ? toAbsoluteMetadataUrl(href) : new URL(fallbackPath, base).toString();
+  const primaryIcon = href ? toAbsoluteMetadataUrl(href) : new URL(fallbackPath, base).toString();
+  /** Real ICO — browsers often fetch `/favicon.ico` before parsing `link rel=icon` (SVG-only was unreliable). */
+  const icoAbs = new URL("/favicon.ico", base).toString();
+  const iconList: { url: string; type?: string }[] = [{ url: icoAbs, type: "image/x-icon" }];
+  if (primaryIcon !== icoAbs) {
+    const svg = primaryIcon.includes(".svg") || primaryIcon.includes("brand-icon");
+    iconList.push(svg ? { url: primaryIcon, type: "image/svg+xml" } : { url: primaryIcon });
+  }
+  const shortcutApple = [{ url: primaryIcon }];
   return {
     metadataBase: base,
     title: "SaaS LMS",
     description: "Multi-tenant learning management platform",
     manifest: "/site.webmanifest",
     icons: {
-      icon: [{ url: iconUrl }],
-      shortcut: [iconUrl],
-      apple: [{ url: iconUrl }],
+      icon: iconList,
+      shortcut: shortcutApple,
+      apple: shortcutApple,
     },
     appleWebApp: {
       capable: true,

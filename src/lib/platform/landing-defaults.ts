@@ -1,5 +1,6 @@
 import { isSafePlatformFaviconStoredValue } from "@/lib/platform/favicon-storage";
 import { isSafePlatformLogoStoredValue } from "@/lib/platform/logo-storage";
+import { isAllowedPlatformExternalMediaUrl } from "@/lib/uploads/blob-ref";
 
 export const LANDING_KEY = {
   kicker: "landing.kicker",
@@ -51,7 +52,7 @@ export function parseLandingFeatures(raw: string | undefined | null): LandingFea
 export function resolvePlatformLogoSrc(logoValue: string | null | undefined): string | null {
   const v = logoValue?.trim();
   if (!v) return null;
-  if (/^https?:\/\//i.test(v)) return v;
+  if (/^https?:\/\//i.test(v)) return isAllowedPlatformExternalMediaUrl(v) ? v : null;
   if (isSafePlatformLogoStoredValue(v)) return "/api/public/platform/logo";
   return null;
 }
@@ -59,7 +60,7 @@ export function resolvePlatformLogoSrc(logoValue: string | null | undefined): st
 export function resolvePlatformFaviconSrc(raw: string | null | undefined): string | null {
   const v = raw?.trim();
   if (!v) return null;
-  if (/^https?:\/\//i.test(v)) return v;
+  if (/^https?:\/\//i.test(v)) return isAllowedPlatformExternalMediaUrl(v) ? v : null;
   if (isSafePlatformFaviconStoredValue(v)) return "/api/public/platform/favicon";
   return null;
 }
