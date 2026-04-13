@@ -1,4 +1,4 @@
-/** `fr` has full nav/chrome copy in `messages/fr.json`. Other locales fall back to English until extended. */
+/** Full UI copy in `messages/{locale}.json` (merged over English for missing keys). */
 export const UI_LOCALES = ["en", "fr", "es", "de", "it", "pt"] as const;
 export type UiLocale = (typeof UI_LOCALES)[number];
 

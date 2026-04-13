@@ -1,16 +1,22 @@
 import type { UiLocale } from "@/i18n/locales";
+import de from "./de.json";
 import en from "./en.json";
+import es from "./es.json";
 import fr from "./fr.json";
+import it from "./it.json";
+import pt from "./pt.json";
 
-const frMerged: Record<string, string> = { ...en, ...fr };
+function merge(base: Record<string, string>, override: Record<string, string>): Record<string, string> {
+  return { ...base, ...override };
+}
 
 const bundles: Record<UiLocale, Record<string, string>> = {
   en,
-  fr: frMerged,
-  es: en,
-  de: en,
-  it: en,
-  pt: en,
+  fr: merge(en, fr),
+  es: merge(en, es),
+  de: merge(en, de),
+  it: merge(en, it),
+  pt: merge(en, pt),
 };
 
 /** Resolve a UI string for the given locale (dictionary-based; not an external translation API). */
