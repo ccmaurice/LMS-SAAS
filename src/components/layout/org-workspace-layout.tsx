@@ -20,8 +20,9 @@ import { OrgCommandMenu } from "@/components/org-command-menu";
 import { OrgMobileNav } from "@/components/org-mobile-nav";
 import { OrgSidebarPanel } from "@/components/layout/org-sidebar-panel";
 import { SignOutButton } from "@/components/sign-out-button";
+import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { SiteTranslateMenu } from "@/components/translate/site-translate-menu";
 import { OrgPageTransition } from "@/components/layout/org-page-transition";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -122,6 +123,7 @@ export function OrgWorkspaceLayout({
   }, [persistSidebar]);
 
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+  const { t } = useI18n();
 
   return (
     <div className="relative flex min-h-full flex-1 print:h-auto print:min-h-0 print:overflow-visible">
@@ -178,7 +180,7 @@ export function OrgWorkspaceLayout({
                   className="shrink-0 rounded-lg border-border/80 bg-background shadow-xs"
                   aria-expanded={mobileMenuOpen}
                   aria-controls="org-mobile-nav-sheet"
-                  title="Open full menu"
+                  title={t("shell.openFullMenu")}
                   onClick={() => setMobileMenuOpen(true)}
                 >
                   <Menu className="size-[1.15rem]" aria-hidden />
@@ -189,11 +191,7 @@ export function OrgWorkspaceLayout({
                   size="icon-lg"
                   className="shrink-0 rounded-lg border-border/80 bg-background shadow-xs"
                   aria-pressed={fullscreen}
-                  title={
-                    fullscreen
-                      ? "Exit full screen (Esc)"
-                      : "Full screen · more space (Esc to exit)"
-                  }
+                  title={fullscreen ? t("shell.exitFullscreen") : t("shell.fullscreenMobile")}
                   onClick={() => void toggleFullscreen()}
                 >
                   {fullscreen ? (
@@ -223,7 +221,7 @@ export function OrgWorkspaceLayout({
                   className="shrink-0 rounded-lg border-border/80 bg-background shadow-xs"
                   aria-expanded={!sidebarCollapsed}
                   aria-controls="org-sidebar"
-                  title={sidebarCollapsed ? "Show menu panel" : "Hide menu panel · more space for content"}
+                  title={sidebarCollapsed ? t("shell.showMenuPanel") : t("shell.hideMenuPanel")}
                   onClick={toggleSidebar}
                 >
                   {sidebarCollapsed ? (
@@ -238,11 +236,7 @@ export function OrgWorkspaceLayout({
                   size="icon-lg"
                   className="shrink-0 rounded-lg border-border/80 bg-background shadow-xs"
                   aria-pressed={fullscreen}
-                  title={
-                    fullscreen
-                      ? "Exit full screen (Esc)"
-                      : "Full screen workspace · hides side menu for focus (Esc to exit)"
-                  }
+                  title={fullscreen ? t("shell.exitFullscreen") : t("shell.fullscreenDesktop")}
                   onClick={() => void toggleFullscreen()}
                 >
                   {fullscreen ? (
@@ -258,7 +252,7 @@ export function OrgWorkspaceLayout({
                 <p className="min-w-0 truncate text-sm text-muted-foreground">
                   <span className="font-medium text-foreground">{user.name?.trim() || user.email}</span>
                   <span className="text-muted-foreground"> · </span>
-                  <span className="capitalize">{role.toLowerCase()}</span>
+                  <span>{t(`shell.role.${role}`)}</span>
                 </p>
               </div>
             </div>
@@ -270,8 +264,8 @@ export function OrgWorkspaceLayout({
                   buttonVariants({ variant: "ghost", size: "icon" }),
                   "text-muted-foreground hover:text-foreground",
                 )}
-                title="School calendar on dashboard"
-                aria-label="School calendar"
+                title={t("shell.schoolCalendarOnDashboard")}
+                aria-label={t("shell.schoolCalendar")}
               >
                 <CalendarDays className="size-[1.15rem]" />
               </Link>
@@ -281,14 +275,14 @@ export function OrgWorkspaceLayout({
                   buttonVariants({ variant: "ghost", size: "icon" }),
                   "text-muted-foreground hover:text-foreground",
                 )}
-                title="Report card"
-                aria-label="Report card"
+                title={t("shell.reportCard")}
+                aria-label={t("shell.reportCard")}
               >
                 <Flag className="size-[1.15rem]" />
               </Link>
               <OrgCommandMenu slug={slug} role={role} educationLevel={educationLevel} />
               <NotificationBell slug={slug} />
-              <SiteTranslateMenu layout="toolbar" />
+              <LocaleSwitcher layout="compact" />
               <ThemeToggle />
               <SignOutButton />
             </div>
@@ -308,18 +302,20 @@ export function OrgWorkspaceLayout({
           <button
             type="button"
             className="fixed inset-0 z-[60] bg-black/45 backdrop-blur-[2px]"
-            aria-label="Close menu"
-            onClick={closeMobileMenu}
+                aria-label={t("shell.closeMenu")}
+                onClick={closeMobileMenu}
           />
           <div
             id="org-mobile-nav-sheet"
             role="dialog"
             aria-modal="true"
-            aria-label="Main menu"
+            aria-label={t("shell.mainMenu")}
             className="fixed inset-y-0 left-0 z-[70] flex max-h-[100dvh] w-[min(20rem,92vw)] flex-col border-r border-border/80 bg-card/95 shadow-2xl backdrop-blur-xl dark:border-white/12"
           >
             <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-3 py-2.5 dark:border-white/10">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Menu</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t("shell.menu")}
+              </span>
               <Button
                 type="button"
                 variant="ghost"

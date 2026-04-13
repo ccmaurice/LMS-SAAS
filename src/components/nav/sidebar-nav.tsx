@@ -25,44 +25,49 @@ import {
   Users,
 } from "lucide-react";
 import type { EducationLevel, Role } from "@/generated/prisma/enums";
-import { academicCalendarCopy } from "@/lib/education_context/academic-period-labels";
-import { navAcademicGroupsLabel } from "@/lib/school/group-labels";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { cn } from "@/lib/utils";
 
 const SCHOOL_SITE = "__school_site__" as const;
 const VERIFY_CERT = "__verify_certificate__" as const;
 
 type NavItem =
-  | { href: string; label: string; roles: Role[]; icon: LucideIcon }
-  | { href: typeof SCHOOL_SITE; label: string; roles: Role[]; icon: LucideIcon }
-  | { href: typeof VERIFY_CERT; label: string; roles: Role[]; icon: LucideIcon };
+  | { href: string; labelKey: string; roles: Role[]; icon: LucideIcon }
+  | { href: typeof SCHOOL_SITE; labelKey: string; roles: Role[]; icon: LucideIcon }
+  | { href: typeof VERIFY_CERT; labelKey: string; roles: Role[]; icon: LucideIcon };
 
 function navItemsForOrg(educationLevel: EducationLevel): NavItem[] {
-  const academicHubLabel = navAcademicGroupsLabel(educationLevel);
-  const adminGroupingLabel = educationLevel === "HIGHER_ED" ? "Departments" : "Classes";
+  const hubKey =
+    educationLevel === "PRIMARY"
+      ? "nav.hubPrimary"
+      : educationLevel === "SECONDARY"
+        ? "nav.hubSecondary"
+        : "nav.hubHigherEd";
+  const adminGroupingKey = educationLevel === "HIGHER_ED" ? "nav.adminDepartments" : "nav.adminClasses";
   const adminGroupingHref = educationLevel === "HIGHER_ED" ? "admin/departments" : "admin/classes";
+  const academicCalKey = educationLevel === "HIGHER_ED" ? "nav.academicSemesters" : "nav.academicTerms";
 
   return [
-    { href: "dashboard", label: "Dashboard", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: LayoutDashboard },
-    { href: "my-classes", label: academicHubLabel, roles: ["ADMIN", "TEACHER", "STUDENT"], icon: Users },
-    { href: SCHOOL_SITE, label: "School site", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Home },
-    { href: "messages", label: "Messages", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: MessagesSquare },
-    { href: "courses", label: "Courses", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: BookOpen },
-    { href: "library", label: "Library", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Library },
-    { href: "blog", label: "Blog", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Newspaper },
-    { href: "assessments", label: "Assessments", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: ClipboardList },
-    { href: "report-card", label: "Report card", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: FileChartColumn },
-    { href: "transcript", label: "Transcript", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: ScrollText },
-    { href: "certificates", label: "Certificates", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Award },
-    { href: VERIFY_CERT, label: "Verify certificate", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: BadgeCheck },
-    { href: "settings", label: "Settings", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Settings },
-    { href: "admin/cms", label: "CMS", roles: ["ADMIN"], icon: PenSquare },
-    { href: "admin/users", label: "Users", roles: ["ADMIN"], icon: UserCog },
-    { href: "admin/school", label: "School", roles: ["ADMIN"], icon: Building2 },
-    { href: "admin/analytics", label: "Analytics", roles: ["ADMIN"], icon: BarChart3 },
-    { href: "admin/calendar", label: "School calendar", roles: ["ADMIN"], icon: CalendarDays },
-    { href: "admin/terms", label: academicCalendarCopy(educationLevel).navLabel, roles: ["ADMIN"], icon: GraduationCap },
-    { href: adminGroupingHref, label: adminGroupingLabel, roles: ["ADMIN"], icon: Users },
+    { href: "dashboard", labelKey: "nav.dashboard", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: LayoutDashboard },
+    { href: "my-classes", labelKey: hubKey, roles: ["ADMIN", "TEACHER", "STUDENT"], icon: Users },
+    { href: SCHOOL_SITE, labelKey: "nav.schoolSite", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Home },
+    { href: "messages", labelKey: "nav.messages", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: MessagesSquare },
+    { href: "courses", labelKey: "nav.courses", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: BookOpen },
+    { href: "library", labelKey: "nav.library", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Library },
+    { href: "blog", labelKey: "nav.blog", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Newspaper },
+    { href: "assessments", labelKey: "nav.assessments", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: ClipboardList },
+    { href: "report-card", labelKey: "nav.reportCard", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: FileChartColumn },
+    { href: "transcript", labelKey: "nav.transcript", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: ScrollText },
+    { href: "certificates", labelKey: "nav.certificates", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Award },
+    { href: VERIFY_CERT, labelKey: "nav.verifyCertificate", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: BadgeCheck },
+    { href: "settings", labelKey: "nav.settings", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Settings },
+    { href: "admin/cms", labelKey: "nav.cms", roles: ["ADMIN"], icon: PenSquare },
+    { href: "admin/users", labelKey: "nav.users", roles: ["ADMIN"], icon: UserCog },
+    { href: "admin/school", labelKey: "nav.schoolAdmin", roles: ["ADMIN"], icon: Building2 },
+    { href: "admin/analytics", labelKey: "nav.analytics", roles: ["ADMIN"], icon: BarChart3 },
+    { href: "admin/calendar", labelKey: "nav.schoolCalendar", roles: ["ADMIN"], icon: CalendarDays },
+    { href: "admin/terms", labelKey: academicCalKey, roles: ["ADMIN"], icon: GraduationCap },
+    { href: adminGroupingHref, labelKey: adminGroupingKey, roles: ["ADMIN"], icon: Users },
   ];
 }
 
@@ -78,12 +83,15 @@ export function SidebarNav({
   educationLevel: EducationLevel;
 }) {
   const pathname = usePathname();
+  const { t } = useI18n();
   const nav = navItemsForOrg(educationLevel);
   const schoolPublicPath = `/school/${orgSlug}`;
 
   return (
     <nav className="flex flex-1 flex-col gap-0.5 p-2" aria-label="Main navigation">
-      <p className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Main</p>
+      <p className="px-3 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {t("nav.mainSection")}
+      </p>
       {nav
         .filter((item) => item.roles.includes(role))
         .map((item) => {
@@ -120,7 +128,7 @@ export function SidebarNav({
                 )}
                 aria-hidden
               />
-              <span className="min-w-0 truncate">{item.label}</span>
+              <span className="min-w-0 truncate">{t(item.labelKey)}</span>
             </Link>
           );
         })}

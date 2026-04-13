@@ -1,18 +1,33 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
-import { GoogleTranslateProvider } from "@/components/translate/google-translate-provider";
-import { SiteTranslateFabPublic } from "@/components/translate/site-translate-menu";
+import { I18nProvider } from "@/components/i18n/i18n-provider";
+import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
-      <GoogleTranslateProvider>
+      <I18nProvider>
         {children}
-        <SiteTranslateFabPublic />
+        <PublicLocaleFab />
         <Toaster richColors position="top-center" closeButton />
-      </GoogleTranslateProvider>
+      </I18nProvider>
     </ThemeProvider>
   );
 }
+
+/** Language control on pages without org/platform header controls. */
+function PublicLocaleFab() {
+  const path = usePathname() ?? "";
+  if (path.startsWith("/o/")) return null;
+  if (path.startsWith("/platform") && path !== "/platform/login") return null;
+
+  return (
+    <div className="fixed bottom-4 end-4 z-[200] print:hidden">
+      <LocaleSwitcher layout="toolbar" />
+    </div>
+  );
+}
+

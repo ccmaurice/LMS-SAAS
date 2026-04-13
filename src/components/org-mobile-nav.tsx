@@ -3,21 +3,29 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { EducationLevel, Role } from "@/generated/prisma/enums";
-import { navAcademicGroupsLabel } from "@/lib/school/group-labels";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { BookOpen, ClipboardList, LayoutDashboard, MessagesSquare, Settings, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-function items(base: string, role: Role, educationLevel: EducationLevel) {
-  const hub = navAcademicGroupsLabel(educationLevel);
+function hubKey(educationLevel: EducationLevel) {
+  return educationLevel === "PRIMARY"
+    ? "nav.hubPrimary"
+    : educationLevel === "SECONDARY"
+      ? "nav.hubSecondary"
+      : "nav.hubHigherEd";
+}
+
+function items(base: string, role: Role, educationLevel: EducationLevel, t: (k: string) => string) {
+  const hk = hubKey(educationLevel);
   const core = [
-    { href: `${base}/dashboard`, label: "Home", icon: LayoutDashboard },
+    { href: `${base}/dashboard`, label: t("nav.home"), icon: LayoutDashboard },
     ...(role === "STUDENT" || role === "TEACHER" || role === "ADMIN"
-      ? [{ href: `${base}/my-classes`, label: hub, icon: Users } as const]
+      ? [{ href: `${base}/my-classes`, label: t(hk), icon: Users } as const]
       : []),
-    { href: `${base}/messages`, label: "Msgs", icon: MessagesSquare },
-    { href: `${base}/courses`, label: "Courses", icon: BookOpen },
-    { href: `${base}/assessments`, label: "Tests", icon: ClipboardList },
-    { href: `${base}/settings`, label: "You", icon: Settings },
+    { href: `${base}/messages`, label: t("nav.messagesShort"), icon: MessagesSquare },
+    { href: `${base}/courses`, label: t("nav.courses"), icon: BookOpen },
+    { href: `${base}/assessments`, label: t("nav.testsShort"), icon: ClipboardList },
+    { href: `${base}/settings`, label: t("nav.youShort"), icon: Settings },
   ] as const;
   return core;
 }
@@ -32,6 +40,7 @@ export function OrgMobileNav({
   educationLevel: EducationLevel;
 }) {
   const pathname = usePathname();
+  const { t } = useI18n();
   const base = `/o/${slug}`;
 
   return (
@@ -40,7 +49,7 @@ export function OrgMobileNav({
       aria-label="Primary"
     >
       <ul className="mx-auto flex max-w-xl items-stretch justify-around gap-0.5 px-1 py-2">
-        {items(base, role, educationLevel).map(({ href, label, icon: Icon }) => {
+        {items(base, role, educationLevel, t).map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <li key={href} className="flex-1">

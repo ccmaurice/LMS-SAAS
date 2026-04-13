@@ -382,11 +382,3 @@
 .assessment-tiptap-scope .ProseMirror th {
   @apply bg-muted/35 font-semibold;
 }
-
-/* Google Website Translator — hide top iframe bar; translation still applies */
-iframe.goog-te-banner-frame,
-.goog-te-banner-frame {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-}

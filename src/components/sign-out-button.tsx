@@ -2,9 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 
 export function SignOutButton() {
+  const { t } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -21,7 +23,7 @@ export function SignOutButton() {
 
   return (
     <Button type="button" variant="outline" size="sm" disabled={loading} onClick={signOut}>
-      {loading ? "Signing out…" : "Sign out"}
+      {loading ? t("sign.signingOut") : t("sign.signOut")}
     </Button>
   );
 }
