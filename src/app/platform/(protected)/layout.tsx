@@ -5,6 +5,7 @@ import { getPlatformOperator } from "@/lib/platform/session";
 import { PlatformNotificationBell } from "@/components/platform/platform-notification-bell";
 import { PlatformSignOutButton } from "@/components/platform/platform-sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SiteTranslateMenu } from "@/components/translate/site-translate-menu";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +46,7 @@ export default async function PlatformProtectedLayout({ children }: { children: 
               Settings
             </Link>
             <PlatformNotificationBell />
+            <SiteTranslateMenu layout="toolbar" />
             <ThemeToggle />
             <PlatformSignOutButton />
           </div>

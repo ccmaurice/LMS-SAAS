@@ -1,15 +1,18 @@
 "use client";
 
 import { Toaster } from "sonner";
-import { SiteTranslateWidget } from "@/components/site-translate-widget";
+import { GoogleTranslateProvider } from "@/components/translate/google-translate-provider";
+import { SiteTranslateFabPublic } from "@/components/translate/site-translate-menu";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
-      {children}
-      <SiteTranslateWidget />
-      <Toaster richColors position="top-center" closeButton />
+      <GoogleTranslateProvider>
+        {children}
+        <SiteTranslateFabPublic />
+        <Toaster richColors position="top-center" closeButton />
+      </GoogleTranslateProvider>
     </ThemeProvider>
   );
 }

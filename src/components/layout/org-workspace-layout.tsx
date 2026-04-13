@@ -21,6 +21,7 @@ import { OrgMobileNav } from "@/components/org-mobile-nav";
 import { OrgSidebarPanel } from "@/components/layout/org-sidebar-panel";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { SiteTranslateMenu } from "@/components/translate/site-translate-menu";
 import { OrgPageTransition } from "@/components/layout/org-page-transition";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -287,6 +288,7 @@ export function OrgWorkspaceLayout({
               </Link>
               <OrgCommandMenu slug={slug} role={role} educationLevel={educationLevel} />
               <NotificationBell slug={slug} />
+              <SiteTranslateMenu layout="toolbar" />
               <ThemeToggle />
               <SignOutButton />
             </div>
