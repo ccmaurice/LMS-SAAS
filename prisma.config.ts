@@ -15,11 +15,14 @@ if (existsSync(resolve(root, ".env.local"))) {
 const prismaEnvOverlay = process.env.PRISMA_ENV_FILE?.trim();
 if (prismaEnvOverlay) {
   const overlayPath = resolve(root, prismaEnvOverlay);
-  if (existsSync(overlayPath)) {
-    delete process.env.DIRECT_URL;
-    delete process.env.DATABASE_URL;
-    loadEnv({ path: overlayPath, override: true });
+  if (!existsSync(overlayPath)) {
+    throw new Error(
+      `PRISMA_ENV_FILE is set to "${prismaEnvOverlay}" but that file does not exist. Run: npm run db:vercel:pull`,
+    );
   }
+  delete process.env.DIRECT_URL;
+  delete process.env.DATABASE_URL;
+  loadEnv({ path: overlayPath, override: true });
 }
 
 const migrateUrl =
