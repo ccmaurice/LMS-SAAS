@@ -234,8 +234,9 @@ export function TranslationTool() {
         ) : null}
       </CardContent>
       <CardFooter className="border-t border-foreground/10 text-xs text-muted-foreground">
-        Free APIs may enforce quotas. For production, set{" "}
-        <code className="rounded bg-muted px-1 py-0.5 font-mono">LIBRETRANSLATE_API_URL</code> on the server.
+        To translate the whole app without any API key, use the floating <strong>Site language</strong> control
+        (Google Translate). This box is for translating custom pasted text via the server (optional{" "}
+        <code className="rounded bg-muted px-1 py-0.5 font-mono">LIBRETRANSLATE_API_URL</code> for longer passages).
       </CardFooter>
     </Card>
   );
