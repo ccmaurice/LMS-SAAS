@@ -19,6 +19,12 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
+  async redirects() {
+    return [
+      { source: "/tools/translate", destination: "/", permanent: true },
+      { source: "/tools", destination: "/", permanent: true },
+    ];
+  },
   async headers() {
     const headers = [...securityHeaders];
     if (process.env.NODE_ENV === "production") {

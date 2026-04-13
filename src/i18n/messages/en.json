@@ -57,5 +57,19 @@
   "platform.database": "Database",
   "platform.settings": "Settings",
   "platform.signingOut": "Signing out…",
-  "platform.signOut": "Platform sign out"
+  "platform.signOut": "Platform sign out",
+  "auth.signIn": "Sign in",
+  "auth.signInDescription": "Use your school URL, email, and password.",
+  "auth.continueGoogle": "Continue with Google",
+  "auth.slugBeforeGoogle": "Enter a valid school URL slug (e.g. demo-school) before using Google.",
+  "auth.slugMustMatch": "Your school slug must match the organization you belong to.",
+  "auth.orEmail": "Or email",
+  "auth.schoolSlug": "School URL slug",
+  "auth.schoolSlugPlaceholder": "e.g. demo-school",
+  "auth.schoolSlugHelp": "The path you use after /o/ — same as when you registered.",
+  "auth.email": "Email",
+  "auth.password": "Password",
+  "auth.signingIn": "Signing in…",
+  "auth.signInButton": "Sign in",
+  "auth.createSchool": "Create a school"
 }

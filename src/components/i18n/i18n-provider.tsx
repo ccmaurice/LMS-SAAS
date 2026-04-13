@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { LOCALE_COOKIE, isUiLocale, type UiLocale } from "@/i18n/locales";
-import { translate as translateMessage } from "@/i18n/messages";
+import { lookupMessage } from "@/i18n/messages";
 
 type I18nContextValue = {
   locale: UiLocale;
@@ -45,7 +45,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.cookie = `${LOCALE_COOKIE}=${encodeURIComponent(next)};path=/;max-age=31536000;SameSite=Lax`;
   }, []);
 
-  const t = useCallback((key: string) => translateMessage(locale, key), [locale]);
+  const t = useCallback((key: string) => lookupMessage(locale, key), [locale]);
 
   const value = useMemo(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
 

@@ -13,7 +13,8 @@ const bundles: Record<UiLocale, Record<string, string>> = {
   pt: en,
 };
 
-export function translate(locale: UiLocale, key: string): string {
+/** Resolve a UI string for the given locale (dictionary-based; not an external translation API). */
+export function lookupMessage(locale: UiLocale, key: string): string {
   const b = bundles[locale] ?? bundles.en;
   const v = b[key];
   if (typeof v === "string") return v;

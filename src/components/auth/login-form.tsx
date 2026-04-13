@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { isValidOrgSlug, normalizeOrgSlug } from "@/lib/slug";
 
 function formatApiError(data: { error?: unknown; message?: unknown }): string {
@@ -83,6 +84,7 @@ function GoogleGlyph() {
 }
 
 export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const defaultOrg = searchParams.get("org") ?? "";
@@ -148,10 +150,8 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
   return (
     <Card className="auth-card-shell surface-glass w-full max-w-md border-0 py-6 shadow-none ring-1 ring-border/40 dark:ring-white/10">
       <CardHeader className="space-y-1">
-        <CardTitle className="page-title">Sign in</CardTitle>
-        <CardDescription className="text-pretty leading-relaxed">
-          Use your school URL, email, and password.
-        </CardDescription>
+        <CardTitle className="page-title">{t("auth.signIn")}</CardTitle>
+        <CardDescription className="text-pretty leading-relaxed">{t("auth.signInDescription")}</CardDescription>
       </CardHeader>
       <form onSubmit={onSubmit}>
         <CardContent className="space-y-4">
@@ -193,7 +193,7 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
                   )}
                 >
                   <GoogleGlyph />
-                  Continue with Google
+                  {t("auth.continueGoogle")}
                 </a>
               ) : (
                 <button
@@ -202,15 +202,13 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
                     buttonVariants({ variant: "outline" }),
                     "flex h-10 w-full items-center justify-center gap-2 text-sm font-medium",
                   )}
-                  onClick={() => setError("Enter a valid school URL slug (e.g. demo-school) before using Google.")}
+                  onClick={() => setError(t("auth.slugBeforeGoogle"))}
                 >
                   <GoogleGlyph />
-                  Continue with Google
+                  {t("auth.continueGoogle")}
                 </button>
               )}
-              <p className="text-center text-xs text-muted-foreground">
-                Your school slug must match the organization you belong to.
-              </p>
+              <p className="text-center text-xs text-muted-foreground">{t("auth.slugMustMatch")}</p>
             </div>
           ) : null}
           {googleOAuthEnabled ? (
@@ -219,25 +217,25 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
                 <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or email</span>
+                <span className="bg-card px-2 text-muted-foreground">{t("auth.orEmail")}</span>
               </div>
             </div>
           ) : null}
           <div className="space-y-2">
-            <Label htmlFor="org">School URL slug</Label>
+            <Label htmlFor="org">{t("auth.schoolSlug")}</Label>
             <Input
               id="org"
               name="organizationSlug"
               autoComplete="organization"
-              placeholder="e.g. demo-school"
+              placeholder={t("auth.schoolSlugPlaceholder")}
               value={organizationSlug}
               onChange={(e) => setOrganizationSlug(e.target.value)}
               required
             />
-            <p className="text-xs text-muted-foreground">The path you use after /o/ — same as when you registered.</p>
+            <p className="text-xs text-muted-foreground">{t("auth.schoolSlugHelp")}</p>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("auth.email")}</Label>
             <Input
               id="email"
               name="email"
@@ -249,7 +247,7 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("auth.password")}</Label>
             <Input
               id="password"
               name="password"
@@ -263,10 +261,10 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
         </CardContent>
         <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-between">
           <Button type="submit" disabled={loading}>
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? t("auth.signingIn") : t("auth.signInButton")}
           </Button>
           <Link href="/register" className={cn(buttonVariants({ variant: "ghost" }), "sm:w-auto")}>
-            Create a school
+            {t("auth.createSchool")}
           </Link>
         </CardFooter>
       </form>

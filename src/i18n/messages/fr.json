@@ -57,5 +57,19 @@
   "platform.database": "Base de données",
   "platform.settings": "Paramètres",
   "platform.signingOut": "Déconnexion…",
-  "platform.signOut": "Déconnexion plateforme"
+  "platform.signOut": "Déconnexion plateforme",
+  "auth.signIn": "Connexion",
+  "auth.signInDescription": "Utilisez l’URL de l’établissement, votre e-mail et votre mot de passe.",
+  "auth.continueGoogle": "Continuer avec Google",
+  "auth.slugBeforeGoogle": "Saisissez un identifiant d’établissement valide (ex. demo-school) avant d’utiliser Google.",
+  "auth.slugMustMatch": "L’identifiant doit correspondre à l’organisation à laquelle vous appartenez.",
+  "auth.orEmail": "Ou e-mail",
+  "auth.schoolSlug": "Identifiant d’URL de l’établissement",
+  "auth.schoolSlugPlaceholder": "ex. demo-school",
+  "auth.schoolSlugHelp": "Le chemin après /o/ — le même qu’à l’inscription.",
+  "auth.email": "E-mail",
+  "auth.password": "Mot de passe",
+  "auth.signingIn": "Connexion…",
+  "auth.signInButton": "Se connecter",
+  "auth.createSchool": "Créer un établissement"
 }
