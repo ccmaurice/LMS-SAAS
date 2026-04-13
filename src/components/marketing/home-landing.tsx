@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { SchoolsCarousel, type SchoolCarouselItem } from "@/components/marketing/schools-carousel";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -20,6 +21,7 @@ export type HomeLandingProps = {
 };
 
 export function HomeLanding({ schools, logoSrc, kicker, headline, subheadline, features }: HomeLandingProps) {
+  const { t } = useI18n();
   const reduce = useReducedMotion();
   const [motionReady, setMotionReady] = useState(false);
   useEffect(() => {
@@ -59,16 +61,16 @@ export function HomeLanding({ schools, logoSrc, kicker, headline, subheadline, f
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Link href="/login" className={cn(buttonVariants({ size: "lg" }), "min-w-36 tracking-tight")}>
-              Sign in
+              {t("auth.signIn")}
             </Link>
             <Link
               href="/register"
               className={cn(buttonVariants({ variant: "outline", size: "lg" }), "min-w-36 border-border/80 backdrop-blur-sm dark:border-white/15")}
             >
-              Create a school
+              {t("auth.createSchool")}
             </Link>
             <Link href="/platform/login" className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "tracking-tight")}>
-              Platform
+              {t("landing.platform")}
             </Link>
           </div>
         </motion.div>
@@ -98,7 +100,7 @@ export function HomeLanding({ schools, logoSrc, kicker, headline, subheadline, f
 
         <p className="mt-12 text-center text-xs text-muted-foreground">
           <Link href="/api/health" className="underline-offset-4 hover:text-foreground hover:underline">
-            API health
+            {t("landing.apiHealth")}
           </Link>
         </p>
       </div>

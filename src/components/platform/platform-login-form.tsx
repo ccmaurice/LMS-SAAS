@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
 export function PlatformLoginForm() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") ?? "/platform";
@@ -40,7 +42,7 @@ export function PlatformLoginForm() {
         } else if (err && typeof err === "object") {
           msg = JSON.stringify(err);
         } else {
-          msg = "Could not sign in. Check platform credentials and server configuration.";
+          msg = t("platform.loginErrorGeneric");
         }
         setError(msg);
         return;
@@ -49,7 +51,7 @@ export function PlatformLoginForm() {
       router.push(target);
       router.refresh();
     } catch {
-      setError("Network error");
+      setError(t("platform.loginNetworkError"));
     } finally {
       setLoading(false);
     }
@@ -58,10 +60,8 @@ export function PlatformLoginForm() {
   return (
     <Card className="auth-card-shell surface-glass w-full max-w-md border-0 shadow-none ring-1 ring-border/40 dark:ring-white/10">
       <CardHeader className="space-y-1">
-        <CardTitle className="page-title">Platform operator</CardTitle>
-        <CardDescription className="text-pretty leading-relaxed">
-          Cross-tenant console. Not for school staff or students.
-        </CardDescription>
+        <CardTitle className="page-title">{t("platform.operator")}</CardTitle>
+        <CardDescription className="text-pretty leading-relaxed">{t("platform.loginDescription")}</CardDescription>
       </CardHeader>
       <form onSubmit={(e) => void onSubmit(e)}>
         <CardContent className="space-y-4">
@@ -74,7 +74,7 @@ export function PlatformLoginForm() {
             </p>
           ) : null}
           <div className="space-y-2">
-            <Label htmlFor="p-email">Email</Label>
+            <Label htmlFor="p-email">{t("auth.email")}</Label>
             <Input
               id="p-email"
               type="email"
@@ -85,7 +85,7 @@ export function PlatformLoginForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="p-password">Password</Label>
+            <Label htmlFor="p-password">{t("auth.password")}</Label>
             <Input
               id="p-password"
               type="password"
@@ -98,10 +98,10 @@ export function PlatformLoginForm() {
         </CardContent>
         <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-between">
           <Link href="/" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-            Home
+            {t("nav.home")}
           </Link>
           <Button type="submit" disabled={loading}>
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? t("auth.signingIn") : t("auth.signInButton")}
           </Button>
         </CardFooter>
       </form>

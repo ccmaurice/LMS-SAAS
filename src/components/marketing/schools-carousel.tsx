@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,7 @@ export type SchoolCarouselItem = {
 };
 
 function SchoolCard({ school }: { school: SchoolCarouselItem }) {
+  const { t } = useI18n();
   const [imgFailed, setImgFailed] = useState(false);
   const heroUrl = school.heroImageUrl?.trim() ?? "";
   const letter = school.name.slice(0, 1).toUpperCase() || "?";
@@ -60,14 +62,15 @@ function SchoolCard({ school }: { school: SchoolCarouselItem }) {
         </div>
       </div>
       <div className="flex flex-1 flex-col justify-center px-5 py-4">
-        <p className="text-sm text-muted-foreground">Admissions, about us, gallery &amp; contacts — tap to open.</p>
-        <span className="mt-3 text-sm font-medium text-primary">Open school page →</span>
+        <p className="text-sm text-muted-foreground">{t("landing.schoolCardTeaser")}</p>
+        <span className="mt-3 text-sm font-medium text-primary">{t("landing.schoolCardCta")}</span>
       </div>
     </Link>
   );
 }
 
 export function SchoolsCarousel({ schools }: { schools: SchoolCarouselItem[] }) {
+  const { t } = useI18n();
   const scrollerRef = useRef<HTMLDivElement>(null);
 
   const scroll = useCallback((dir: -1 | 1) => {
@@ -83,16 +86,14 @@ export function SchoolsCarousel({ schools }: { schools: SchoolCarouselItem[] }) 
     <section className="mt-20 w-full">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4 px-1">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Schools on this platform</p>
-          <h2 className="page-title-lg mt-2">Explore every campus</h2>
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
-            Swipe or use arrows — each card opens that school&apos;s public page.
-          </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{t("landing.carouselKicker")}</p>
+          <h2 className="page-title-lg mt-2">{t("landing.carouselTitle")}</h2>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground">{t("landing.carouselSubtitle")}</p>
         </div>
         <div className="hidden gap-2 sm:flex">
           <button
             type="button"
-            aria-label="Previous schools"
+            aria-label={t("landing.prevSchoolsAria")}
             className={cn(buttonVariants({ variant: "outline", size: "icon" }))}
             onClick={() => scroll(-1)}
           >
@@ -100,7 +101,7 @@ export function SchoolsCarousel({ schools }: { schools: SchoolCarouselItem[] }) 
           </button>
           <button
             type="button"
-            aria-label="Next schools"
+            aria-label={t("landing.nextSchoolsAria")}
             className={cn(buttonVariants({ variant: "outline", size: "icon" }))}
             onClick={() => scroll(1)}
           >

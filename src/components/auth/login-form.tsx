@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { isValidOrgSlug, normalizeOrgSlug } from "@/lib/slug";
 
-function formatApiError(data: { error?: unknown; message?: unknown }): string {
+function formatApiError(data: { error?: unknown; message?: unknown }, t: (key: string) => string): string {
   if (typeof data.message === "string" && data.message.trim()) return data.message;
   const e = data.error;
   if (typeof e === "string" && e.trim()) return e;
@@ -35,26 +35,8 @@ function formatApiError(data: { error?: unknown; message?: unknown }): string {
     }
     if (parts.length) return parts.join(" ");
   }
-  return "Could not sign in. Check organization URL, email, and password.";
+  return t("auth.error.genericSignIn");
 }
-
-const OAUTH_ERRORS: Record<string, string> = {
-  google_no_account:
-    "No account in that school for this Google user. Accept an invite with the same email, then try Google again.",
-  google_not_configured: "Google sign-in is not enabled on this server.",
-  google_denied: "Google sign-in was cancelled.",
-  google_invalid_state: "Sign-in expired. Try Google sign-in again.",
-  google_invalid_org: "Enter a valid school slug, then use Google sign-in.",
-  google_email_unverified: "Verify your email in Google, then try again.",
-  google_link_conflict: "This Google account is linked to a different user in that school.",
-  google_token_failed: "Could not complete Google sign-in. Try again.",
-  google_profile_failed: "Could not load your Google profile. Try again.",
-  suspended: "This account has been suspended. Contact your school administrator.",
-  google_org_pending:
-    "This school is still waiting for platform approval. You will be able to sign in once an operator activates it.",
-  google_org_rejected: "This school registration was not approved. Contact support if you believe this is a mistake.",
-  too_many_requests: "Too many sign-in attempts from this network. Wait a few minutes and try again.",
-};
 
 const googleOAuthEnabled =
   typeof process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID === "string" &&
@@ -94,10 +76,17 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
   const [organizationSlug, setOrganizationSlug] = useState(defaultOrg);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(
-    oauthCode && OAUTH_ERRORS[oauthCode] ? OAUTH_ERRORS[oauthCode] : null,
-  );
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const oauthApplied = useRef(false);
+
+  useEffect(() => {
+    if (oauthApplied.current || !oauthCode) return;
+    oauthApplied.current = true;
+    const key = `auth.oauth.${oauthCode}`;
+    const msg = t(key);
+    setError(msg === key ? t("auth.oauth.unknown") : msg);
+  }, [oauthCode, t]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,14 +105,12 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
       try {
         data = raw ? (JSON.parse(raw) as typeof data) : {};
       } catch {
-        setError(
-          `The server did not return JSON (${res.status}). Often this means the API crashed — check the terminal (e.g. database down or JWT_SECRET too short).`,
-        );
+        setError(t("auth.error.nonJsonResponse").replace("%s", String(res.status)));
         return;
       }
 
       if (!res.ok) {
-        setError(formatApiError(data));
+        setError(formatApiError(data, t));
         return;
       }
       const slug = data.user?.organization.slug ?? organizationSlug.trim().toLowerCase();
@@ -133,11 +120,7 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
       router.refresh();
     } catch (e) {
       const failedFetch = e instanceof TypeError && String(e.message).toLowerCase().includes("fetch");
-      setError(
-        failedFetch
-          ? "Could not reach this app’s server. Confirm `npm run dev` is running and you’re on the same URL (e.g. http://localhost:3000), not a different port or device name."
-          : "Something went wrong signing in. Try again, or check the browser console and dev server logs.",
-      );
+      setError(failedFetch ? t("auth.error.fetchNetwork") : t("auth.error.genericCatch"));
     } finally {
       setLoading(false);
     }
@@ -157,21 +140,8 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
         <CardContent className="space-y-4">
           {showDemoHint ? (
             <div className="rounded-md border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">Local demo</p>
-              <p className="mt-1">
-                Postgres must be running and <code className="rounded bg-muted px-1">DATABASE_URL</code> must match it.
-                Apply migrations, then seed: <code className="rounded bg-muted px-1">npm run db:deploy</code> then{" "}
-                <code className="rounded bg-muted px-1">npm run db:seed</code>, or{" "}
-                <code className="rounded bg-muted px-1">npm run db:bootstrap</code> (Docker Postgres + deploy + seed).
-                If you used <code className="rounded bg-muted px-1">db:push</code> before or deploy errors on types
-                already existing, run <code className="rounded bg-muted px-1">npm run db:reset</code> (wipes local DB).
-                Demo: slug <code className="rounded bg-muted px-1">demo-school</code>, password{" "}
-                <code className="rounded bg-muted px-1">password123</code> — try{" "}
-                <code className="rounded bg-muted px-1">admin@test.com</code>,{" "}
-                <code className="rounded bg-muted px-1">teacher@test.com</code>,{" "}
-                <code className="rounded bg-muted px-1">student@test.com</code>, or{" "}
-                <code className="rounded bg-muted px-1">parent@test.com</code> (parent is linked to the demo student).
-              </p>
+              <p className="font-medium text-foreground">{t("auth.demoHintTitle")}</p>
+              <p className="mt-1">{t("auth.demoHintBody")}</p>
             </div>
           ) : null}
           {error ? (
