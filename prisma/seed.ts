@@ -3,9 +3,19 @@ import { resolve } from "node:path";
 import { config as loadEnv } from "dotenv";
 
 const root = process.cwd();
+// If the operator preset DATABASE_URL (or DIRECT_URL), do not let `.env.local` override it — otherwise
+// `DATABASE_URL=<production> npm run db:seed` silently seeds localhost when `.env.local` exists.
+const preservedDatabaseUrl = process.env.DATABASE_URL;
+const preservedDirectUrl = process.env.DIRECT_URL;
 loadEnv({ path: resolve(root, ".env") });
 if (existsSync(resolve(root, ".env.local"))) {
   loadEnv({ path: resolve(root, ".env.local"), override: true });
+}
+if (preservedDatabaseUrl !== undefined) {
+  process.env.DATABASE_URL = preservedDatabaseUrl;
+}
+if (preservedDirectUrl !== undefined) {
+  process.env.DIRECT_URL = preservedDirectUrl;
 }
 
 import { hashPassword } from "../src/lib/auth/password";

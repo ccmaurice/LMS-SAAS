@@ -113,7 +113,10 @@ describe("credentialLogin", () => {
       },
       include: { organization: true },
     });
-    if (!res.ok) expect(res.status).toBe(401);
+    if (!res.ok) {
+      expect(res.status).toBe(401);
+      expect(res.error).toMatch(/No account with that email/);
+    }
   });
 
   it("returns 401 when user has no password hash", async () => {
@@ -141,7 +144,7 @@ describe("credentialLogin", () => {
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.status).toBe(401);
-      expect(res.error).toMatch(/No password sign-in/);
+      expect(res.error).toMatch(/no password on file/);
     }
     expect(verifyPassword).not.toHaveBeenCalled();
   });

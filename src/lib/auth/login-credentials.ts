@@ -38,8 +38,16 @@ export type CredentialLoginResult = CredentialLoginSuccess | CredentialLoginFail
 
 const NO_SCHOOL_MSG =
   "No school found for that slug. Run `npm run db:seed` (or `db:bootstrap`) for demo-school, or use the slug from your invite.";
-const NO_PASSWORD_USER_MSG =
-  "No password sign-in for that email in this school. Check the email, use the slug for the school that invited you, or run `npm run db:seed` for admin@test.com.";
+const NO_ACCOUNT_MSG =
+  "No account with that email in this school. Check the school slug and spelling of the email, or ask an administrator to invite you.";
+const NO_PASSWORD_ON_FILE_MSG =
+  "This account has no password on file (for example Google-only sign-in). Use Google to sign in, or ask an administrator to send an invite so you can set a password.";
+
+/** Shown when demo-school + *@test.com — parent@test.com only exists after seeding that deployment's DB. */
+function demoAccountsHint(email: string, orgSlug: string): string {
+  if (orgSlug !== "demo-school" || !/@test\.com$/i.test(email)) return "";
+  return " Demo users (parent@test.com, admin@test.com, … / password123) come from `npm run db:seed` on the same database this app uses — hosted sites are not auto-seeded; set DATABASE_URL to that Postgres URL first if you seed from your machine.";
+}
 
 /**
  * Validates org slug, resolves {@link Organization}, verifies email/password for a user in that org only.
@@ -83,8 +91,12 @@ export async function credentialLogin(body: LoginCredentialsBody): Promise<Crede
     include: { organization: true },
   });
 
-  if (!user?.passwordHash) {
-    return { ok: false, status: 401, error: NO_PASSWORD_USER_MSG };
+  if (!user) {
+    return { ok: false, status: 401, error: NO_ACCOUNT_MSG + demoAccountsHint(email, slug) };
+  }
+
+  if (!user.passwordHash) {
+    return { ok: false, status: 401, error: NO_PASSWORD_ON_FILE_MSG };
   }
 
   const passwordOk = await verifyPassword(body.password, user.passwordHash);
