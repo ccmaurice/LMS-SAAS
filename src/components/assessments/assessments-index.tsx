@@ -52,6 +52,12 @@ export function AssessmentsStaffList({ slug, rows }: { slug: string; rows: Asses
             ) : null}
             <AssessmentStaffLockToggle assessmentId={a.id} initialLocked={a.studentAttemptsLocked} />
             <Link
+              href={`/o/${slug}/courses/${a.course.id}/assessment-outcomes`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Outcomes
+            </Link>
+            <Link
               href={`/o/${slug}/courses/${a.course.id}/assessments/${a.id}/edit`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >

@@ -11,6 +11,7 @@ import { getStudentCohortIds } from "@/lib/school/cohort-access";
 import { getStudentDepartmentIds } from "@/lib/school/department-access";
 import { AssessmentsStaffList, AssessmentsStudentList } from "@/components/assessments/assessments-index";
 import { AssessmentsStaffFilters } from "@/components/assessments/assessments-staff-filters";
+import { AssessmentsStaffToolbar } from "@/components/assessments/assessments-staff-toolbar";
 
 export default async function OrgAssessmentsPage({
   params,
@@ -155,7 +156,7 @@ export default async function OrgAssessmentsPage({
       where.AND = andFilters;
     }
 
-    const [rows, cohorts, departments, org] = await Promise.all([
+    const [rows, cohorts, departments, org, manageableCourses] = await Promise.all([
       prisma.assessment.findMany({
         where,
         orderBy: { updatedAt: "desc" },
@@ -175,6 +176,17 @@ export default async function OrgAssessmentsPage({
         where: { id: user.organizationId },
         select: { academicYearLabel: true },
       }),
+      user.role === "ADMIN"
+        ? prisma.course.findMany({
+            where: { organizationId: user.organizationId },
+            orderBy: { title: "asc" },
+            select: { id: true, title: true },
+          })
+        : prisma.course.findMany({
+            where: courseWhereTeacherAssessmentAccess(user.organizationId, user.id),
+            orderBy: { title: "asc" },
+            select: { id: true, title: true },
+          }),
     ]);
 
     const yearSet = new Set<string>();
@@ -185,15 +197,26 @@ export default async function OrgAssessmentsPage({
 
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="page-title">All assessments</h1>
-          <p className="text-muted-foreground">
-            {user.role === "TEACHER"
-              ? "Assessments on courses you author or where you instruct a linked class or department. Use filters to narrow by department, class, or year."
-              : educationLevel === "HIGHER_ED"
-                ? "Filter by academic department. Link departments to courses, then target assessments to specific departments from the assessment editor."
-                : "Filter by class or academic year. Link classes to courses, then target assessments to specific homerooms or form groups."}
-          </p>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <h1 className="page-title">All assessments</h1>
+            <p className="text-muted-foreground">
+              {user.role === "TEACHER"
+                ? "Assessments on courses you author or where you instruct a linked class or department. New quizzes and exams are created inside a course. Use filters to narrow the list below."
+                : educationLevel === "HIGHER_ED"
+                  ? "Filter by academic department. Link departments to courses, then target assessments to specific departments from the assessment editor."
+                  : "Filter by class or academic year. Link classes to courses, then target assessments to specific homerooms or form groups."}
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              <strong className="font-medium text-foreground">Outcomes</strong> are per course (class mean, participation,
+              needs attention). Use the buttons here or open a course&apos;s Assessments page.
+            </p>
+          </div>
+          <AssessmentsStaffToolbar
+            slug={slug}
+            courses={manageableCourses}
+            role={user.role === "ADMIN" ? "ADMIN" : "TEACHER"}
+          />
         </div>
         <Suspense fallback={<div className="h-14 rounded-xl bg-muted/30" />}>
           <AssessmentsStaffFilters
