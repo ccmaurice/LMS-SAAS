@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canTeacherManageCourse, isStaffRole } from "@/lib/courses/access";
+import { getServerT } from "@/i18n/server";
 import { CourseGradingPanel } from "@/components/courses/course-grading-panel";
 import { CourseCohortPanel } from "@/components/courses/course-cohort-panel";
 import { CourseDepartmentPanel } from "@/components/courses/course-department-panel";
@@ -16,6 +17,7 @@ export default async function EditCoursePage({
   params: Promise<{ slug: string; courseId: string }>;
 }) {
   const { slug, courseId } = await params;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) {
     redirect("/login");
@@ -88,10 +90,10 @@ export default async function EditCoursePage({
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         <Link href={`/o/${slug}/courses`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-          All courses
+          {t("courses.allCourses")}
         </Link>
       </div>
-      <h1 className="page-title">Edit course</h1>
+      <h1 className="page-title">{t("courses.editTitle")}</h1>
       <CourseGradingPanel
         courseId={course.id}
         educationLevel={edu}

@@ -13,6 +13,7 @@ import {
   GradebookDiscardDraftButton,
   GradebookGrantExtraAttempt,
 } from "@/components/assessments/gradebook-student-attempt-actions";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 type AnswerRow = {
   id: string;
@@ -44,6 +45,7 @@ export function GradebookTable({
   initial: SubRow[];
   proctorBySubmissionId?: Record<string, ProctorEventAgg[]>;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [subs, setSubs] = useState(initial);
 
@@ -97,7 +99,7 @@ export function GradebookTable({
               return (
                 <>
                   <p className="mt-1 text-xs text-amber-900/90 dark:text-amber-200/90">
-                    Integrity signals: {formatProctorSummaryLine(agg)}
+                    {t("assessments.integritySignalsLabel")} {formatProctorSummaryLine(agg, t)}
                   </p>
                   <ProctoringExcuseSubmissionButton assessmentId={assessmentId} submissionId={s.id} />
                 </>

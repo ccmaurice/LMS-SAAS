@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 export function CourseCreateForm({ orgSlug }: { orgSlug: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -27,7 +29,7 @@ export function CourseCreateForm({ orgSlug }: { orgSlug: string }) {
       });
       const data = (await res.json()) as { error?: unknown; course?: { id: string } };
       if (!res.ok) {
-        setError(typeof data.error === "string" ? data.error : "Could not create course");
+        setError(typeof data.error === "string" ? data.error : t("courses.createFailed"));
         return;
       }
       if (data.course?.id) {
@@ -43,19 +45,19 @@ export function CourseCreateForm({ orgSlug }: { orgSlug: string }) {
     <form onSubmit={onSubmit} className="surface-bento mx-auto max-w-lg space-y-4 p-6">
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       <div className="space-y-2">
-        <Label htmlFor="title">Title</Label>
+        <Label htmlFor="title">{t("courses.fieldTitle")}</Label>
         <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} required />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="description">Description</Label>
+        <Label htmlFor="description">{t("courses.fieldDescription")}</Label>
         <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} />
-        Published (visible in student catalog)
+        {t("courses.publishCatalogHint")}
       </label>
       <Button type="submit" disabled={loading}>
-        {loading ? "Creating…" : "Create & open editor"}
+        {loading ? t("courses.creating") : t("courses.createAndOpen")}
       </Button>
     </form>
   );

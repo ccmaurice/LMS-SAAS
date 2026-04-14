@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { EducationLevel } from "@/generated/prisma/enums";
-import { academicCalendarCopy } from "@/lib/education_context/academic-period-labels";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export type TermOption = { id: string; label: string };
 
@@ -28,8 +28,9 @@ export function CourseGradingPanel({
   };
   terms: TermOption[];
 }) {
-  const cal = academicCalendarCopy(educationLevel);
+  const { t } = useI18n();
   const router = useRouter();
+  const isHe = educationLevel === "HIGHER_ED";
   const [wCa, setWCa] = useState(String(initial.gradeWeightContinuous));
   const [wEx, setWEx] = useState(String(initial.gradeWeightExam));
   const [scale, setScale] = useState(initial.gradingScale);
@@ -41,12 +42,12 @@ export function CourseGradingPanel({
     const ca = Number(wCa);
     const ex = Number(wEx);
     if (Number.isNaN(ca) || Number.isNaN(ex) || Math.abs(ca + ex - 1) > 0.001) {
-      toast.error("Continuous + exam weights must sum to 1 (e.g. 0.4 and 0.6).");
+      toast.error(t("courses.grading.toastWeightsSum"));
       return;
     }
     const cr = credits.trim() === "" ? null : Number(credits);
     if (cr != null && (Number.isNaN(cr) || cr < 0)) {
-      toast.error("Credit hours must be a non-negative number.");
+      toast.error(t("courses.grading.toastCreditsInvalid"));
       return;
     }
     setBusy(true);
@@ -65,10 +66,10 @@ export function CourseGradingPanel({
       });
       const data = (await res.json()) as { error?: unknown };
       if (!res.ok) {
-        toast.error(typeof data.error === "string" ? data.error : "Could not save");
+        toast.error(typeof data.error === "string" ? data.error : t("courses.grading.toastSaveFailed"));
         return;
       }
-      toast.success("Course grading & transcript fields saved");
+      toast.success(t("courses.grading.toastSaved"));
       router.refresh();
     } finally {
       setBusy(false);
@@ -77,51 +78,55 @@ export function CourseGradingPanel({
 
   return (
     <section className="surface-bento space-y-3 p-5">
-      <h2 className="text-lg font-semibold">Grades, weights & transcript</h2>
+      <h2 className="text-lg font-semibold">{t("courses.grading.sectionTitle")}</h2>
       <p className="text-sm text-muted-foreground">
-        Quizzes roll into continuous assessment (CA); exams into the exam bucket. Tag assessments with semester 1–3 for
-        rollups. For transcripts, set <span className="font-medium text-foreground">credit hours</span> where needed and
-        optionally <span className="font-medium text-foreground">{cal.courseFieldLabel.toLowerCase()}</span> (
-        {cal.gradingPanelAdminRef}).
+        {t("courses.grading.introRollups")}{" "}
+        {t("courses.grading.introTranscriptsPrefix")}{" "}
+        <span className="font-medium text-foreground">{t("courses.grading.creditHoursHighlight")}</span>{" "}
+        {t("courses.grading.introTranscriptsMiddle")}{" "}
+        <span className="font-medium text-foreground">
+          {isHe ? t("courses.grading.periodHighlightSemester") : t("courses.grading.periodHighlightTerm")}
+        </span>{" "}
+        ({isHe ? t("courses.grading.adminLinkSemesters") : t("courses.grading.adminLinkTerms")}).
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
-          <Label>CA weight (quizzes)</Label>
+          <Label>{t("courses.grading.caWeight")}</Label>
           <Input value={wCa} onChange={(e) => setWCa(e.target.value)} />
         </div>
         <div className="space-y-1">
-          <Label>Exam weight</Label>
+          <Label>{t("courses.grading.examWeight")}</Label>
           <Input value={wEx} onChange={(e) => setWEx(e.target.value)} />
         </div>
         <div className="space-y-1 sm:col-span-2">
-          <Label>Display scale</Label>
+          <Label>{t("courses.grading.displayScale")}</Label>
           <select
             className="h-9 w-full max-w-xs rounded-md border border-input bg-background px-2 text-sm"
             value={scale}
             onChange={(e) => setScale(e.target.value as typeof scale)}
           >
-            <option value="PERCENTAGE">Percentage</option>
-            <option value="LETTER_AF">Letter A–F</option>
-            <option value="NUMERIC_10">Numeric /10</option>
+            <option value="PERCENTAGE">{t("courses.grading.scalePercentage")}</option>
+            <option value="LETTER_AF">{t("courses.grading.scaleLetter")}</option>
+            <option value="NUMERIC_10">{t("courses.grading.scaleNumeric")}</option>
           </select>
         </div>
         <div className="space-y-1">
-          <Label>Credit hours (transcript / GPA)</Label>
+          <Label>{t("courses.grading.creditHours")}</Label>
           <Input
-            placeholder="e.g. 3"
+            placeholder={t("courses.grading.creditPlaceholder")}
             value={credits}
             onChange={(e) => setCredits(e.target.value)}
             inputMode="decimal"
           />
         </div>
         <div className="space-y-1">
-          <Label>{cal.courseFieldLabel}</Label>
+          <Label>{isHe ? t("courses.grading.periodLabelSemester") : t("courses.grading.periodLabelTerm")}</Label>
           <select
             className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
             value={termId}
             onChange={(e) => setTermId(e.target.value)}
           >
-            <option value="">— None —</option>
+            <option value="">{t("courses.grading.termNone")}</option>
             {terms.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.label}
@@ -131,7 +136,7 @@ export function CourseGradingPanel({
         </div>
       </div>
       <Button type="button" disabled={busy} onClick={() => void save()}>
-        Save
+        {busy ? t("courses.grading.saving") : t("courses.grading.save")}
       </Button>
     </section>
   );

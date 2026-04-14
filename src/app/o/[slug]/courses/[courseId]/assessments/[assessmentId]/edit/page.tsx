@@ -9,6 +9,7 @@ import { AssessmentEditor } from "@/components/assessments/assessment-editor";
 import type { ScheduleEntryClient } from "@/components/assessments/assessment-schedule-editor";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { getServerT } from "@/i18n/server";
 
 function isoToDatetimeLocalInput(iso: string): string {
   const d = new Date(iso);
@@ -48,6 +49,7 @@ export default async function EditAssessmentPage({
   params: Promise<{ slug: string; courseId: string; assessmentId: string }>;
 }) {
   const { slug, courseId, assessmentId } = await params;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) redirect("/login");
   if (!isStaffRole(user.role)) redirect(`/o/${slug}/courses/${courseId}/assessments/${assessmentId}/take`);
@@ -108,7 +110,7 @@ export default async function EditAssessmentPage({
           href={`/o/${slug}/courses/${courseId}/assessments/${assessmentId}/take`}
           className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
         >
-          Student preview (blocked for staff — copy link for student)
+          {t("assessments.editStudentPreviewLink")}
         </Link>
       </div>
       <AssessmentEditor

@@ -5,9 +5,11 @@ import { isStaffRole } from "@/lib/courses/access";
 import { CourseCreateForm } from "@/components/courses/course-create-form";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { getServerT } from "@/i18n/server";
 
 export default async function NewCoursePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) {
     redirect("/login");
@@ -19,11 +21,11 @@ export default async function NewCoursePage({ params }: { params: Promise<{ slug
   return (
     <div className="space-y-6">
       <Link href={`/o/${slug}/courses`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-        ← All courses
+        {t("courses.backToAllCourses")}
       </Link>
       <div>
-        <h1 className="page-title">New course</h1>
-        <p className="text-muted-foreground">You can add modules and lessons after creating the shell.</p>
+        <h1 className="page-title">{t("courses.newCourse")}</h1>
+        <p className="text-muted-foreground">{t("courses.createShellHint")}</p>
       </div>
       <CourseCreateForm orgSlug={slug} />
     </div>

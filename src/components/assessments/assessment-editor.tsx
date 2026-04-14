@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   AlignLeft,
   CheckCircle2,
@@ -34,6 +34,7 @@ import {
 import { AssessmentFormFieldRow } from "@/components/assessments/assessment-form-field-row";
 import { AssessmentRichTextField } from "@/components/assessments/assessment-rich-text-field";
 import { isRichTextEmpty, stripHtmlToPlainText } from "@/lib/assessments/html-text";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 type AssessmentMeta = {
   id: string;
@@ -75,24 +76,11 @@ type BuilderQType =
   | "FORMULA"
   | "ESSAY_RICH";
 
-const BUILDER_TYPE_OPTIONS: {
-  value: BuilderQType;
-  label: string;
-  hint: string;
-  icon: typeof ListChecks;
-}[] = [
-  { value: "MCQ", label: "Multiple choice", hint: "Single correct option", icon: ListChecks },
-  { value: "SHORT_ANSWER", label: "Short answer", hint: "Exact text match", icon: AlignLeft },
-  { value: "LONG_ANSWER", label: "Long answer", hint: "Manual / AI assist", icon: FileText },
-  { value: "TRUE_FALSE", label: "True / false", hint: "Binary choice", icon: ToggleLeft },
-  { value: "DRAG_DROP", label: "Drag & drop", hint: "Match pairs", icon: GripVertical },
-  { value: "FORMULA", label: "Formula", hint: "LaTeX answer", icon: Sigma },
-  { value: "ESSAY_RICH", label: "Rich essay", hint: "Extended response", icon: PenLine },
-];
-
-function questionTypeLabel(t: string): string {
-  const row = BUILDER_TYPE_OPTIONS.find((x) => x.value === t);
-  return row?.label ?? t;
+function questionTypeLabel(type: string, tr: (key: string) => string): string {
+  const k = `assessments.qtype.${type}`;
+  const msg = tr(k);
+  if (msg !== k) return msg;
+  return type;
 }
 
 export function AssessmentEditor({
@@ -118,8 +106,29 @@ export function AssessmentEditor({
   linkedCourseDepartments?: LinkedDepartment[];
   initialDepartmentIds?: string[];
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const aid = initialAssessment.id;
+  const builderTypeOptions = useMemo(
+    () =>
+      (
+        [
+          { value: "MCQ" as const, keys: ["assessments.builder.mcq.label", "assessments.builder.mcq.hint"], icon: ListChecks },
+          { value: "SHORT_ANSWER" as const, keys: ["assessments.builder.short.label", "assessments.builder.short.hint"], icon: AlignLeft },
+          { value: "LONG_ANSWER" as const, keys: ["assessments.builder.long.label", "assessments.builder.long.hint"], icon: FileText },
+          { value: "TRUE_FALSE" as const, keys: ["assessments.builder.tf.label", "assessments.builder.tf.hint"], icon: ToggleLeft },
+          { value: "DRAG_DROP" as const, keys: ["assessments.builder.dd.label", "assessments.builder.dd.hint"], icon: GripVertical },
+          { value: "FORMULA" as const, keys: ["assessments.builder.formula.label", "assessments.builder.formula.hint"], icon: Sigma },
+          { value: "ESSAY_RICH" as const, keys: ["assessments.builder.essay.label", "assessments.builder.essay.hint"], icon: PenLine },
+        ] as const
+      ).map((row) => ({
+        value: row.value,
+        label: t(row.keys[0]),
+        hint: t(row.keys[1]),
+        icon: row.icon,
+      })),
+    [t],
+  );
   const base = `/o/${orgSlug}/courses/${courseId}/assessments`;
 
   const [title, setTitle] = useState(initialAssessment.title);
@@ -290,7 +299,7 @@ export function AssessmentEditor({
   }
 
   async function removeQuestion(id: string) {
-    if (!confirm("Delete this question?")) return;
+    if (!confirm(t("assessments.editor.deleteQuestionConfirm"))) return;
     const res = await fetch(`/api/questions/${id}`, { method: "DELETE", credentials: "include" });
     if (!res.ok) return;
     setQuestions((q) => q.filter((x) => x.id !== id));
@@ -309,7 +318,7 @@ export function AssessmentEditor({
       });
       const data = (await res.json()) as { error?: string; questions?: { type: string; prompt: string; points?: number; correctAnswer?: string | null; options?: unknown; markingScheme?: string | null }[] };
       if (!res.ok || !data.questions?.length) {
-        alert(data.error ?? "Could not generate questions (check API key & PDF).");
+        alert(data.error ?? t("assessments.editor.pdfImportError"));
         return;
       }
       for (const q of data.questions) {
@@ -355,50 +364,50 @@ export function AssessmentEditor({
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-1 sm:px-0">
       <Link href={base} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-        ← Assessments
+        {t("assessments.editor.navBack")}
       </Link>
 
       <section className="surface-bento space-y-3 p-5">
-        <h2 className="text-lg font-semibold">Settings</h2>
+        <h2 className="text-lg font-semibold">{t("assessments.editor.settingsTitle")}</h2>
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="space-y-1 sm:col-span-2">
-            <Label>Title</Label>
+            <Label>{t("courses.fieldTitle")}</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="space-y-1 sm:col-span-2">
-            <Label>Description</Label>
+            <Label>{t("courses.fieldDescription")}</Label>
             <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label>Kind</Label>
+            <Label>{t("assessments.editor.kindField")}</Label>
             <select
               className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm"
               value={kind}
               onChange={(e) => setKind(e.target.value as "QUIZ" | "EXAM")}
             >
-              <option value="QUIZ">Quiz (continuous assessment)</option>
-              <option value="EXAM">Exam</option>
+              <option value="QUIZ">{t("assessments.editor.kindQuizOption")}</option>
+              <option value="EXAM">{t("assessments.editor.kindExamOption")}</option>
             </select>
           </div>
           <div className="space-y-1">
-            <Label>Semester (for promotion rollups)</Label>
+            <Label>{t("assessments.editor.semesterField")}</Label>
             <select
               className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm"
               value={semester}
               onChange={(e) => setSemester(e.target.value)}
             >
-              <option value="">Not set</option>
-              <option value="1">Semester 1</option>
-              <option value="2">Semester 2</option>
-              <option value="3">Semester 3</option>
+              <option value="">{t("assessments.editor.semesterUnset")}</option>
+              <option value="1">{t("assessments.editor.semester1")}</option>
+              <option value="2">{t("assessments.editor.semester2")}</option>
+              <option value="3">{t("assessments.editor.semester3")}</option>
             </select>
           </div>
           <div className="space-y-1">
-            <Label>Time limit (minutes, empty = none)</Label>
+            <Label>{t("assessments.editor.timeLimit")}</Label>
             <Input value={timeLimit} onChange={(e) => setTimeLimit(e.target.value)} />
           </div>
           <div className="space-y-1 sm:col-span-2">
-            <Label>Delivery mode (student experience)</Label>
+            <Label>{t("assessments.editor.deliveryModeField")}</Label>
             <select
               className="h-8 w-full rounded-lg border border-input bg-background px-2 text-sm"
               value={deliveryMode}
@@ -406,23 +415,16 @@ export function AssessmentEditor({
                 setDeliveryMode(e.target.value as "FORMATIVE" | "SECURE_ONLINE" | "LOCKDOWN")
               }
             >
-              <option value="FORMATIVE">Formative — no focus logging or lockdown UI</option>
-              <option value="SECURE_ONLINE">
-                Secure online — logs tab/window leave; optional fullscreen; visible warnings
-              </option>
-              <option value="LOCKDOWN">
-                High lockdown — same as secure plus no right-click; copy/cut/paste blocked outside answers
-              </option>
+              <option value="FORMATIVE">{t("assessments.editor.deliveryFormative")}</option>
+              <option value="SECURE_ONLINE">{t("assessments.editor.deliverySecure")}</option>
+              <option value="LOCKDOWN">{t("assessments.editor.deliveryLockdown")}</option>
             </select>
-            <p className="text-xs text-muted-foreground">
-              Integrity signals are stored for staff review; they do not replace a dedicated lockdown browser or
-              invigilation.
-            </p>
+            <p className="text-xs text-muted-foreground">{t("assessments.editor.deliveryHelp")}</p>
           </div>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} />
-          Published
+          {t("assessments.editor.published")}
         </label>
         <div className="space-y-1">
           <label className="flex items-center gap-2 text-sm">
@@ -431,27 +433,25 @@ export function AssessmentEditor({
               checked={studentAttemptsLocked}
               onChange={(e) => setStudentAttemptsLocked(e.target.checked)}
             />
-            Lock new student attempts
+            {t("assessments.editor.lockAttempts")}
           </label>
-          <p className="text-xs text-muted-foreground pl-6">
-            Blocks starting a fresh attempt. Students with an in-progress draft can still save answers and submit.
-          </p>
+          <p className="text-xs text-muted-foreground pl-6">{t("assessments.editor.lockAttemptsHelp")}</p>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={shuffle} onChange={(e) => setShuffle(e.target.checked)} />
-          Shuffle questions for students
+          {t("assessments.editor.shuffleQuestions")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={shuffleOpts} onChange={(e) => setShuffleOpts(e.target.checked)} />
-          Shuffle MCQ answer options for students
+          {t("assessments.editor.shuffleMcq")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={showAnswers} onChange={(e) => setShowAnswers(e.target.checked)} />
-          Let students see correct answers / keys after they submit (quizzes & exams)
+          {t("assessments.editor.showAnswers")}
         </label>
         <div className="grid gap-2 sm:grid-cols-2">
           <div className="space-y-1">
-            <Label>Max submitted attempts per student</Label>
+            <Label>{t("assessments.editor.maxAttempts")}</Label>
             <Input
               className="max-w-[120px]"
               type="number"
@@ -460,20 +460,17 @@ export function AssessmentEditor({
               value={maxAttempts}
               onChange={(e) => setMaxAttempts(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">Additional tries after this need approval when enabled below.</p>
+            <p className="text-xs text-muted-foreground">{t("assessments.editor.maxAttemptsHint")}</p>
           </div>
           <label className="flex items-center gap-2 text-sm sm:mt-6">
             <input type="checkbox" checked={retakeApproval} onChange={(e) => setRetakeApproval(e.target.checked)} />
-            Require teacher/admin approval for attempts beyond the max
+            {t("assessments.editor.retakeApproval")}
           </label>
         </div>
         {educationLevel === "HIGHER_ED" && linkedCourseDepartments.length > 0 ? (
           <div className="rounded-md border border-border/80 bg-muted/30 p-3 dark:border-white/10">
-            <p className="text-sm font-medium">Assign to departments</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Leave all unchecked so every enrolled student sees this assessment. Check departments to limit visibility
-              (each must be linked to this course; you must be chair or instructor on that department).
-            </p>
+            <p className="text-sm font-medium">{t("assessments.editor.assignDepartments")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("assessments.editor.assignDepartmentsHelp")}</p>
             <ul className="mt-3 space-y-2">
               {linkedCourseDepartments.map((d) => (
                 <li key={d.id} className="flex items-center gap-2 text-sm">
@@ -501,11 +498,8 @@ export function AssessmentEditor({
           </div>
         ) : educationLevel !== "HIGHER_ED" && linkedCourseCohorts.length > 0 ? (
           <div className="rounded-md border border-border/80 bg-muted/30 p-3 dark:border-white/10">
-            <p className="text-sm font-medium">Assign to classes</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Leave all unchecked so every enrolled student sees this assessment. Check specific classes to limit
-              visibility (you must teach each class).
-            </p>
+            <p className="text-sm font-medium">{t("assessments.editor.assignClasses")}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("assessments.editor.assignClassesHelp")}</p>
             <ul className="mt-3 space-y-2">
               {linkedCourseCohorts.map((c) => (
                 <li key={c.id} className="flex items-center gap-2 text-sm">
@@ -534,37 +528,34 @@ export function AssessmentEditor({
         ) : (
           <p className="text-xs text-muted-foreground">
             {educationLevel === "HIGHER_ED"
-              ? "Link departments to this course on the course edit page to target this assessment."
-              : "Link classes to this course on the course edit page to target this assessment at specific homerooms."}
+              ? t("assessments.editor.linkDepartmentsHint")
+              : t("assessments.editor.linkClassesHint")}
           </p>
         )}
         <Button type="button" disabled={busy} onClick={() => void saveMeta()}>
-          Save settings
+          {t("assessments.editor.saveSettings")}
         </Button>
         <Link
           href={`${base}/${aid}/gradebook`}
           className={cn(buttonVariants({ variant: "outline" }), "ml-2 inline-flex")}
         >
-          Gradebook
+          {t("assessments.gradebook")}
         </Link>
         <Link
           href={`${base}/${aid}/item-analysis`}
           className={cn(buttonVariants({ variant: "outline" }), "ml-2 inline-flex")}
         >
-          Item analysis
+          {t("assessments.itemAnalysis")}
         </Link>
         <Link
           href={`${base}/${aid}/integrity`}
           className={cn(buttonVariants({ variant: "outline" }), "ml-2 inline-flex")}
         >
-          Integrity log
+          {t("assessments.integrityLog")}
         </Link>
         <div className="mt-4 rounded-md border border-dashed border-border p-3 text-sm">
-          <Label className="text-foreground">AI: questions from PDF (Gemini)</Label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Set <code className="rounded bg-muted px-1">GOOGLE_AI_API_KEY</code> or{" "}
-            <code className="rounded bg-muted px-1">GEMINI_API_KEY</code>. PDF text is extracted server-side.
-          </p>
+          <Label className="text-foreground">{t("assessments.editor.aiPdfTitle")}</Label>
+          <p className="mt-1 text-xs text-muted-foreground">{t("assessments.editor.aiPdfHelp")}</p>
           <input
             type="file"
             accept="application/pdf"
@@ -584,14 +575,13 @@ export function AssessmentEditor({
       <section className="space-y-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="space-y-1">
-            <h2 className="text-xl font-semibold tracking-tight">Questions</h2>
-            <p className="max-w-2xl text-sm text-muted-foreground">
-              Compose items for this quiz or exam. The take experience uses a clear card layout for students; this
-              studio matches that structure where it helps you preview choices and prompts.
-            </p>
+            <h2 className="text-xl font-semibold tracking-tight">{t("assessments.editor.questionsTitle")}</h2>
+            <p className="max-w-2xl text-sm text-muted-foreground">{t("assessments.editor.questionsBlurb")}</p>
           </div>
           <Badge variant="secondary" className="h-7 w-fit px-3 text-xs font-medium">
-            {questions.length} question{questions.length === 1 ? "" : "s"}
+            {questions.length === 1
+              ? t("assessments.editor.questionCountOne").replace("%s", String(questions.length))
+              : t("assessments.editor.questionCountMany").replace("%s", String(questions.length))}
           </Badge>
         </div>
 
@@ -606,7 +596,7 @@ export function AssessmentEditor({
             )}
             onClick={() => setQuestionTab("build")}
           >
-            Build questions
+            {t("assessments.editor.tabBuild")}
           </button>
           <button
             type="button"
@@ -618,7 +608,7 @@ export function AssessmentEditor({
             )}
             onClick={() => setQuestionTab("bank")}
           >
-            Question bank
+            {t("assessments.editor.tabBank")}
           </button>
         </div>
 
@@ -634,7 +624,9 @@ export function AssessmentEditor({
         ) : (
           <div className="grid gap-8 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,300px)_minmax(0,1fr)]">
             <aside className="space-y-3 lg:sticky lg:top-4 lg:self-start">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Outline</h3>
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t("assessments.editor.outline")}
+              </h3>
               <ul className="max-h-[min(70vh,560px)] space-y-2 overflow-y-auto pr-1">
                 {questions.map((q, i) => (
                   <li
@@ -649,9 +641,11 @@ export function AssessmentEditor({
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <Badge variant="outline" className="text-[10px] font-normal">
-                              {questionTypeLabel(q.type)}
+                              {questionTypeLabel(q.type, t)}
                             </Badge>
-                            <span className="text-[10px] text-muted-foreground">{q.points} pts</span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {t("assessments.editor.pointsFmt").replace("%s", String(q.points))}
+                            </span>
                           </div>
                           <p className="mt-1 line-clamp-2 text-xs leading-snug text-foreground">
                             {stripHtmlToPlainText(q.prompt) || "—"}
@@ -663,7 +657,7 @@ export function AssessmentEditor({
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                        title="Remove question"
+                        title={t("assessments.editor.removeQuestionTitle")}
                         onClick={() => void removeQuestion(q.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -674,7 +668,7 @@ export function AssessmentEditor({
               </ul>
               {questions.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border/80 bg-muted/15 px-4 py-6 text-center text-sm text-muted-foreground dark:border-white/10">
-                  No questions yet. Use the composer to add your first item.
+                  {t("assessments.editor.noQuestionsComposer")}
                 </div>
               ) : null}
             </aside>
@@ -684,21 +678,18 @@ export function AssessmentEditor({
                 <div className="border-b border-border/70 bg-gradient-to-r from-muted/40 via-transparent to-transparent px-5 py-4 dark:border-white/10">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" aria-hidden />
-                    <h3 className="font-semibold tracking-tight">Question composer</h3>
+                    <h3 className="font-semibold tracking-tight">{t("assessments.editor.questionComposerTitle")}</h3>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Pick a type, write the prompt, then complete the fields below. Multiple-choice options mirror the
-                    student take layout.
-                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{t("assessments.editor.questionComposerBlurb")}</p>
                 </div>
 
                 <div className="space-y-6 p-5">
                   <div className="space-y-2">
                     <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Question type
+                      {t("assessments.editor.qTypeLabel")}
                     </Label>
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                      {BUILDER_TYPE_OPTIONS.map((opt) => {
+                      {builderTypeOptions.map((opt) => {
                         const Icon = opt.icon;
                         const active = qType === opt.value;
                         return (
@@ -727,37 +718,37 @@ export function AssessmentEditor({
 
                   <div className="-mx-5 border-t border-border/70 px-0 dark:border-white/10">
                     <div className="px-5">
-                      <AssessmentFormFieldRow label="Mark" required>
+                      <AssessmentFormFieldRow label={t("assessments.editor.markField")} required>
                         <Input
                           id="q-points"
                           className="max-w-[10rem] font-semibold tabular-nums"
                           value={qPoints}
                           onChange={(e) => setQPoints(e.target.value)}
                           inputMode="decimal"
-                          aria-label="Marks for this question"
+                          aria-label={t("assessments.editor.markField")}
                         />
                       </AssessmentFormFieldRow>
-                      <AssessmentFormFieldRow label="Question" required>
+                      <AssessmentFormFieldRow label={t("assessments.editor.questionField")} required>
                         <AssessmentRichTextField
                           id="q-prompt"
                           value={qPrompt}
                           onChange={setQPrompt}
                           disabled={busy}
-                          placeholder="Enter the question. Use the toolbar for formatting and tables; type $inline$ or $$display$$ math anywhere in the text."
+                          placeholder={t("assessments.editor.questionPlaceholder")}
                           editorMinHeightClass="min-h-[200px]"
                         />
                       </AssessmentFormFieldRow>
-                      <AssessmentFormFieldRow label="Image URL">
+                      <AssessmentFormFieldRow label={t("assessments.editor.imageUrl")}>
                         <Input
-                          placeholder="https://… (optional)"
+                          placeholder={t("assessments.editor.optionalHttps")}
                           value={mediaImageUrl}
                           onChange={(e) => setMediaImageUrl(e.target.value)}
                           disabled={busy}
                         />
                       </AssessmentFormFieldRow>
-                      <AssessmentFormFieldRow label="Audio URL">
+                      <AssessmentFormFieldRow label={t("assessments.editor.audioUrl")}>
                         <Input
-                          placeholder="https://… (optional)"
+                          placeholder={t("assessments.editor.optionalHttps")}
                           value={mediaAudioUrl}
                           onChange={(e) => setMediaAudioUrl(e.target.value)}
                           disabled={busy}
@@ -768,15 +759,13 @@ export function AssessmentEditor({
 
                   {qType === "MCQ" ? (
                     <div className="space-y-0 pt-2">
-                      <p className="mb-3 text-xs text-muted-foreground">
-                        Each option uses the same editor as the question. Select which option is correct.
-                      </p>
-                      {mcqTexts.map((t, i) => {
+                      <p className="mb-3 text-xs text-muted-foreground">{t("assessments.editor.mcqIntro")}</p>
+                      {mcqTexts.map((row, i) => {
                         const isCorrect = mcqCorrect === i;
                         return (
                           <AssessmentFormFieldRow
                             key={i}
-                            label={`Option ${i + 1}`}
+                            label={t("assessments.editor.optionN").replace("%s", String(i + 1))}
                             required
                             className={i === mcqTexts.length - 1 ? "border-b-0" : undefined}
                           >
@@ -801,10 +790,10 @@ export function AssessmentEditor({
                                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                                   ) : null}
                                 </span>
-                                <span>Correct answer</span>
+                                <span>{t("assessments.editor.correctAnswerRadio")}</span>
                               </label>
                               <AssessmentRichTextField
-                                value={t}
+                                value={row}
                                 onChange={(html) =>
                                   setMcqTexts((prev) => prev.map((x, j) => (j === i ? html : x)))
                                 }
@@ -821,7 +810,7 @@ export function AssessmentEditor({
                   ) : null}
                   {qType === "SHORT_ANSWER" ? (
                     <div className="space-y-2 rounded-xl border border-border/70 bg-muted/10 p-4 dark:border-white/10">
-                      <Label>Correct answer (case-insensitive match)</Label>
+                      <Label>{t("assessments.editor.shortCorrectLabel")}</Label>
                       <Input value={shortCorrect} onChange={(e) => setShortCorrect(e.target.value)} />
                     </div>
                   ) : null}
@@ -834,15 +823,15 @@ export function AssessmentEditor({
                           checked={tfTrue}
                           onChange={(e) => setTfTrue(e.target.checked)}
                         />
-                        <span>Correct answer is <strong>True</strong> (uncheck for False)</span>
+                        <span>{t("assessments.editor.tfCorrect")}</span>
                       </label>
                     </div>
                   ) : null}
                   {qType === "LONG_ANSWER" || qType === "ESSAY_RICH" ? (
                     <div className="space-y-3 rounded-xl border border-border/70 bg-muted/10 p-4 dark:border-white/10">
-                      <Label>AI marking scheme helper</Label>
+                      <Label>{t("assessments.editor.aiRubricTitle")}</Label>
                       <Input
-                        placeholder="Topic / focus"
+                        placeholder={t("assessments.editor.topicFocusPlaceholder")}
                         value={aiTopic}
                         onChange={(e) => setAiTopic(e.target.value)}
                       />
@@ -853,7 +842,7 @@ export function AssessmentEditor({
                         disabled={busy}
                         onClick={() => void suggestRubric()}
                       >
-                        Suggest rubric (AI or mock)
+                        {t("assessments.editor.suggestRubric")}
                       </Button>
                       {aiOut ? (
                         <Textarea readOnly rows={5} value={aiOut} className="text-muted-foreground" />
@@ -862,18 +851,18 @@ export function AssessmentEditor({
                   ) : null}
                   {qType === "FORMULA" ? (
                     <div className="space-y-2 rounded-xl border border-border/70 bg-muted/10 p-4 dark:border-white/10">
-                      <Label>Correct LaTeX (normalized match: spacing / case ignored)</Label>
+                      <Label>{t("assessments.editor.formulaCorrectLabel")}</Label>
                       <Input
                         className="font-mono text-sm"
                         value={formulaCorrect}
                         onChange={(e) => setFormulaCorrect(e.target.value)}
-                        placeholder="e.g. x^2+1"
+                        placeholder={t("assessments.editor.formulaExamplePlaceholder")}
                       />
                     </div>
                   ) : null}
                   {qType === "DRAG_DROP" ? (
                     <div className="space-y-3 rounded-xl border border-dashed border-border/80 bg-muted/10 p-4 dark:border-white/15">
-                      <p className="text-sm font-medium">Drop targets (labels shown to students)</p>
+                      <p className="text-sm font-medium">{t("assessments.editor.ddTargetsTitle")}</p>
                       {ddTargets.map((line, i) => (
                         <div key={i} className="flex gap-2">
                           <Input
@@ -891,14 +880,14 @@ export function AssessmentEditor({
                               setDdMatch((prev) => prev.filter((_, j) => j !== i));
                             }}
                           >
-                            Remove
+                            {t("assessments.editor.remove")}
                           </Button>
                         </div>
                       ))}
                       <Button type="button" variant="secondary" size="sm" onClick={() => setDdTargets((p) => [...p, ""])}>
-                        Add target
+                        {t("assessments.editor.addTarget")}
                       </Button>
-                      <p className="text-sm font-medium">Answer bank (draggable items)</p>
+                      <p className="text-sm font-medium">{t("assessments.editor.ddBankTitle")}</p>
                       {ddBank.map((line, i) => (
                         <div key={i} className="flex gap-2">
                           <Input
@@ -922,19 +911,19 @@ export function AssessmentEditor({
                               );
                             }}
                           >
-                            Remove
+                            {t("assessments.editor.remove")}
                           </Button>
                         </div>
                       ))}
                       <Button type="button" variant="secondary" size="sm" onClick={() => setDdBank((p) => [...p, ""])}>
-                        Add bank item
+                        {t("assessments.editor.addBankItem")}
                       </Button>
-                      <p className="text-sm font-medium">Correct match (each target → bank item)</p>
+                      <p className="text-sm font-medium">{t("assessments.editor.ddMatchTitle")}</p>
                       <ul className="space-y-2">
                         {ddTargets.map((label, ti) => (
                           <li key={ti} className="flex flex-wrap items-center gap-2 text-sm">
                             <span className="min-w-[100px] truncate text-muted-foreground">
-                              {label || `Target ${ti + 1}`}
+                              {label || t("assessments.editor.ddTargetFallback").replace("%s", String(ti + 1))}
                             </span>
                             <select
                               className="h-8 rounded-md border border-input bg-background px-2"
@@ -951,7 +940,7 @@ export function AssessmentEditor({
                             >
                               {ddBank.map((b, bi) => (
                                 <option key={bi} value={bi}>
-                                  {b || `Item ${bi + 1}`}
+                                  {b || t("assessments.editor.ddItemFallback").replace("%s", String(bi + 1))}
                                 </option>
                               ))}
                             </select>
@@ -969,7 +958,7 @@ export function AssessmentEditor({
                     onClick={() => void addQuestion()}
                   >
                     <Plus className="h-4 w-4" />
-                    Add to assessment
+                    {t("assessments.editor.addToAssessment")}
                   </Button>
                 </div>
               </div>

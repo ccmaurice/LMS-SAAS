@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { buttonVariants } from "@/components/ui/button-variants";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { cn } from "@/lib/utils";
 
 export type EditableLessonFile = { id: string; name: string; url: string };
@@ -38,6 +39,7 @@ export type EditableCourse = {
 };
 
 export function CourseEditor({ orgSlug, initial }: { orgSlug: string; initial: EditableCourse }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [course, setCourse] = useState(initial);
   const [title, setTitle] = useState(initial.title);
@@ -87,7 +89,7 @@ export function CourseEditor({ orgSlug, initial }: { orgSlug: string; initial: E
   }
 
   async function removeModule(moduleId: string) {
-    if (!confirm("Delete this module and all its lessons?")) return;
+    if (!confirm(t("courses.editor.confirmDeleteModule"))) return;
     const res = await fetch(`/api/modules/${moduleId}`, { method: "DELETE" });
     if (!res.ok) return;
     setCourse((c) => ({ ...c, modules: c.modules.filter((m) => m.id !== moduleId) }));
@@ -179,7 +181,7 @@ export function CourseEditor({ orgSlug, initial }: { orgSlug: string; initial: E
   }
 
   async function removeLesson(lessonId: string, moduleId: string) {
-    if (!confirm("Delete this lesson?")) return;
+    if (!confirm(t("courses.editor.confirmDeleteLesson"))) return;
     const res = await fetch(`/api/lessons/${lessonId}`, { method: "DELETE" });
     if (!res.ok) return;
     setCourse((c) => ({
@@ -206,40 +208,40 @@ export function CourseEditor({ orgSlug, initial }: { orgSlug: string; initial: E
     <div className="mx-auto max-w-3xl space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href={`/o/${orgSlug}/courses/${course.id}`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-          ← Back to course
+          {t("courses.editor.backToCourse")}
         </Link>
       </div>
 
       <section className="surface-bento space-y-4 p-5">
-        <h2 className="text-lg font-semibold">Course details</h2>
+        <h2 className="text-lg font-semibold">{t("courses.editor.detailsSection")}</h2>
         <div className="space-y-2">
-          <Label htmlFor="ct">Title</Label>
+          <Label htmlFor="ct">{t("courses.fieldTitle")}</Label>
           <Input id="ct" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="cd">Description</Label>
+          <Label htmlFor="cd">{t("courses.fieldDescription")}</Label>
           <Textarea id="cd" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} />
-          Published
+          {t("courses.published")}
         </label>
         <Button type="button" onClick={saveMeta} disabled={savingMeta}>
-          {savingMeta ? "Saving…" : "Save details"}
+          {savingMeta ? t("courses.editor.saving") : t("courses.editor.saveDetails")}
         </Button>
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold">Modules & lessons</h2>
+        <h2 className="text-lg font-semibold">{t("courses.editor.modulesSection")}</h2>
         <div className="flex flex-wrap gap-2">
           <Input
-            placeholder="New module title"
+            placeholder={t("courses.editor.newModulePlaceholder")}
             value={newModuleTitle}
             onChange={(e) => setNewModuleTitle(e.target.value)}
             className="max-w-xs"
           />
           <Button type="button" onClick={addModule}>
-            Add module
+            {t("courses.editor.addModule")}
           </Button>
         </div>
 
@@ -249,7 +251,7 @@ export function CourseEditor({ orgSlug, initial }: { orgSlug: string; initial: E
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium">{mod.title}</p>
                 <Button type="button" variant="destructive" size="sm" onClick={() => removeModule(mod.id)}>
-                  Delete module
+                  {t("courses.editor.deleteModule")}
                 </Button>
               </div>
               <Separator className="my-3" />
@@ -261,10 +263,10 @@ export function CourseEditor({ orgSlug, initial }: { orgSlug: string; initial: E
                         href={`/o/${orgSlug}/courses/${course.id}/lessons/${lesson.id}`}
                         className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                       >
-                        Open lesson view
+                        {t("courses.editor.openLessonView")}
                       </Link>
                       <Button type="button" variant="outline" size="sm" onClick={() => removeLesson(lesson.id, mod.id)}>
-                        Delete
+                        {t("courses.editor.delete")}
                       </Button>
                     </div>
                     <div className="grid gap-2">
@@ -306,7 +308,7 @@ export function CourseEditor({ orgSlug, initial }: { orgSlug: string; initial: E
                         }
                       />
                       <Input
-                        placeholder="Video URL"
+                        placeholder={t("courses.editor.videoUrlPlaceholder")}
                         value={lesson.videoUrl ?? ""}
                         onChange={(e) =>
                           setCourse((c) => ({
@@ -334,10 +336,10 @@ export function CourseEditor({ orgSlug, initial }: { orgSlug: string; initial: E
                           if (l) void saveLesson(l);
                         }}
                       >
-                        Save lesson
+                        {t("courses.editor.saveLesson")}
                       </Button>
                       <div className="mt-3 space-y-2 rounded-md border border-dashed border-border p-2">
-                        <p className="text-xs font-medium text-muted-foreground">Attachments</p>
+                        <p className="text-xs font-medium text-muted-foreground">{t("courses.editor.attachments")}</p>
                         {lesson.files.length > 0 ? (
                           <ul className="space-y-1 text-sm">
                             {lesson.files.map((f) => (
@@ -350,16 +352,16 @@ export function CourseEditor({ orgSlug, initial }: { orgSlug: string; initial: E
                                   className="shrink-0 text-destructive"
                                   onClick={() => void removeLessonFile(f.id, lesson.id, mod.id)}
                                 >
-                                  Remove
+                                  {t("courses.editor.removeFile")}
                                 </Button>
                               </li>
                             ))}
                           </ul>
                         ) : (
-                          <p className="text-xs text-muted-foreground">No files yet.</p>
+                          <p className="text-xs text-muted-foreground">{t("courses.editor.noFilesYet")}</p>
                         )}
                         <label className="block">
-                          <span className="sr-only">Upload file</span>
+                          <span className="sr-only">{t("courses.editor.uploadFileSr")}</span>
                           <Input
                             type="file"
                             className="cursor-pointer text-xs"
@@ -371,32 +373,32 @@ export function CourseEditor({ orgSlug, initial }: { orgSlug: string; initial: E
                             }}
                           />
                         </label>
-                        <p className="text-xs text-muted-foreground">PDF, images, plain text, or Markdown — max 15 MB.</p>
+                        <p className="text-xs text-muted-foreground">{t("courses.editor.fileTypesHint")}</p>
                       </div>
                     </div>
                   </li>
                 ))}
               </ul>
               <div className="mt-4 space-y-2 rounded-md bg-muted/40 p-3">
-                <p className="text-xs font-medium text-muted-foreground">Add lesson</p>
+                <p className="text-xs font-medium text-muted-foreground">{t("courses.editor.addLessonSection")}</p>
                 <Input
-                  placeholder="Title"
+                  placeholder={t("courses.editor.lessonTitlePlaceholder")}
                   value={draft(mod.id).title}
                   onChange={(e) => setDraft(mod.id, { title: e.target.value })}
                 />
                 <Textarea
-                  placeholder="Content (markdown-style text)"
+                  placeholder={t("courses.editor.lessonContentPlaceholder")}
                   rows={2}
                   value={draft(mod.id).content}
                   onChange={(e) => setDraft(mod.id, { content: e.target.value })}
                 />
                 <Input
-                  placeholder="Video URL (optional)"
+                  placeholder={t("courses.editor.lessonVideoOptionalPlaceholder")}
                   value={draft(mod.id).videoUrl}
                   onChange={(e) => setDraft(mod.id, { videoUrl: e.target.value })}
                 />
                 <Button type="button" size="sm" onClick={() => addLesson(mod.id)}>
-                  Add lesson
+                  {t("courses.editor.addLessonButton")}
                 </Button>
               </div>
             </div>

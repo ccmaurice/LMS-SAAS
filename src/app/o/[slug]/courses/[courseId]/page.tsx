@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { canTeacherManageCourse, resolveCourseLearnerAccess } from "@/lib/courses/access";
+import { getServerT } from "@/i18n/server";
 import { EnrollButton } from "@/components/courses/enroll-button";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -17,6 +18,7 @@ export default async function CourseDetailPage({
   params: Promise<{ slug: string; courseId: string }>;
 }) {
   const { slug, courseId } = await params;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) {
     redirect("/login");
@@ -106,10 +108,10 @@ export default async function CourseDetailPage({
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="page-title">{course.title}</h1>
               <Badge variant={course.published ? "default" : "secondary"}>
-                {course.published ? "Published" : "Draft"}
+                {course.published ? t("courses.published") : t("courses.draft")}
               </Badge>
-              {preview ? <Badge variant="outline">Preview — enroll for full content</Badge> : null}
-              {parentViaChild ? <Badge variant="outline">Viewing as parent</Badge> : null}
+              {preview ? <Badge variant="outline">{t("courses.previewBadge")}</Badge> : null}
+              {parentViaChild ? <Badge variant="outline">{t("courses.parentViewingBadge")}</Badge> : null}
             </div>
             {course.description ? (
               <p className="mt-2 max-w-2xl whitespace-pre-wrap text-muted-foreground">{course.description}</p>
@@ -117,14 +119,14 @@ export default async function CourseDetailPage({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Link href={`${base}/assessments`} className={cn(buttonVariants({ variant: "secondary" }))}>
-              Assessments
+              {t("nav.assessments")}
             </Link>
             {canEdit ? (
               <Link
                 href={`${base}/assessment-outcomes`}
                 className={cn(buttonVariants({ variant: "outline" }))}
               >
-                Assessment outcomes
+                {t("courses.assessmentOutcomes")}
               </Link>
             ) : null}
             {eligibleForCertificate ? (
@@ -132,12 +134,12 @@ export default async function CourseDetailPage({
                 href={`${base}/certificate${parentViaChild ? `?child=${encodeURIComponent(gate.progressUserId)}` : ""}`}
                 className={cn(buttonVariants({ variant: "default" }))}
               >
-                Certificate
+                {t("courses.certificate")}
               </Link>
             ) : null}
             {canEdit ? (
               <Link href={`${base}/edit`} className={cn(buttonVariants({ variant: "outline" }))}>
-                Edit structure
+                {t("courses.editStructure")}
               </Link>
             ) : null}
             {!staff && course.published && !parentViaChild ? (
@@ -150,20 +152,22 @@ export default async function CourseDetailPage({
       {canEdit && attentionPublishedCount > 0 ? (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
           <span className="font-medium">
-            {attentionPublishedCount} published assessment{attentionPublishedCount === 1 ? "" : "s"}
+            {t(attentionPublishedCount === 1 ? "courses.attentionOne" : "courses.attentionMany").replace(
+              "%s",
+              String(attentionPublishedCount),
+            )}
           </span>{" "}
-          may need attention (low mean or participation).{" "}
           <Link
             href={`${base}/assessment-outcomes?attention=flagged`}
             className="font-medium text-primary underline underline-offset-2"
           >
-            Review outcomes
+            {t("courses.reviewOutcomes")}
           </Link>
         </div>
       ) : null}
 
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Curriculum</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t("courses.curriculum")}</h2>
         <div className="grid gap-4 md:grid-cols-12">
           {course.modules.map((mod, mi) => (
             <div key={mod.id} className={cn("surface-bento p-5", mi === 0 ? "md:col-span-7" : "md:col-span-5")}>
@@ -194,7 +198,7 @@ export default async function CourseDetailPage({
         </div>
         {course.modules.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No modules yet. {canEdit ? "Use Edit structure to add some." : ""}
+            {canEdit ? t("courses.noModulesStaff") : t("courses.noModulesLearner")}
           </p>
         ) : null}
       </section>

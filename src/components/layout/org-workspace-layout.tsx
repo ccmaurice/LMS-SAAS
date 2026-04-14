@@ -283,7 +283,7 @@ export function OrgWorkspaceLayout({
               <OrgCommandMenu slug={slug} role={role} educationLevel={educationLevel} />
               <NotificationBell slug={slug} />
               <LocaleSwitcher layout="compact" />
-              <ThemeToggle />
+              <ThemeToggle variant="outlined" />
               <SignOutButton />
             </div>
           </header>

@@ -4,6 +4,7 @@ import { useId, useState, useEffect } from "react";
 import { ChevronDown, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/i18n/i18n-provider";
+import { TranslateGlyph } from "@/components/i18n/translate-glyph";
 import { LOCALE_LABELS, UI_LOCALES, type UiLocale } from "@/i18n/locales";
 import { cn } from "@/lib/utils";
 
@@ -38,14 +39,14 @@ export function LocaleSwitcher({ layout = "toolbar" }: { layout?: "toolbar" | "c
           type="button"
           variant="outline"
           size="icon"
-          className="shrink-0 rounded-lg border-border/80 bg-background shadow-xs"
+          className="size-8 shrink-0 rounded-lg border-border/80 bg-background/95 text-foreground shadow-xs backdrop-blur-sm dark:border-white/12 dark:bg-background/40"
           aria-expanded={open}
           aria-controls={open ? panelId : undefined}
           aria-haspopup="menu"
           title={t("shell.language")}
           onClick={() => setOpen((o) => !o)}
         >
-          <Languages className="size-[1.15rem]" aria-hidden />
+          <TranslateGlyph />
           <span className="sr-only">{t("shell.language")}</span>
         </Button>
         {open ? (

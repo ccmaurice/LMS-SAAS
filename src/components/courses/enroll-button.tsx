@@ -3,9 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 
 export function EnrollButton({ courseId, enrolled }: { courseId: string; enrolled: boolean }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export function EnrollButton({ courseId, enrolled }: { courseId: string; enrolle
         toast.error(msg);
         return;
       }
-      toast.success(enrolled ? "Left course" : "Enrolled");
+      toast.success(enrolled ? t("courses.toastLeftCourse") : t("courses.toastEnrolled"));
       router.refresh();
     } finally {
       setLoading(false);
@@ -34,7 +36,7 @@ export function EnrollButton({ courseId, enrolled }: { courseId: string; enrolle
   return (
     <div className="flex flex-col items-start gap-1">
       <Button type="button" size="sm" variant={enrolled ? "outline" : "default"} disabled={loading} onClick={toggle}>
-        {loading ? "…" : enrolled ? "Leave course" : "Enroll"}
+        {loading ? "…" : enrolled ? t("courses.leaveCourse") : t("courses.enroll")}
       </Button>
       {error ? <span className="text-xs text-destructive">{error}</span> : null}
     </div>

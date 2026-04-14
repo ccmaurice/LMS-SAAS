@@ -22,7 +22,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 function PublicLocaleFab() {
   const path = usePathname() ?? "";
   if (path.startsWith("/o/")) return null;
-  if (path.startsWith("/platform") && path !== "/platform/login") return null;
+  if (path.startsWith("/platform")) return null;
+  if (path === "/" || path === "/login" || path.startsWith("/register")) return null;
 
   return (
     <div className="fixed bottom-4 end-4 z-[200] print:hidden">

@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { AssessmentQuestionText } from "@/components/assessments/assessment-question-text";
 import { AssessmentRichTextField } from "@/components/assessments/assessment-rich-text-field";
 import { stripHtmlToPlainText } from "@/lib/assessments/html-text";
@@ -110,6 +111,7 @@ function AssessmentChromeLink({
   children,
   ariaLabel,
   requireLeaveConfirm,
+  leaveMessage,
   router,
 }: {
   href: string;
@@ -117,6 +119,7 @@ function AssessmentChromeLink({
   children: React.ReactNode;
   ariaLabel: string;
   requireLeaveConfirm: boolean;
+  leaveMessage: string;
   router: ReturnType<typeof useRouter>;
 }) {
   return (
@@ -127,11 +130,7 @@ function AssessmentChromeLink({
       onClick={(e) => {
         if (!requireLeaveConfirm) return;
         e.preventDefault();
-        if (
-          window.confirm(
-            "Leave this attempt? Draft answers are saved. Come back to finish, or submit when you are ready.",
-          )
-        ) {
+        if (window.confirm(leaveMessage)) {
           router.push(href);
         }
       }}
@@ -184,6 +183,7 @@ export function TakeAssessment({
   courseId: string;
   orgSlug: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -215,7 +215,7 @@ export function TakeAssessment({
         fetch(`/api/assessments/${assessmentId}/submissions`, { method: "POST", credentials: "include" }),
       ]);
       if (!aRes.ok) {
-        setError("Could not load assessment");
+        setError(t("assessments.take.loadError"));
         return;
       }
       const aData = (await aRes.json()) as {
@@ -235,15 +235,12 @@ export function TakeAssessment({
         try {
           const errBody = (await sRes.json()) as { error?: string; code?: string };
           if (errBody.code === "ATTEMPTS_LOCKED") {
-            setError(
-              errBody.error ??
-                "This assessment is closed to new attempts. Contact your instructor if you need access.",
-            );
+            setError(errBody.error ?? t("assessments.take.attemptsLockedDefault"));
           } else {
-            setError(errBody.error ?? "Could not start attempt");
+            setError(errBody.error ?? t("assessments.take.startAttemptError"));
           }
         } catch {
-          setError("Could not start attempt");
+          setError(t("assessments.take.startAttemptError"));
         }
         return;
       }
@@ -268,11 +265,11 @@ export function TakeAssessment({
         });
       }
     } catch {
-      setError("Network error");
+      setError(t("assessments.take.networkError"));
     } finally {
       setLoading(false);
     }
-  }, [assessmentId, courseId, orgSlug, router]);
+  }, [assessmentId, courseId, orgSlug, router, t]);
 
   useEffect(() => {
     void load();
@@ -322,7 +319,7 @@ export function TakeAssessment({
       setSubmitting(false);
       if (!res.ok) {
         const d = (await res.json()) as { error?: string };
-        setError(d.error ?? "Submit failed (time expired)");
+        setError(d.error ?? t("assessments.take.submitFailedTime"));
         autoSubmittedRef.current = false;
         return;
       }
@@ -390,7 +387,7 @@ export function TakeAssessment({
     setSubmitting(false);
     if (!res.ok) {
       const d = (await res.json()) as { error?: string };
-      setError(d.error ?? "Submit failed");
+      setError(d.error ?? t("assessments.take.submitFailed"));
       return;
     }
     router.replace(`${base}/${assessmentId}/results?submissionId=${submissionId}`);
@@ -430,9 +427,9 @@ export function TakeAssessment({
     return (
       <div className="mx-auto w-full max-w-lg rounded-xl border border-destructive/30 bg-destructive/5 px-5 py-6 dark:border-destructive/40 dark:bg-destructive/10">
         <p className="font-medium text-destructive">{error}</p>
-        <p className="mt-2 text-sm text-muted-foreground">You can try loading the assessment again.</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("assessments.take.retryHint")}</p>
         <Button type="button" className="mt-4" variant="outline" onClick={() => void load()}>
-          Try again
+          {t("assessments.take.tryAgain")}
         </Button>
       </div>
     );
@@ -459,8 +456,9 @@ export function TakeAssessment({
             <AssessmentChromeLink
               href={base}
               requireLeaveConfirm={requireLeaveConfirm}
+              leaveMessage={t("assessments.take.leaveConfirm")}
               router={router}
-              ariaLabel="Back to assessments"
+              ariaLabel={t("assessments.take.ariaBack")}
               className={cn(
                 buttonVariants({ variant: "ghost", size: "icon" }),
                 "h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground",
@@ -473,8 +471,9 @@ export function TakeAssessment({
           <AssessmentChromeLink
             href={base}
             requireLeaveConfirm={requireLeaveConfirm}
+            leaveMessage={t("assessments.take.leaveConfirm")}
             router={router}
-            ariaLabel="Close and return to assessments"
+            ariaLabel={t("assessments.take.ariaClose")}
             className={cn(
               buttonVariants({ variant: "ghost", size: "icon" }),
               "h-9 w-9 shrink-0 text-muted-foreground hover:text-foreground",
@@ -486,38 +485,40 @@ export function TakeAssessment({
 
         {timedOut ? (
           <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            Time is up — submitting now (draft answers are included).
+            {t("assessments.take.timeUpBanner")}
           </p>
         ) : null}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
           <aside className="space-y-4 lg:col-span-4 lg:sticky lg:top-4 lg:self-start">
-            <SidebarCard title="Time Status" icon={Clock}>
+            <SidebarCard title={t("assessments.take.sidebarTime")} icon={Clock}>
               <dl className="space-y-2 text-sm tabular-nums">
                 <div className="flex items-center justify-between gap-4">
-                  <dt className="text-muted-foreground">Total Time</dt>
+                  <dt className="text-muted-foreground">{t("assessments.take.totalTime")}</dt>
                   <dd className="font-medium text-foreground">
-                    {totalLimitSec != null ? formatHMS(totalLimitSec) : "Untimed"}
+                    {totalLimitSec != null ? formatHMS(totalLimitSec) : t("assessments.take.untimed")}
                   </dd>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <dt className="text-muted-foreground">Remain Time</dt>
+                  <dt className="text-muted-foreground">{t("assessments.take.remainTime")}</dt>
                   <dd
                     className={cn(
                       "font-semibold",
                       timeRunningLow ? "text-amber-700 dark:text-amber-400" : "text-foreground",
                     )}
                   >
-                    {remainingSec != null ? formatHMS(remainingSec) : "Untimed"}
+                    {remainingSec != null ? formatHMS(remainingSec) : t("assessments.take.untimed")}
                   </dd>
                 </div>
                 {timeRunningLow ? (
-                  <p className="text-xs font-medium text-amber-800 dark:text-amber-200/90">Less than 5 minutes left.</p>
+                  <p className="text-xs font-medium text-amber-800 dark:text-amber-200/90">
+                    {t("assessments.take.fiveMinWarning")}
+                  </p>
                 ) : null}
               </dl>
             </SidebarCard>
 
-            <SidebarCard title="Total Questions Map" icon={CircleHelp} accent>
+            <SidebarCard title={t("assessments.take.questionMapTitle")} icon={CircleHelp} accent>
               <div
                 className="flex flex-wrap gap-2"
                 role="navigation"
@@ -531,7 +532,7 @@ export function TakeAssessment({
                       key={item.id}
                       type="button"
                       aria-current={active ? "step" : undefined}
-                      aria-label={`Question ${i + 1}${answered ? ", answered" : ", not answered"}${active ? ", current" : ""}`}
+                      aria-label={`${t("assessments.take.questionWord")} ${i + 1}${answered ? t("assessments.take.ariaAnswered") : t("assessments.take.ariaNotAnswered")}${active ? t("assessments.take.ariaCurrent") : ""}`}
                       className={cn(
                         "flex h-9 min-w-9 items-center justify-center rounded-full border text-sm font-medium transition-colors",
                         active
@@ -547,23 +548,21 @@ export function TakeAssessment({
                   );
                 })}
               </div>
-              <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
-                Amber = current · Green tint = answered · Outline = not answered
-              </p>
+              <p className="mt-3 text-[11px] leading-snug text-muted-foreground">{t("assessments.take.legendDots")}</p>
             </SidebarCard>
           </aside>
 
           <section className="lg:col-span-8">
             {n === 0 ? (
               <p className="rounded-xl border border-dashed border-border px-6 py-12 text-center text-muted-foreground">
-                This assessment has no questions yet.
+                {t("assessments.take.noQuestions")}
               </p>
             ) : q ? (
               <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm dark:border-white/10">
                 <div className="border-b border-border/70 px-5 py-4 dark:border-white/10">
                   <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                     <FileQuestion className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                    Question {displayIndex} of {n}
+                    {t("assessments.take.questionProgress").replace("%s", String(displayIndex)).replace("%s", String(n))}
                   </div>
                   <AssessmentQuestionText
                     text={q.prompt}
@@ -653,7 +652,7 @@ export function TakeAssessment({
                     <AssessmentRichTextField
                       value={answers[q.id] ?? ""}
                       onChange={(html) => setAnswer(q.id, html)}
-                      placeholder="Type your answer…"
+                      placeholder={t("assessments.take.placeholderShort")}
                       editorMinHeightClass="min-h-[100px]"
                       lockdownAllowInput
                       variant="respondent"
@@ -664,7 +663,7 @@ export function TakeAssessment({
                     <AssessmentRichTextField
                       value={answers[q.id] ?? ""}
                       onChange={(html) => setAnswer(q.id, html)}
-                      placeholder="Write your response…"
+                      placeholder={t("assessments.take.placeholderLong")}
                       editorMinHeightClass={q.type === "ESSAY_RICH" ? "min-h-[220px]" : "min-h-[180px]"}
                       lockdownAllowInput
                       variant="respondent"
@@ -682,7 +681,7 @@ export function TakeAssessment({
                       />
                     ) : (
                       <p className="text-sm text-destructive">
-                        This drag-and-drop question is not configured correctly. Contact your instructor.
+                        {t("assessments.take.ddBroken")}
                       </p>
                     )
                   ) : null}
@@ -698,8 +697,8 @@ export function TakeAssessment({
                     <div className="space-y-2">
                       {(
                         [
-                          { v: true as const, label: "True" },
-                          { v: false as const, label: "False" },
+                          { v: true as const, label: t("assessments.take.boolTrue") },
+                          { v: false as const, label: t("assessments.take.boolFalse") },
                         ] as const
                       ).map(({ v, label }) => {
                         let selected: boolean | null = null;
@@ -715,7 +714,7 @@ export function TakeAssessment({
                         const checked = selected === v;
                         return (
                           <label
-                            key={label}
+                            key={String(v)}
                             className={cn(
                               "flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-3 text-sm transition-colors",
                               checked
@@ -753,28 +752,22 @@ export function TakeAssessment({
 
                 {/* Marks bar — reference-style solid blue strip */}
                 <div className="flex items-center bg-blue-600 px-5 py-2.5 text-sm font-medium text-white dark:bg-blue-700">
-                  <span className="tabular-nums">Marks : {Number(q.points).toFixed(2)}</span>
+                  <span className="tabular-nums">
+                    {t("assessments.take.marksLine").replace("%s", Number(q.points).toFixed(2))}
+                  </span>
                 </div>
               </div>
             ) : null}
 
             {n > 0 ? (
               <div className="mt-6 space-y-3">
-                <p className="text-xs text-muted-foreground">
-                  <span className="font-medium text-foreground">Tip:</span> use{" "}
-                  <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">Shift</kbd>{" "}
-                  +{" "}
-                  <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">←</kbd>{" "}
-                  /{" "}
-                  <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px]">→</kbd> to
-                  move between questions when not typing in a field.
-                </p>
+                <p className="text-xs text-muted-foreground">{t("assessments.take.tipShift")}</p>
                 {unansweredCount > 0 ? (
                   <p className="rounded-lg border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-amber-950 dark:border-amber-400/25 dark:bg-amber-500/15 dark:text-amber-100">
                     {unansweredCount === 1
-                      ? "1 question still has no selected or written response."
-                      : `${unansweredCount} questions still have no selected or written response.`}{" "}
-                    You can submit anyway; unanswered items may receive no points.
+                      ? t("assessments.take.unansweredOne")
+                      : t("assessments.take.unansweredMany").replace("%s", String(unansweredCount))}{" "}
+                    {t("assessments.take.unansweredFooter")}
                   </p>
                 ) : null}
                 <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
@@ -787,7 +780,7 @@ export function TakeAssessment({
                       onClick={() => setCurrentIdx((i) => Math.max(0, i - 1))}
                     >
                       <ChevronLeft className="h-4 w-4" />
-                      Previous
+                      {t("assessments.take.previous")}
                     </Button>
                     <Button
                       type="button"
@@ -796,7 +789,7 @@ export function TakeAssessment({
                       disabled={currentIdx >= n - 1 || submitting}
                       onClick={() => setCurrentIdx((i) => Math.min(n - 1, i + 1))}
                     >
-                      Next
+                      {t("assessments.take.next")}
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
@@ -809,7 +802,7 @@ export function TakeAssessment({
                       onClick={() => clearCurrentAnswer()}
                     >
                       <X className="h-4 w-4" />
-                      Clear Answer
+                      {t("assessments.take.clearAnswer")}
                     </Button>
                     <Button
                       type="button"
@@ -818,7 +811,7 @@ export function TakeAssessment({
                       onClick={() => void submit()}
                     >
                       <Check className="h-4 w-4" />
-                      {submitting ? "Submitting…" : "Submit"}
+                      {submitting ? t("assessments.take.submitting") : t("assessments.take.submit")}
                     </Button>
                   </div>
                 </div>

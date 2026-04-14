@@ -197,7 +197,7 @@ export default async function SchoolPublicPage({ params }: { params: Promise<{ s
             ← Platform home
           </Link>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
+            <ThemeToggle variant="outlined" />
             {ctaExternal ? (
               <a href={ctaHref} className={cn(buttonVariants({ size: "sm" }))}>
                 {ctaText}

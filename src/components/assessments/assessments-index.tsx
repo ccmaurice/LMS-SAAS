@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { AssessmentStaffLockToggle } from "@/components/assessments/assessment-staff-lock-toggle";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -25,6 +26,7 @@ export type AssessmentStudentRow = {
 };
 
 export function AssessmentsStaffList({ slug, rows }: { slug: string; rows: AssessmentStaffRow[] }) {
+  const { t } = useI18n();
   const reduce = useReducedMotion();
   return (
     <ul className="grid gap-4 md:grid-cols-12">
@@ -47,7 +49,7 @@ export function AssessmentsStaffList({ slug, rows }: { slug: string; rows: Asses
           <div className="relative z-10 flex flex-wrap items-center gap-2">
             {a.studentAttemptsLocked ? (
               <Badge variant="outline" className="border-amber-500/50 text-amber-950 dark:text-amber-100">
-                Attempts locked
+                {t("assessments.attemptsLocked")}
               </Badge>
             ) : null}
             <AssessmentStaffLockToggle assessmentId={a.id} initialLocked={a.studentAttemptsLocked} />
@@ -55,19 +57,19 @@ export function AssessmentsStaffList({ slug, rows }: { slug: string; rows: Asses
               href={`/o/${slug}/courses/${a.course.id}/assessment-outcomes`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
-              Outcomes
+              {t("assessments.outcomes")}
             </Link>
             <Link
               href={`/o/${slug}/courses/${a.course.id}/assessments/${a.id}/edit`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
-              Edit
+              {t("courses.edit")}
             </Link>
             <Link
               href={`/o/${slug}/courses/${a.course.id}/assessments/${a.id}/gradebook`}
               className={cn(buttonVariants({ size: "sm" }))}
             >
-              Gradebook
+              {t("assessments.gradebook")}
             </Link>
           </div>
         </motion.li>
@@ -85,6 +87,7 @@ export function AssessmentsStudentList({
   rows: AssessmentStudentRow[];
   viewer?: "student" | "parent";
 }) {
+  const { t } = useI18n();
   const reduce = useReducedMotion();
   return (
     <ul className="grid gap-4 md:grid-cols-12">
@@ -103,7 +106,7 @@ export function AssessmentsStudentList({
           </div>
           {viewer === "parent" && !a.latestSubmissionId ? (
             <span className={cn(buttonVariants({ variant: "secondary" }), "shrink-0 cursor-not-allowed opacity-70")}>
-              No submission yet
+              {t("assessments.parentNoSubmission")}
             </span>
           ) : viewer === "student" && a.studentAttemptsLocked && !a.hasDraft ? (
             <span
@@ -112,7 +115,7 @@ export function AssessmentsStudentList({
                 "shrink-0 cursor-not-allowed text-center opacity-80",
               )}
             >
-              Closed to new attempts
+              {t("assessments.closedNewAttempts")}
             </span>
           ) : (
             <Link
@@ -123,7 +126,11 @@ export function AssessmentsStudentList({
               }
               className={cn(buttonVariants(), "shrink-0")}
             >
-              {viewer === "parent" ? "View results" : a.studentAttemptsLocked && a.hasDraft ? "Resume" : "Open"}
+              {viewer === "parent"
+                ? t("assessments.viewResults")
+                : a.studentAttemptsLocked && a.hasDraft
+                  ? t("assessments.resume")
+                  : t("assessments.open")}
             </Link>
           )}
         </motion.li>

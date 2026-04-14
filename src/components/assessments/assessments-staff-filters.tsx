@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useMemo, useTransition } from "react";
 import type { EducationLevel } from "@/generated/prisma/enums";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { Label } from "@/components/ui/label";
 
 export type CohortFilterOption = { id: string; name: string; academicYearLabel: string | null };
@@ -22,6 +23,7 @@ export function AssessmentsStaffFilters({
   years: string[];
   departments: DepartmentFilterOption[];
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const sp = useSearchParams();
   const [pending, startTransition] = useTransition();
@@ -70,7 +72,7 @@ export function AssessmentsStaffFilters({
     return (
       <div className="flex flex-wrap items-end gap-4 rounded-xl border border-border/80 bg-muted/20 p-4 dark:border-white/10">
         <div className="space-y-1.5">
-          <Label htmlFor="flt-dept">Department</Label>
+          <Label htmlFor="flt-dept">{t("assessments.filterDepartment")}</Label>
           <select
             id="flt-dept"
             disabled={pending}
@@ -78,7 +80,7 @@ export function AssessmentsStaffFilters({
             value={deptId}
             onChange={(e) => setParamsHe({ dept: e.target.value })}
           >
-            <option value="">All departments</option>
+            <option value="">{t("assessments.filterAllDepartments")}</option>
             {departments.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
@@ -91,7 +93,10 @@ export function AssessmentsStaffFilters({
     );
   }
 
-  const cohortLabel = educationLevel === "SECONDARY" ? "Form group" : "Class";
+  const cohortLabel =
+    educationLevel === "SECONDARY" ? t("assessments.filterFormGroup") : t("assessments.filterClass");
+  const allCohortOption =
+    educationLevel === "SECONDARY" ? t("assessments.filterAllFormGroups") : t("assessments.filterAllClasses");
 
   return (
     <div className="flex flex-wrap items-end gap-4 rounded-xl border border-border/80 bg-muted/20 p-4 dark:border-white/10">
@@ -104,7 +109,7 @@ export function AssessmentsStaffFilters({
           value={cohortId}
           onChange={(e) => setParamsK12({ cohort: e.target.value })}
         >
-          <option value="">All {cohortLabel.toLowerCase()}s</option>
+          <option value="">{allCohortOption}</option>
           {cohorts.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -114,7 +119,7 @@ export function AssessmentsStaffFilters({
         </select>
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="flt-year">Academic year</Label>
+        <Label htmlFor="flt-year">{t("assessments.filterAcademicYear")}</Label>
         <select
           id="flt-year"
           disabled={pending}
@@ -122,7 +127,7 @@ export function AssessmentsStaffFilters({
           value={year}
           onChange={(e) => setParamsK12({ year: e.target.value })}
         >
-          <option value="">All years</option>
+          <option value="">{t("assessments.filterAllYears")}</option>
           {yearOptions.map((y) => (
             <option key={y} value={y}>
               {y}

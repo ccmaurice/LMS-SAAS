@@ -22,6 +22,7 @@ import {
 import { assessmentOutcomeNeedsAttention } from "@/lib/assessments/assessment-outcome-health";
 import { submitParticipationPercent, summarizeOutcomeSubmissions } from "@/lib/assessments/course-assessment-outcomes";
 import { AssessmentStaffLockToggle } from "@/components/assessments/assessment-staff-lock-toggle";
+import { getServerT } from "@/i18n/server";
 
 function deliveryBadgeVariant(
   mode: AssessmentDeliveryMode,
@@ -37,6 +38,7 @@ export default async function CourseAssessmentsPage({
   params: Promise<{ slug: string; courseId: string }>;
 }) {
   const { slug, courseId } = await params;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) redirect("/login");
 
@@ -93,12 +95,12 @@ export default async function CourseAssessmentsPage({
       <div className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="page-title">Assessments</h1>
+            <h1 className="page-title">{t("nav.assessments")}</h1>
             <p className="text-muted-foreground">{course.title}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href={`${courseBase}/assessment-outcomes`} className={cn(buttonVariants({ variant: "outline" }))}>
-              Outcomes
+              {t("assessments.outcomes")}
             </Link>
             {attentionCount > 0 ? (
               <Link
@@ -108,11 +110,11 @@ export default async function CourseAssessmentsPage({
                   "border-amber-500/40 text-amber-950 dark:text-amber-100",
                 )}
               >
-                Needs attention ({attentionCount})
+                {t("assessments.needsAttentionLink").replace("%s", String(attentionCount))}
               </Link>
             ) : null}
             <Link href={`${base}/new`} className={cn(buttonVariants())}>
-              New assessment
+              {t("assessments.newAssessment")}
             </Link>
           </div>
         </div>
@@ -129,65 +131,73 @@ export default async function CourseAssessmentsPage({
                 participationPercent: particip,
                 enrolledCount,
               });
+            const deptOrClassSuffix = isHe
+              ? a._count.assessmentDepartments > 0
+                ? ` · ${
+                    a._count.assessmentDepartments === 1
+                      ? t("assessments.departmentCountOne").replace("%s", String(a._count.assessmentDepartments))
+                      : t("assessments.departmentCountMany").replace("%s", String(a._count.assessmentDepartments))
+                  }`
+                : ` · ${t("assessments.allEnrolled")}`
+              : a._count.assessmentCohorts > 0
+                ? ` · ${
+                    a._count.assessmentCohorts === 1
+                      ? t("assessments.classCountOne").replace("%s", String(a._count.assessmentCohorts))
+                      : t("assessments.classCountMany").replace("%s", String(a._count.assessmentCohorts))
+                  }`
+                : ` · ${t("assessments.allEnrolled")}`;
             return (
               <li key={a.id} className="surface-bento flex flex-wrap items-center justify-between gap-3 p-5">
                 <div>
                   <p className="font-medium">{a.title}</p>
                   <p className="text-sm text-muted-foreground">
-                    {a._count.questions} questions · {a._count.submissions} submissions
-                    {isHe
-                      ? a._count.assessmentDepartments > 0
-                        ? ` · ${a._count.assessmentDepartments} department${
-                            a._count.assessmentDepartments === 1 ? "" : "s"
-                          }`
-                        : " · all enrolled"
-                      : a._count.assessmentCohorts > 0
-                        ? ` · ${a._count.assessmentCohorts} class${a._count.assessmentCohorts === 1 ? "" : "es"}`
-                        : " · all enrolled"}
+                    {t("assessments.questionsCount").replace("%s", String(a._count.questions))} ·{" "}
+                    {t("assessments.submissionsCount").replace("%s", String(a._count.submissions))}
+                    {deptOrClassSuffix}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Badge variant={a.published ? "default" : "secondary"}>
-                    {a.published ? "Published" : "Draft"}
+                    {a.published ? t("courses.published") : t("courses.draft")}
                   </Badge>
                   {rowNeedsAttention ? (
                     <Badge variant="outline" className="border-amber-500/50 text-amber-900 dark:text-amber-100">
-                      Needs attention
+                      {t("assessments.needsAttentionBadge")}
                     </Badge>
                   ) : null}
-                  <Badge variant={deliveryBadgeVariant(a.deliveryMode)}>{deliveryModeBadgeLabel(a.deliveryMode)}</Badge>
+                  <Badge variant={deliveryBadgeVariant(a.deliveryMode)}>{deliveryModeBadgeLabel(a.deliveryMode, t)}</Badge>
                   {a.studentAttemptsLocked ? (
                     <Badge variant="outline" className="border-amber-500/50 text-amber-950 dark:text-amber-100">
-                      Attempts locked
+                      {t("assessments.attemptsLocked")}
                     </Badge>
                   ) : null}
                   <AssessmentStaffLockToggle assessmentId={a.id} initialLocked={a.studentAttemptsLocked} />
                   <Link href={`${base}/${a.id}/edit`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                    Edit
+                    {t("courses.edit")}
                   </Link>
                   <Link href={`${base}/${a.id}/gradebook`} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
-                    Gradebook
+                    {t("assessments.gradebook")}
                   </Link>
                   <Link
                     href={`${base}/${a.id}/item-analysis`}
                     className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                   >
-                    Item analysis
+                    {t("assessments.itemAnalysis")}
                   </Link>
                   <Link
                     href={`${base}/${a.id}/integrity`}
                     className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                   >
-                    Integrity log
+                    {t("assessments.integrityLog")}
                   </Link>
                 </div>
               </li>
             );
           })}
         </ul>
-        {assessments.length === 0 ? <p className="text-muted-foreground">No assessments yet.</p> : null}
+        {assessments.length === 0 ? <p className="text-muted-foreground">{t("assessments.noAssessmentsYetStaff")}</p> : null}
         <Link href={`/o/${slug}/courses/${courseId}`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-          ← Back to course
+          {t("assessments.backToCourse")}
         </Link>
       </div>
     );
@@ -197,9 +207,9 @@ export default async function CourseAssessmentsPage({
   if (!enrolled) {
     return (
       <p className="text-muted-foreground">
-        Enroll in this course to see assessments.{" "}
+        {t("assessments.enrollToSeePrompt")}{" "}
         <Link href={`/o/${slug}/courses/${courseId}`} className="text-primary underline">
-          Course page
+          {t("assessments.coursePage")}
         </Link>
       </p>
     );
@@ -248,38 +258,38 @@ export default async function CourseAssessmentsPage({
 
   return (
     <div className="space-y-6">
-      <h1 className="page-title">Assessments</h1>
+      <h1 className="page-title">{t("nav.assessments")}</h1>
       <p className="text-muted-foreground">{course.title}</p>
       <ul className="space-y-3">
         {assessments.map((a) => {
-          const integrityNote = deliveryModeStudentNote(a.deliveryMode);
+          const integrityNote = deliveryModeStudentNote(a.deliveryMode, t);
           const hasDraft = draftSet.has(a.id);
           const blocked = a.studentAttemptsLocked && !hasDraft;
           return (
           <li key={a.id} className="surface-bento flex flex-wrap items-center justify-between gap-3 p-5">
             <div className="min-w-0 flex-1">
               <p className="font-medium">{a.title}</p>
-              <p className="text-sm text-muted-foreground">{a._count.questions} questions</p>
+              <p className="text-sm text-muted-foreground">
+                {t("assessments.questionsCount").replace("%s", String(a._count.questions))}
+              </p>
               {integrityNote ? (
                 <p className="mt-1 text-xs text-muted-foreground">{integrityNote}</p>
               ) : null}
               {blocked ? (
-                <p className="mt-1 text-xs text-amber-800 dark:text-amber-200/90">
-                  Your instructor has paused new attempts. If you were already started, use Resume.
-                </p>
+                <p className="mt-1 text-xs text-amber-800 dark:text-amber-200/90">{t("assessments.instructorPausedHint")}</p>
               ) : null}
             </div>
             <div className="flex flex-shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
               {a.deliveryMode !== "FORMATIVE" ? (
-                <Badge variant={deliveryBadgeVariant(a.deliveryMode)}>{deliveryModeBadgeLabel(a.deliveryMode)}</Badge>
+                <Badge variant={deliveryBadgeVariant(a.deliveryMode)}>{deliveryModeBadgeLabel(a.deliveryMode, t)}</Badge>
               ) : null}
               {blocked ? (
                 <span className={cn(buttonVariants({ variant: "secondary" }), "cursor-not-allowed opacity-80")}>
-                  Closed
+                  {t("assessments.closedLabel")}
                 </span>
               ) : (
                 <Link href={`${base}/${a.id}/take`} className={cn(buttonVariants())}>
-                  {a.studentAttemptsLocked && hasDraft ? "Resume" : "Start"}
+                  {a.studentAttemptsLocked && hasDraft ? t("assessments.resume") : t("assessments.start")}
                 </Link>
               )}
             </div>
@@ -287,9 +297,9 @@ export default async function CourseAssessmentsPage({
           );
         })}
       </ul>
-      {assessments.length === 0 ? <p className="text-muted-foreground">No published assessments.</p> : null}
+      {assessments.length === 0 ? <p className="text-muted-foreground">{t("assessments.noPublishedAssessments")}</p> : null}
       <Link href={`/o/${slug}/courses/${courseId}`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-        ← Back to course
+        {t("assessments.backToCourse")}
       </Link>
     </div>
   );

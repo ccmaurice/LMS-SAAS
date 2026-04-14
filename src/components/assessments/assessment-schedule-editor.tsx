@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export type ScheduleEntryClient = {
   id?: string;
@@ -52,6 +53,7 @@ export function AssessmentScheduleEditor({
   assessmentId: string;
   initialEntries: ScheduleEntryClient[];
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [rows, setRows] = useState<ScheduleEntryClient[]>(() => initialEntries);
   const [busy, setBusy] = useState(false);
@@ -82,13 +84,13 @@ export function AssessmentScheduleEditor({
       let endsAt: string | null = null;
       if (r.allDay) {
         if (!r.startsAt.trim()) {
-          toast.error(`Row ${i + 1}: start date required when all-day is checked.`);
+          toast.error(t("assessments.schedule.toastStartDateAllDay").replace("%s", String(i + 1)));
           return;
         }
         startsAt = dateOnlyToIsoStart(r.startsAt.trim());
         if (r.kind === "EXAM_WINDOW") {
           if (!r.endsAt.trim()) {
-            toast.error(`Row ${i + 1}: end date required for exam windows when all-day.`);
+            toast.error(t("assessments.schedule.toastEndExamAllDay").replace("%s", String(i + 1)));
             return;
           }
           endsAt = dateOnlyToIsoEnd(r.endsAt.trim());
@@ -96,12 +98,12 @@ export function AssessmentScheduleEditor({
       } else {
         startsAt = datetimeLocalToIso(r.startsAt);
         if (!startsAt) {
-          toast.error(`Row ${i + 1}: valid start date/time required.`);
+          toast.error(t("assessments.schedule.toastStartValid").replace("%s", String(i + 1)));
           return;
         }
         endsAt = datetimeLocalToIso(r.endsAt);
         if (r.kind === "EXAM_WINDOW" && !endsAt) {
-          toast.error(`Row ${i + 1}: end date/time required for exam windows.`);
+          toast.error(t("assessments.schedule.toastEndExam").replace("%s", String(i + 1)));
           return;
         }
       }
@@ -125,7 +127,7 @@ export function AssessmentScheduleEditor({
       });
       const data = (await res.json()) as { error?: unknown; entries?: ScheduleEntryClient[] };
       if (!res.ok) {
-        toast.error(typeof data.error === "string" ? data.error : "Could not save schedule");
+        toast.error(typeof data.error === "string" ? data.error : t("assessments.schedule.saveError"));
         return;
       }
       if (data.entries) {
@@ -145,7 +147,7 @@ export function AssessmentScheduleEditor({
           })),
         );
       }
-      toast.success("Assessment schedule saved");
+      toast.success(t("assessments.schedule.saveSuccess"));
       router.refresh();
     } finally {
       setBusy(false);
@@ -155,22 +157,18 @@ export function AssessmentScheduleEditor({
   return (
     <section className="surface-bento space-y-4 p-5">
       <div>
-        <h2 className="text-lg font-semibold">Assessment schedule</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Continuous assessment (quiz) open/due times and exam session windows feed the school dashboard calendar and
-          in-app reminders. Remove all rows and save to clear the schedule (stored open/due fields on the assessment are
-          cleared too).
-        </p>
+        <h2 className="text-lg font-semibold">{t("assessments.schedule.title")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("assessments.schedule.intro")}</p>
       </div>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No schedule rows yet. Add a row to publish dates to the calendar.</p>
+        <p className="text-sm text-muted-foreground">{t("assessments.schedule.emptyHint")}</p>
       ) : null}
       <ul className="space-y-4">
         {rows.map((r, i) => (
           <li key={i} className="rounded-lg border border-border/60 p-3 dark:border-white/10">
             <div className="flex flex-wrap items-end gap-2">
               <label className="grid gap-1 text-sm">
-                <span className="text-muted-foreground">Type</span>
+                <span className="text-muted-foreground">{t("assessments.schedule.typeLabel")}</span>
                 <select
                   className="h-9 min-w-[10rem] rounded-md border border-input bg-background px-2 text-sm"
                   value={r.kind}
@@ -182,9 +180,9 @@ export function AssessmentScheduleEditor({
                     )
                   }
                 >
-                  <option value="CA_OPENS">CA opens (quiz available)</option>
-                  <option value="CA_DUE">CA due (quiz deadline)</option>
-                  <option value="EXAM_WINDOW">Exam window (start–end)</option>
+                  <option value="CA_OPENS">{t("assessments.schedule.kindCaOpens")}</option>
+                  <option value="CA_DUE">{t("assessments.schedule.kindCaDue")}</option>
+                  <option value="EXAM_WINDOW">{t("assessments.schedule.kindExamWindow")}</option>
                 </select>
               </label>
               <label className="flex cursor-pointer items-center gap-2 pb-2 text-sm">
@@ -195,17 +193,17 @@ export function AssessmentScheduleEditor({
                     setRows((prev) => prev.map((x, j) => (j === i ? { ...x, allDay: e.target.checked } : x)))
                   }
                 />
-                All-day
+                {t("assessments.schedule.allDay")}
               </label>
               <Button type="button" variant="ghost" size="sm" className="text-destructive" onClick={() => removeRow(i)}>
-                Remove
+                {t("assessments.schedule.remove")}
               </Button>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {r.allDay ? (
                 <>
                   <div className="space-y-1">
-                    <Label>Start date</Label>
+                    <Label>{t("assessments.schedule.startDate")}</Label>
                     <Input
                       type="date"
                       value={r.startsAt.length > 10 ? r.startsAt.slice(0, 10) : r.startsAt}
@@ -216,7 +214,7 @@ export function AssessmentScheduleEditor({
                   </div>
                   {r.kind === "EXAM_WINDOW" ? (
                     <div className="space-y-1">
-                      <Label>End date</Label>
+                      <Label>{t("assessments.schedule.endDate")}</Label>
                       <Input
                         type="date"
                         value={r.endsAt.length > 10 ? r.endsAt.slice(0, 10) : r.endsAt}
@@ -230,7 +228,7 @@ export function AssessmentScheduleEditor({
               ) : (
                 <>
                   <div className="space-y-1">
-                    <Label>Starts</Label>
+                    <Label>{t("assessments.schedule.starts")}</Label>
                     <Input
                       type="datetime-local"
                       value={r.startsAt}
@@ -241,7 +239,7 @@ export function AssessmentScheduleEditor({
                   </div>
                   {r.kind === "EXAM_WINDOW" ? (
                     <div className="space-y-1">
-                      <Label>Ends</Label>
+                      <Label>{t("assessments.schedule.ends")}</Label>
                       <Input
                         type="datetime-local"
                         value={r.endsAt}
@@ -254,13 +252,13 @@ export function AssessmentScheduleEditor({
                 </>
               )}
               <div className="space-y-1 sm:col-span-2">
-                <Label>Custom label on calendar (optional)</Label>
+                <Label>{t("assessments.schedule.customLabel")}</Label>
                 <Input
                   value={r.label}
                   onChange={(e) =>
                     setRows((prev) => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))
                   }
-                  placeholder="Overrides default title for this row"
+                  placeholder={t("assessments.schedule.customPlaceholder")}
                 />
               </div>
             </div>
@@ -269,10 +267,10 @@ export function AssessmentScheduleEditor({
       </ul>
       <div className="flex flex-wrap gap-2">
         <Button type="button" variant="outline" size="sm" onClick={addRow}>
-          Add row
+          {t("assessments.schedule.addRow")}
         </Button>
         <Button type="button" disabled={busy} onClick={() => void saveSchedule()}>
-          Save schedule
+          {t("assessments.schedule.save")}
         </Button>
       </div>
     </section>

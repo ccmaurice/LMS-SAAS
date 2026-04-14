@@ -31,7 +31,7 @@ export function PlatformHeaderToolbar() {
       </Link>
       <PlatformNotificationBell />
       <LocaleSwitcher layout="compact" />
-      <ThemeToggle />
+      <ThemeToggle variant="outlined" />
       <PlatformSignOutButton />
     </div>
   );

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ export type CatalogRow = {
 };
 
 export function CoursesStaffView({ base, courses }: { base: string; courses: StaffCourseRow[] }) {
+  const { t } = useI18n();
   const reduce = useReducedMotion() ?? false;
   return (
     <ul className="grid gap-4 md:grid-cols-12">
@@ -49,17 +51,20 @@ export function CoursesStaffView({ base, courses }: { base: string; courses: Sta
             <Link href={`${base}/${c.id}`} className="font-semibold tracking-tight text-foreground hover:underline">
               {c.title}
             </Link>
-            <Badge variant={c.published ? "default" : "secondary"}>{c.published ? "Published" : "Draft"}</Badge>
+            <Badge variant={c.published ? "default" : "secondary"}>
+              {c.published ? t("courses.published") : t("courses.draft")}
+            </Badge>
           </div>
           <p className="relative z-10 mt-2 text-sm text-muted-foreground">
-            {c._count.modules} modules · {c._count.enrollments} enrolled
+            {t("courses.modulesCount").replace("%s", String(c._count.modules))} ·{" "}
+            {t("courses.enrolledCount").replace("%s", String(c._count.enrollments))}
           </p>
           <p className="relative z-10 mt-1 text-xs text-muted-foreground">
-            By {c.createdBy.name ?? c.createdBy.email}
+            {t("courses.byCreator").replace("%s", c.createdBy.name ?? c.createdBy.email)}
           </p>
           <div className="relative z-10 mt-4 flex flex-wrap gap-2">
             <Link href={`${base}/${c.id}/edit`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-              Edit
+              {t("courses.edit")}
             </Link>
           </div>
         </motion.li>
@@ -77,13 +82,14 @@ export function CoursesStudentView({
   enrollments: EnrollmentRow[];
   catalog: CatalogRow[];
 }) {
+  const { t } = useI18n();
   const reduce = useReducedMotion() ?? false;
   return (
     <>
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">My enrollments</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{t("courses.myEnrollments")}</h2>
         {enrollments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">You are not enrolled in any course yet.</p>
+          <p className="text-sm text-muted-foreground">{t("courses.notEnrolledYet")}</p>
         ) : (
           <ul className="grid gap-4 md:grid-cols-12">
             {enrollments.map((e, i) => (
@@ -102,7 +108,9 @@ export function CoursesStudentView({
                   >
                     {e.course.title}
                   </Link>
-                  <p className="mt-2 text-sm text-muted-foreground">Progress: {Math.round(e.progressPercent)}%</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {t("courses.progressPercent").replace("%s", String(Math.round(e.progressPercent)))}
+                  </p>
                   <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted/80 ring-1 ring-inset ring-border/50 dark:ring-white/10">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-primary to-primary/75 transition-[width] duration-500 ease-out dark:from-primary dark:to-primary/65"
@@ -117,10 +125,10 @@ export function CoursesStudentView({
       </section>
 
       <section className="space-y-4">
-        <h2 className="section-heading">Catalog</h2>
+        <h2 className="section-heading">{t("courses.catalog")}</h2>
         {catalog.length === 0 ? (
           <div className="empty-state">
-            <p>No published courses are open for enrollment right now.</p>
+            <p>{t("courses.catalogEmpty")}</p>
           </div>
         ) : (
           <ul className="grid gap-4 md:grid-cols-12">
@@ -143,7 +151,9 @@ export function CoursesStudentView({
                   >
                     {c.title}
                   </Link>
-                  <p className="mt-1 text-sm text-muted-foreground">{c._count.modules} modules</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t("courses.modulesCount").replace("%s", String(c._count.modules))}
+                  </p>
                 </div>
                 <EnrollButton courseId={c.id} enrolled={false} />
               </motion.li>

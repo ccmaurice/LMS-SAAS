@@ -6,7 +6,21 @@ const EVENT_LABELS: Record<string, string> = {
   fullscreen_exit: "left fullscreen",
 };
 
-export function proctorEventTypeLabel(eventType: string): string {
+const EVENT_I18N_KEYS: Record<string, string> = {
+  window_blur: "assessments.proctor.windowBlur",
+  document_hidden: "assessments.proctor.documentHidden",
+  fullscreen_exit: "assessments.proctor.fullscreenExit",
+};
+
+/** Optional `t` from `getServerT()` / `useI18n()` for localized known event types. */
+export function proctorEventTypeLabel(eventType: string, t?: (key: string) => string): string {
+  if (t) {
+    const k = EVENT_I18N_KEYS[eventType];
+    if (k) {
+      const msg = t(k);
+      if (msg !== k) return msg;
+    }
+  }
   return EVENT_LABELS[eventType] ?? eventType.replace(/_/g, " ");
 }
 
@@ -35,7 +49,7 @@ export function aggregateProctorEventsBySubmission(
   return out;
 }
 
-export function formatProctorSummaryLine(aggs: ProctorEventAgg[]): string {
+export function formatProctorSummaryLine(aggs: ProctorEventAgg[], t?: (key: string) => string): string {
   if (aggs.length === 0) return "";
-  return aggs.map((a) => `${a.count}× ${proctorEventTypeLabel(a.eventType)}`).join(" · ");
+  return aggs.map((a) => `${a.count}× ${proctorEventTypeLabel(a.eventType, t)}`).join(" · ");
 }

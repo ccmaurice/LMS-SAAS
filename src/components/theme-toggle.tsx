@@ -4,8 +4,12 @@ import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-export function ThemeToggle() {
+const outlinedChrome =
+  "size-8 shrink-0 rounded-lg border-border/80 bg-background/95 text-foreground shadow-xs backdrop-blur-sm dark:border-white/12 dark:bg-background/40";
+
+export function ThemeToggle({ variant = "ghost" }: { variant?: "ghost" | "outlined" }) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -15,9 +19,17 @@ export function ThemeToggle() {
     setMounted(true);
   }, []);
 
+  const outlined = variant === "outlined";
+
   if (!mounted) {
     return (
-      <Button type="button" variant="ghost" size="icon-sm" className="size-8 shrink-0" aria-label="Theme">
+      <Button
+        type="button"
+        variant={outlined ? "outline" : "ghost"}
+        size={outlined ? "icon" : "icon-sm"}
+        className={cn(outlined ? outlinedChrome : "size-8 shrink-0")}
+        aria-label="Theme"
+      >
         <span className="size-4" />
       </Button>
     );
@@ -27,9 +39,9 @@ export function ThemeToggle() {
   return (
     <Button
       type="button"
-      variant="ghost"
-      size="icon-sm"
-      className="size-8 shrink-0"
+      variant={outlined ? "outline" : "ghost"}
+      size={outlined ? "icon" : "icon-sm"}
+      className={cn(outlined ? outlinedChrome : "size-8 shrink-0")}
       aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
       onClick={() => setTheme(dark ? "light" : "dark")}
     >

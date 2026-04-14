@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { Label } from "@/components/ui/label";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ export function AssessmentsStaffToolbar({
   courses: { id: string; title: string }[];
   role: "ADMIN" | "TEACHER";
 }) {
+  const { t } = useI18n();
   const initialId = useMemo(() => courses[0]?.id ?? "", [courses]);
   const [courseId, setCourseId] = useState(initialId);
   useEffect(() => {
@@ -29,19 +31,14 @@ export function AssessmentsStaffToolbar({
     return (
       <div className="max-w-md rounded-lg border border-border/70 bg-muted/15 px-4 py-3 text-sm text-muted-foreground dark:border-white/10">
         {role === "TEACHER" ? (
-          <>
-            You don&apos;t have a course where you can add assessments yet. You need to{" "}
-            <strong className="text-foreground">author a course</strong> or be linked as{" "}
-            <strong className="text-foreground">instructor</strong> on a class or department tied to a course. Ask an admin
-            if you expect access.
-          </>
+          <>{t("assessments.toolbarTeacherNoCourses")}</>
         ) : (
           <>
-            No courses in this school yet.{" "}
+            {t("assessments.toolbarAdminLead")}{" "}
             <Link href={`/o/${slug}/courses/new`} className="font-medium text-foreground underline-offset-4 hover:underline">
-              Create a course
+              {t("assessments.createCourse")}
             </Link>{" "}
-            to add assessments and outcomes.
+            {t("assessments.toolbarAdminTrail")}
           </>
         )}
       </div>
@@ -55,10 +52,10 @@ export function AssessmentsStaffToolbar({
     return (
       <div className="flex flex-wrap gap-2">
         <Link href={newHref} className={cn(buttonVariants({ size: "sm" }))}>
-          New assessment
+          {t("assessments.newAssessment")}
         </Link>
         <Link href={outcomesHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-          Outcomes
+          {t("assessments.outcomes")}
         </Link>
       </div>
     );
@@ -67,7 +64,7 @@ export function AssessmentsStaffToolbar({
   return (
     <div className="flex min-w-[min(100%,20rem)] flex-col gap-3 rounded-xl border border-border/80 bg-muted/20 p-4 dark:border-white/10 sm:min-w-0 sm:flex-row sm:flex-wrap sm:items-end">
       <div className="min-w-[200px] flex-1 space-y-1.5">
-        <Label htmlFor="hub-course">Course for new assessment &amp; outcomes</Label>
+        <Label htmlFor="hub-course">{t("assessments.courseForNewLabel")}</Label>
         <select
           id="hub-course"
           className="flex h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
@@ -83,10 +80,10 @@ export function AssessmentsStaffToolbar({
       </div>
       <div className="flex flex-wrap gap-2">
         <Link href={newHref} className={cn(buttonVariants({ size: "sm" }))}>
-          New assessment
+          {t("assessments.newAssessment")}
         </Link>
         <Link href={outcomesHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-          Outcomes
+          {t("assessments.outcomes")}
         </Link>
       </div>
     </div>

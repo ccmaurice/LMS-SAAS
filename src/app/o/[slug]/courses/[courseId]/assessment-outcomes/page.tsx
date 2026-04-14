@@ -20,9 +20,10 @@ import {
   assessmentOutcomeNeedsAttention,
 } from "@/lib/assessments/assessment-outcome-health";
 import { Badge } from "@/components/ui/badge";
+import { getServerT } from "@/i18n/server";
 
-function kindLabel(kind: "QUIZ" | "EXAM"): string {
-  return kind === "QUIZ" ? "Quiz" : "Exam";
+function kindLabel(kind: "QUIZ" | "EXAM", t: (key: string) => string): string {
+  return kind === "QUIZ" ? t("assessments.kindQuiz") : t("assessments.kindExam");
 }
 
 function filterChip(label: string, path: string, active: boolean) {
@@ -56,6 +57,7 @@ export default async function CourseAssessmentOutcomesPage({
 }) {
   const { slug, courseId } = await params;
   const sp = await searchParams;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) redirect("/login");
   if (!isStaffRole(user.role)) redirect(`/o/${slug}/courses/${courseId}`);
@@ -132,17 +134,10 @@ export default async function CourseAssessmentOutcomesPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="page-title">Assessment outcomes</h1>
+          <h1 className="page-title">{t("assessments.outcomesPageTitle")}</h1>
           <p className="text-muted-foreground">{course.title}</p>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Score % uses (total ÷ max) × 100 per <span className="text-foreground">submitted</span> attempt with a
-            positive max (<span className="text-foreground">Scored</span> attempts); raw attempt counts include all
-            submitted rows.
-            <span className="text-foreground"> Particip. %</span> is distinct students with at least one submission ÷
-            course enrollments ({enrolledCount} enrolled). <span className="text-foreground">Flags</span> highlight
-            published assessments with unusually low mean (≥5 scored attempts) or low participation (≥8 enrolled).
-            Use <span className="text-foreground">Needs attention</span> to narrow to those rows. Integrity counts are
-            all logged events for the assessment.
+            {t("assessments.outcomesExplainer").replace("%s", String(enrolledCount))}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -150,44 +145,56 @@ export default async function CourseAssessmentOutcomesPage({
             href={`/api/courses/${courseId}/assessment-outcomes-export${exportQs ? `?${exportQs}` : ""}`}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
           >
-            Download TSV
+            {t("assessments.downloadTsv")}
           </Link>
           <Link href={assessBase} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            All assessments
+            {t("assessments.allAssessmentsLink")}
           </Link>
         </div>
       </div>
 
       <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10">
-        <p className="text-xs font-medium text-muted-foreground">Filters</p>
+        <p className="text-xs font-medium text-muted-foreground">{t("assessments.filtersSection")}</p>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Visibility:</span>
+          <span className="text-xs text-muted-foreground">{t("assessments.visibilityLabel")}</span>
           {filterChip(
-            "All",
+            t("assessments.filterChipAll"),
             qs(mergeFilters({ show: "all" }, filters)),
             filters.show === "all",
           )}
           {filterChip(
-            "Published only",
+            t("assessments.filterPublishedOnly"),
             qs(mergeFilters({ show: "published" }, filters)),
             filters.show === "published",
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Kind:</span>
-          {filterChip("All kinds", qs(mergeFilters({ kind: "all" }, filters)), filters.kind === "all")}
-          {filterChip("Quizzes", qs(mergeFilters({ kind: "QUIZ" }, filters)), filters.kind === "QUIZ")}
-          {filterChip("Exams", qs(mergeFilters({ kind: "EXAM" }, filters)), filters.kind === "EXAM")}
+          <span className="text-xs text-muted-foreground">{t("assessments.kindLabelShort")}</span>
+          {filterChip(
+            t("assessments.filterAllKinds"),
+            qs(mergeFilters({ kind: "all" }, filters)),
+            filters.kind === "all",
+          )}
+          {filterChip(
+            t("assessments.filterQuizzes"),
+            qs(mergeFilters({ kind: "QUIZ" }, filters)),
+            filters.kind === "QUIZ",
+          )}
+          {filterChip(
+            t("assessments.filterExams"),
+            qs(mergeFilters({ kind: "EXAM" }, filters)),
+            filters.kind === "EXAM",
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Attention:</span>
+          <span className="text-xs text-muted-foreground">{t("assessments.attentionLabel")}</span>
           {filterChip(
-            "All",
+            t("assessments.filterChipAll"),
             qs(mergeFilters({ attention: "all" }, filters)),
             filters.attention === "all",
           )}
           {filterChip(
-            "Needs attention",
+            t("assessments.filterNeedsAttention"),
             qs(mergeFilters({ attention: "flagged" }, filters)),
             filters.attention === "flagged",
           )}
@@ -198,35 +205,35 @@ export default async function CourseAssessmentOutcomesPage({
         <table className="w-full min-w-[1180px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left dark:border-white/10">
-              <th className="px-3 py-2 font-medium">Assessment</th>
-              <th className="px-3 py-2 font-medium">Kind</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Delivery</th>
-              <th className="px-3 py-2 font-medium">Q</th>
-              <th className="px-3 py-2 font-medium">Pools</th>
-              <th className="px-3 py-2 font-medium">Attempts</th>
-              <th className="px-3 py-2 font-medium">Scored</th>
-              <th className="px-3 py-2 font-medium">Students</th>
-              <th className="px-3 py-2 font-medium">Particip.</th>
-              <th className="px-3 py-2 font-medium">Median %</th>
-              <th className="px-3 py-2 font-medium">Mean %</th>
-              <th className="px-3 py-2 font-medium">Flags</th>
-              <th className="px-3 py-2 font-medium">Range</th>
-              <th className="px-3 py-2 font-medium">Integrity</th>
-              <th className="px-3 py-2 font-medium">Actions</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colAssessment")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colKind")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colStatus")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colDelivery")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colQ")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colPools")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colAttempts")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colScored")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colStudents")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colParticip")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colMedianPercent")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colMeanPercent")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colFlags")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colRange")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colIntegrity")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.colActions")}</th>
             </tr>
           </thead>
           <tbody>
             {assessments.length === 0 ? (
               <tr>
                 <td colSpan={16} className="px-3 py-8 text-center text-muted-foreground">
-                  No assessments match these filters.
+                  {t("assessments.emptyOutcomesNoMatch")}
                 </td>
               </tr>
             ) : tableRows.length === 0 ? (
               <tr>
                 <td colSpan={16} className="px-3 py-8 text-center text-muted-foreground">
-                  No assessments need attention with the current visibility and kind filters.
+                  {t("assessments.emptyOutcomesNoAttention")}
                 </td>
               </tr>
             ) : (
@@ -249,17 +256,17 @@ export default async function CourseAssessmentOutcomesPage({
                 return (
                   <tr key={a.id} className="border-b border-border/80 dark:border-white/10">
                     <td className="px-3 py-2 font-medium">{a.title}</td>
-                    <td className="whitespace-nowrap px-3 py-2">{kindLabel(a.kind)}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{kindLabel(a.kind, t)}</td>
                     <td className="px-3 py-2">
                       <Badge variant={a.published ? "default" : "secondary"}>
-                        {a.published ? "Published" : "Draft"}
+                        {a.published ? t("assessments.statusPublished") : t("assessments.statusDraft")}
                       </Badge>
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
-                      {deliveryModeShortLabel(a.deliveryMode)}
+                      {deliveryModeShortLabel(a.deliveryMode, t)}
                     </td>
                     <td className="px-3 py-2 tabular-nums">{a.questions.length}</td>
-                    <td className="px-3 py-2">{usesPools ? "Yes" : "—"}</td>
+                    <td className="px-3 py-2">{usesPools ? t("assessments.yesShort") : "—"}</td>
                     <td className="px-3 py-2 tabular-nums">{summary.attemptCount}</td>
                     <td className="px-3 py-2 tabular-nums">{summary.scoredAttemptCount}</td>
                     <td className="px-3 py-2 tabular-nums">{summary.distinctStudents}</td>
@@ -276,12 +283,12 @@ export default async function CourseAssessmentOutcomesPage({
                       <div className="flex flex-wrap gap-1">
                         {health.lowMean ? (
                           <Badge variant="outline" className="border-amber-500/50 text-amber-900 dark:text-amber-100">
-                            Low mean
+                            {t("assessments.flagLowMean")}
                           </Badge>
                         ) : null}
                         {health.lowReach ? (
                           <Badge variant="outline" className="border-sky-500/50 text-sky-950 dark:text-sky-100">
-                            Low reach
+                            {t("assessments.flagLowReach")}
                           </Badge>
                         ) : null}
                         {!health.lowMean && !health.lowReach ? (
@@ -308,20 +315,20 @@ export default async function CourseAssessmentOutcomesPage({
                           href={`${assessBase}/${a.id}/item-analysis`}
                           className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
                         >
-                          Items
+                          {t("assessments.itemsShort")}
                         </Link>
                         <Link
                           href={`${assessBase}/${a.id}/gradebook`}
                           className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
                         >
-                          Gradebook
+                          {t("assessments.gradebook")}
                         </Link>
                         {a.deliveryMode !== "FORMATIVE" ? (
                           <Link
                             href={`${assessBase}/${a.id}/integrity`}
                             className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
                           >
-                            Log
+                            {t("assessments.logShort")}
                           </Link>
                         ) : null}
                       </div>
@@ -335,7 +342,7 @@ export default async function CourseAssessmentOutcomesPage({
       </div>
 
       <Link href={base} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-        ← Course
+        {t("assessments.outcomesBackToCourse")}
       </Link>
     </div>
   );

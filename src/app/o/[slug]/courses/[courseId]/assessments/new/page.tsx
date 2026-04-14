@@ -7,6 +7,7 @@ import { isStaffRole } from "@/lib/courses/access";
 import { NewAssessmentForm } from "@/components/assessments/new-assessment-form";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { getServerT } from "@/i18n/server";
 
 export default async function NewAssessmentPage({
   params,
@@ -14,6 +15,7 @@ export default async function NewAssessmentPage({
   params: Promise<{ slug: string; courseId: string }>;
 }) {
   const { slug, courseId } = await params;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) redirect("/login");
   if (!isStaffRole(user.role)) redirect(`/o/${slug}/courses/${courseId}/assessments`);
@@ -30,9 +32,9 @@ export default async function NewAssessmentPage({
         href={`/o/${slug}/courses/${courseId}/assessments`}
         className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
       >
-        ← Assessments
+        {t("assessments.navBackToList")}
       </Link>
-      <h1 className="page-title">New assessment</h1>
+      <h1 className="page-title">{t("assessments.newAssessmentPageTitle")}</h1>
       <NewAssessmentForm courseId={courseId} orgSlug={slug} />
     </div>
   );

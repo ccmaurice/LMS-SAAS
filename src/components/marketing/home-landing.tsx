@@ -4,8 +4,8 @@ import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/i18n-provider";
+import { PublicUtilityToolbar } from "@/components/i18n/public-utility-toolbar";
 import { SchoolsCarousel, type SchoolCarouselItem } from "@/components/marketing/schools-carousel";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { HERO_BRAND_LOGO_IMG_CLASSES } from "@/lib/ui/brand-logo-classes";
@@ -36,7 +36,7 @@ export function HomeLanding({ schools, logoSrc, kicker, headline, subheadline, f
       <div className="pointer-events-none absolute -left-32 top-1/4 size-96 rounded-full bg-glow-spot/25 blur-3xl dark:bg-glow-spot/35" aria-hidden />
 
       <div className="absolute right-4 top-4 z-50 md:right-8 md:top-8">
-        <ThemeToggle />
+        <PublicUtilityToolbar />
       </div>
 
       <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-6 py-20 md:py-28">

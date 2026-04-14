@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 type DeptOpt = { id: string; name: string; code: string | null; facultyDivisionName: string | null };
 
@@ -15,6 +16,7 @@ export function CourseDepartmentPanel({
   courseId: string;
   allDepartments: DeptOpt[];
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [linkedIds, setLinkedIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,10 +52,10 @@ export function CourseDepartmentPanel({
       });
       const data = (await res.json()) as { error?: unknown };
       if (!res.ok) {
-        toast.error(typeof data.error === "string" ? data.error : "Could not link department");
+        toast.error(typeof data.error === "string" ? data.error : t("courses.departmentLink.errLink"));
         return;
       }
-      toast.success("Department linked");
+      toast.success(t("courses.departmentLink.toastLinked"));
       setPick("");
       await load();
       router.refresh();
@@ -70,10 +72,10 @@ export function CourseDepartmentPanel({
         { method: "DELETE", credentials: "include" },
       );
       if (!res.ok) {
-        toast.error("Could not remove link");
+        toast.error(t("courses.departmentLink.errRemove"));
         return;
       }
-      toast.success("Department unlinked");
+      toast.success(t("courses.departmentLink.toastUnlinked"));
       await load();
       router.refresh();
     } finally {
@@ -91,16 +93,13 @@ export function CourseDepartmentPanel({
   return (
     <div className="surface-bento space-y-4 p-5">
       <div>
-        <h2 className="text-lg font-medium">Departments taking this course</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Link academic departments so you can target assessments by department. Students still enroll
-          individually; visibility uses department affiliation.
-        </p>
+        <h2 className="text-lg font-medium">{t("courses.departmentLink.title")}</h2>
+        <p className="mt-1 text-sm text-muted-foreground">{t("courses.departmentLink.intro")}</p>
       </div>
       {loading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <p className="text-sm text-muted-foreground">{t("courses.departmentLink.loading")}</p>
       ) : linkedIds.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No departments linked yet.</p>
+        <p className="text-sm text-muted-foreground">{t("courses.departmentLink.empty")}</p>
       ) : (
         <ul className="space-y-2">
           {linkedIds.map((id) => {
@@ -112,7 +111,7 @@ export function CourseDepartmentPanel({
               >
                 <span>{d ? deptLabel(d) : id}</span>
                 <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void remove(id)}>
-                  Remove
+                  {t("courses.departmentLink.remove")}
                 </Button>
               </li>
             );
@@ -121,14 +120,14 @@ export function CourseDepartmentPanel({
       )}
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">
-          <Label htmlFor="add-dept">Add department</Label>
+          <Label htmlFor="add-dept">{t("courses.departmentLink.addLabel")}</Label>
           <select
             id="add-dept"
             className="flex h-9 min-w-[220px] rounded-md border border-input bg-background px-2 text-sm"
             value={pick}
             onChange={(e) => setPick(e.target.value)}
           >
-            <option value="">Choose…</option>
+            <option value="">{t("courses.departmentLink.choose")}</option>
             {available.map((d) => (
               <option key={d.id} value={d.id}>
                 {deptLabel(d)}
@@ -137,7 +136,7 @@ export function CourseDepartmentPanel({
           </select>
         </div>
         <Button type="button" disabled={busy || !pick} onClick={() => void add()}>
-          Link
+          {t("courses.departmentLink.link")}
         </Button>
       </div>
     </div>

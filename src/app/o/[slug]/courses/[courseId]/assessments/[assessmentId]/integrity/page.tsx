@@ -18,6 +18,7 @@ import {
 import { proctorEventTypeLabel } from "@/lib/assessments/proctoring-summary";
 import { IntegrityLogFilters } from "@/components/assessments/integrity-log-filters";
 import { ProctoringExcuseEventButton } from "@/components/assessments/proctoring-excuse-button";
+import { getServerT } from "@/i18n/server";
 
 export default async function AssessmentIntegrityPage({
   params,
@@ -28,6 +29,7 @@ export default async function AssessmentIntegrityPage({
 }) {
   const { slug, courseId, assessmentId } = await params;
   const sp = await searchParams;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) redirect("/login");
   if (!isStaffRole(user.role)) redirect(`/o/${slug}/courses/${courseId}/assessments`);
@@ -88,30 +90,26 @@ export default async function AssessmentIntegrityPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="page-title">Integrity log</h1>
+          <h1 className="page-title">{t("assessments.integrityLog")}</h1>
           <p className="mt-1 text-muted-foreground">{assessment.title}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Delivery mode: <span className="text-foreground">{deliveryModeShortLabel(assessment.deliveryMode)}</span>
+            {t("assessments.deliveryModeLabel")}{" "}
+            <span className="text-foreground">{deliveryModeShortLabel(assessment.deliveryMode, t)}</span>
             {assessment.deliveryMode === "FORMATIVE" ? (
-              <span className="block text-xs">
-                No new signals are accepted while the assessment is formative; older rows may remain from a previous
-                mode.
-              </span>
+              <span className="block text-xs">{t("assessments.formativeIntegrityNote")}</span>
             ) : null}
           </p>
-          <p className="mt-2 max-w-xl text-xs text-muted-foreground">
-            Excused rows stay in the log for audit but no longer count toward gradebook warnings or outcome totals.
-          </p>
+          <p className="mt-2 max-w-xl text-xs text-muted-foreground">{t("assessments.excusedAuditNote")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`${base}/${assessmentId}/gradebook`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            Gradebook
+            {t("assessments.gradebook")}
           </Link>
           <Link href={`${base}/${assessmentId}/item-analysis`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            Item analysis
+            {t("assessments.itemAnalysis")}
           </Link>
           <Link href={`${base}/${assessmentId}/edit`} className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}>
-            Edit
+            {t("courses.edit")}
           </Link>
         </div>
       </div>
@@ -132,21 +130,21 @@ export default async function AssessmentIntegrityPage({
         <table className="w-full min-w-[720px] border-collapse text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/40 text-left dark:border-white/10">
-              <th className="px-3 py-2 font-medium">Time (UTC)</th>
-              <th className="px-3 py-2 font-medium">Student</th>
-              <th className="px-3 py-2 font-medium">Submission</th>
-              <th className="px-3 py-2 font-medium">Event</th>
-              <th className="px-3 py-2 font-medium">Payload</th>
-              <th className="px-3 py-2 font-medium">Status</th>
-              <th className="px-3 py-2 font-medium">Excused</th>
-              <th className="px-3 py-2 font-medium text-right">Actions</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.integrityColTime")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.integrityColStudent")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.integrityColSubmission")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.integrityColEvent")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.integrityColPayload")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.integrityColStatus")}</th>
+              <th className="px-3 py-2 font-medium">{t("assessments.integrityColExcused")}</th>
+              <th className="px-3 py-2 font-medium text-right">{t("assessments.integrityColActions")}</th>
             </tr>
           </thead>
           <tbody>
             {events.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
-                  No integrity events match these filters.
+                  {t("assessments.integrityNoEvents")}
                 </td>
               </tr>
             ) : (
@@ -171,17 +169,17 @@ export default async function AssessmentIntegrityPage({
                     <td className="max-w-[140px] truncate px-3 py-2 font-mono text-xs text-muted-foreground">
                       {e.submissionId ?? "—"}
                     </td>
-                    <td className="px-3 py-2">{proctorEventTypeLabel(e.eventType)}</td>
+                    <td className="px-3 py-2">{proctorEventTypeLabel(e.eventType, t)}</td>
                     <td className="max-w-[200px] truncate px-3 py-2 font-mono text-xs text-muted-foreground">
                       {formatIntegrityPayloadForDisplay(e.payload)}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2">
                       {excused ? (
                         <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-800 dark:text-emerald-200">
-                          Excused
+                          {t("assessments.statusExcused")}
                         </span>
                       ) : (
-                        <span className="text-xs">Active</span>
+                        <span className="text-xs">{t("assessments.statusActive")}</span>
                       )}
                     </td>
                     <td className="max-w-[200px] px-3 py-2 text-xs">
@@ -217,22 +215,22 @@ export default async function AssessmentIntegrityPage({
       <div className="flex flex-wrap items-center justify-between gap-2">
         {prevHref ? (
           <Link href={prevHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            Previous page
+            {t("assessments.integrityPrevPage")}
           </Link>
         ) : (
-          <span className="text-sm text-muted-foreground">Previous page</span>
+          <span className="text-sm text-muted-foreground">{t("assessments.integrityPrevPage")}</span>
         )}
         {nextHref ? (
           <Link href={nextHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            Next page
+            {t("assessments.integrityNextPage")}
           </Link>
         ) : (
-          <span className="text-sm text-muted-foreground">Next page</span>
+          <span className="text-sm text-muted-foreground">{t("assessments.integrityNextPage")}</span>
         )}
       </div>
 
       <Link href={base} className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
-        ← All assessments
+        {t("assessments.navAllAssessments")}
       </Link>
     </div>
   );

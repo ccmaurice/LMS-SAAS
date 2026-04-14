@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 
 export function AssessmentStaffLockToggle({
@@ -11,6 +12,7 @@ export function AssessmentStaffLockToggle({
   assessmentId: string;
   initialLocked: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [locked, setLocked] = useState(initialLocked);
   const [busy, setBusy] = useState(false);
@@ -30,7 +32,7 @@ export function AssessmentStaffLockToggle({
       });
       if (!res.ok) {
         const d = (await res.json().catch(() => ({}))) as { error?: string };
-        window.alert(d.error ?? "Could not update lock");
+        window.alert(d.error ?? t("assessments.lockUpdateFailed"));
         return;
       }
       setLocked(next);
@@ -49,7 +51,7 @@ export function AssessmentStaffLockToggle({
       disabled={busy}
       onClick={() => void patch(!locked)}
     >
-      {busy ? "…" : locked ? "Unlock attempts" : "Lock attempts"}
+      {busy ? "…" : locked ? t("assessments.unlockAttempts") : t("assessments.lockAttempts")}
     </Button>
   );
 }

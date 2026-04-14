@@ -14,6 +14,7 @@ import { proctorEventTypeLabel } from "@/lib/assessments/proctoring-summary";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export function IntegrityLogFilters({
   integrityPath,
@@ -36,6 +37,7 @@ export function IntegrityLogFilters({
   currentPage: number;
   totalCount: number;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [student, setStudent] = useState(initialStudent);
   const [eventType, setEventType] = useState(initialEventType);
@@ -86,36 +88,36 @@ export function IntegrityLogFilters({
     <div className="space-y-4 rounded-xl border border-border bg-muted/20 p-4 dark:border-white/10">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1 sm:col-span-2">
-          <Label htmlFor="int-student">Student (name or email contains)</Label>
+          <Label htmlFor="int-student">{t("assessments.integrityFilterStudentLabel")}</Label>
           <Input
             id="int-student"
             value={student}
             onChange={(e) => setStudent(e.target.value)}
-            placeholder="Search…"
+            placeholder={t("assessments.integrityFilterStudentPlaceholder")}
           />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="int-event">Event type</Label>
+          <Label htmlFor="int-event">{t("assessments.integrityFilterEventType")}</Label>
           <select
             id="int-event"
             className="h-9 w-full rounded-lg border border-input bg-background px-2 text-sm"
             value={eventType}
             onChange={(e) => setEventType(e.target.value)}
           >
-            <option value="">All types</option>
-            {INTEGRITY_EVENT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {proctorEventTypeLabel(t)}
+            <option value="">{t("assessments.integrityFilterAllEventTypes")}</option>
+            {INTEGRITY_EVENT_TYPES.map((evt) => (
+              <option key={evt} value={evt}>
+                {proctorEventTypeLabel(evt, t)}
               </option>
             ))}
           </select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="int-from">From (UTC date)</Label>
+          <Label htmlFor="int-from">{t("assessments.integrityFilterFromUtc")}</Label>
           <Input id="int-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="int-to">To (UTC date)</Label>
+          <Label htmlFor="int-to">{t("assessments.integrityFilterToUtc")}</Label>
           <Input id="int-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
         <div className="flex items-end sm:col-span-2 lg:col-span-4">
@@ -125,22 +127,28 @@ export function IntegrityLogFilters({
               checked={hideExcused}
               onChange={(e) => setHideExcused(e.target.checked)}
             />
-            Hide excused events (show only active signals)
+            {t("assessments.integrityHideExcusedHint")}
           </label>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" onClick={() => applyFilters()}>
-          Apply filters
+          {t("assessments.applyFilters")}
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={() => clearFilters()}>
-          Clear
+          {t("assessments.clearFilters")}
         </Button>
         <Link href={exportHref} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-          Download TSV (filtered, max 15k)
+          {t("assessments.integrityDownloadTsv")}
         </Link>
         <span className="text-xs text-muted-foreground">
-          {totalCount} matching event{totalCount === 1 ? "" : "s"} · page {currentPage} of {totalPages}
+          {totalCount === 1
+            ? t("assessments.integrityOneMatchingEvent")
+            : t("assessments.integrityNMatchingEvents").replace("%s", String(totalCount))}{" "}
+          ·{" "}
+          {t("assessments.integrityPageLine")
+            .replace("%s", String(currentPage))
+            .replace("%s", String(totalPages))}
         </span>
       </div>
     </div>
