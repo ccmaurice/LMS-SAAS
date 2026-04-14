@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
+import { WhatsappSupportFab } from "@/components/support/whatsapp-support-fab";
 import { ThemeProvider } from "@/components/theme-provider";
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -11,23 +12,36 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider>
       <I18nProvider>
         {children}
-        <PublicLocaleFab />
+        <FloatingCornerActions />
         <Toaster richColors position="top-center" closeButton />
       </I18nProvider>
     </ThemeProvider>
   );
 }
 
-/** Language control on pages without org/platform header controls. */
-function PublicLocaleFab() {
+/**
+ * Bottom-end stack: optional locale toolbar (public routes) + WhatsApp support.
+ * WhatsApp sits closest to the corner; locale sits above when shown.
+ */
+function FloatingCornerActions() {
   const path = usePathname() ?? "";
-  if (path.startsWith("/o/")) return null;
-  if (path.startsWith("/platform")) return null;
-  if (path === "/" || path === "/login" || path.startsWith("/register")) return null;
+  const showLocaleToolbar =
+    !path.startsWith("/o/") &&
+    !path.startsWith("/platform") &&
+    path !== "/" &&
+    path !== "/login" &&
+    !path.startsWith("/register");
 
   return (
-    <div className="fixed bottom-4 end-4 z-[200] print:hidden">
-      <LocaleSwitcher layout="toolbar" />
+    <div className="pointer-events-none fixed bottom-4 end-4 z-[200] flex flex-col items-end gap-3 print:hidden">
+      {showLocaleToolbar ? (
+        <div className="pointer-events-auto">
+          <LocaleSwitcher layout="toolbar" />
+        </div>
+      ) : null}
+      <div className="pointer-events-auto">
+        <WhatsappSupportFab />
+      </div>
     </div>
   );
 }
