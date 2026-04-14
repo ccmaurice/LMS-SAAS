@@ -16,3 +16,13 @@ export const LOCALE_LABELS: Record<UiLocale, string> = {
 export function isUiLocale(v: string): v is UiLocale {
   return (UI_LOCALES as readonly string[]).includes(v);
 }
+
+/** BCP 47 tags for `Intl` date/time formatting aligned with UI locale. */
+export const UI_LOCALE_TO_BCP47: Record<UiLocale, string> = {
+  en: "en-US",
+  fr: "fr-FR",
+  es: "es-ES",
+  de: "de-DE",
+  it: "it-IT",
+  pt: "pt-PT",
+};

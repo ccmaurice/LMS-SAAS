@@ -9,9 +9,11 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { getServerT } from "@/i18n/server";
 
 export default async function AdminUsersPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) redirect("/login");
   if (user.role !== "ADMIN") redirect(`/o/${slug}/dashboard`);
@@ -43,14 +45,11 @@ export default async function AdminUsersPage({ params }: { params: Promise<{ slu
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="page-title">Users & invites</h1>
-          <p className="mt-1 text-muted-foreground">
-            Invite teachers and students with a link. Suspend, edit roles, or remove members (teachers and students
-            only). Other school admins are managed from the platform console.
-          </p>
+          <h1 className="page-title">{t("orgPages.adminUsers.title")}</h1>
+          <p className="mt-1 text-muted-foreground">{t("orgPages.adminUsers.lead")}</p>
         </div>
         <Link href={`/o/${slug}/admin/school`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-          School settings
+          {t("orgPages.adminUsers.schoolSettings")}
         </Link>
       </div>
 
@@ -59,12 +58,12 @@ export default async function AdminUsersPage({ params }: { params: Promise<{ slu
       <ParentLinkForm parents={parentOptions} students={studentOptions} />
 
       <section className="space-y-3">
-        <h2 className="text-lg font-medium">Pending invites</h2>
+        <h2 className="text-lg font-medium">{t("orgPages.adminUsers.pendingInvites")}</h2>
         <PendingInvitesList invites={inviteRows} />
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-medium">Members ({users.length})</h2>
+        <h2 className="text-lg font-medium">{t("orgPages.adminUsers.membersCount").replace("%s", String(users.length))}</h2>
         <ul className="surface-bento divide-y divide-border/80 overflow-hidden dark:divide-white/10">
           {users.map((u) => (
             <li key={u.id} className="flex flex-wrap items-start justify-between gap-4 px-5 py-4">
@@ -72,7 +71,7 @@ export default async function AdminUsersPage({ params }: { params: Promise<{ slu
                 <p className="font-medium">{u.name?.trim() || u.email}</p>
                 <p className="text-sm text-muted-foreground">{u.email}</p>
                 {u.suspendedAt ? (
-                  <p className="mt-1 text-xs font-medium text-destructive">Suspended · sign-in disabled</p>
+                  <p className="mt-1 text-xs font-medium text-destructive">{t("orgPages.adminUsers.suspended")}</p>
                 ) : null}
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">

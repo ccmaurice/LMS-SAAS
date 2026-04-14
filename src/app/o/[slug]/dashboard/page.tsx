@@ -53,12 +53,8 @@ export default async function DashboardPage({
               where: { published: true, course: { organizationId: user.organizationId } },
             });
 
-  const assessmentsCardSubtitle =
-    user.role === "STUDENT"
-      ? "Published tests you can take in your enrolled courses (respects class or department targeting)."
-      : user.role === "PARENT"
-        ? "Unique published tests your linked children can access (combined across siblings)."
-        : undefined;
+  const assessmentsSubtitleMode =
+    user.role === "STUDENT" ? ("student" as const) : user.role === "PARENT" ? ("parent" as const) : undefined;
 
   const cmsPromise = prisma.cmsEntry.findMany({
     where: {
@@ -188,7 +184,7 @@ export default async function DashboardPage({
       cmsSubtitle={cms["dashboard.subtitle"]}
       enrollmentTotal={enrollmentTotal}
       publishedAssessments={publishedAssessments}
-      assessmentsCardSubtitle={assessmentsCardSubtitle}
+      assessmentsSubtitleMode={assessmentsSubtitleMode}
       teachingCount={teachingCount}
       draftCourses={draftCourses}
       staff={staff}

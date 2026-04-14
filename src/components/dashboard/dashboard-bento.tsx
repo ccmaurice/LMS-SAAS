@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { MessageCircle, MessagesSquare, FileChartColumn, Award, Home } from "lucide-react";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import type { DashboardCalendarItemJson } from "@/lib/calendar/dashboard-calendar-shared";
 import { DashboardSchoolCalendar } from "@/components/dashboard/dashboard-school-calendar";
+import { DASHBOARD_CMS_SEED_SUBTITLE, DASHBOARD_CMS_SEED_WELCOME } from "@/lib/dashboard/cms-dashboard-defaults";
 
 export type DashboardBentoProps = {
   slug: string;
@@ -18,8 +20,8 @@ export type DashboardBentoProps = {
   cmsSubtitle?: string;
   enrollmentTotal: number;
   publishedAssessments: number;
-  /** Overrides the small caption under the assessment count (e.g. student/parent targeting copy). */
-  assessmentsCardSubtitle?: string;
+  /** When set, use localized assessment card caption for student/parent; otherwise staff-style copy. */
+  assessmentsSubtitleMode?: "student" | "parent";
   teachingCount: number;
   draftCourses: number;
   staff: boolean;
@@ -86,8 +88,27 @@ function BentoCard({
 }
 
 export function DashboardBento(props: DashboardBentoProps) {
+  const { t } = useI18n();
   const base = `/o/${props.slug}`;
   const reduce = useReducedMotion();
+
+  const cmsWelcomeDisplay =
+    props.cmsWelcome &&
+    (props.cmsWelcome === DASHBOARD_CMS_SEED_WELCOME ? t("dashboard.cmsWelcomeDefault") : props.cmsWelcome);
+  const cmsSubtitleDisplay =
+    props.cmsSubtitle &&
+    (props.cmsSubtitle === DASHBOARD_CMS_SEED_SUBTITLE ? t("dashboard.cmsSubtitleDefault") : props.cmsSubtitle);
+
+  const assessmentsCaption =
+    props.assessmentsSubtitleMode === "student"
+      ? t("dashboard.assessmentsCard.student")
+      : props.assessmentsSubtitleMode === "parent"
+        ? t("dashboard.assessmentsCard.parent")
+        : props.studentScopedAssessments
+          ? t("dashboard.assessmentsCard.inEnrolled")
+          : t("dashboard.assessmentsCard.org");
+
+  const roleLabelKey = `shell.role.${props.userRole}` as const;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -103,34 +124,35 @@ export function DashboardBento(props: DashboardBentoProps) {
         />
         <nav
           className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
-          aria-label="Breadcrumb"
+          aria-label={t("dashboard.aria.breadcrumb")}
         >
           <Link
             href={base}
             className="inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-medium text-amber-800 transition-colors hover:bg-amber-500/10 hover:text-amber-950 dark:text-amber-200 dark:hover:bg-amber-500/15 dark:hover:text-amber-50"
           >
             <Home className="size-4 shrink-0" aria-hidden />
-            Home
+            {t("nav.home")}
           </Link>
           <span className="text-border" aria-hidden>
             /
           </span>
-          <span className="font-medium text-foreground">Dashboard</span>
+          <span className="font-medium text-foreground">{t("nav.dashboard")}</span>
         </nav>
-        <h1 className="page-title-lg">Dashboard</h1>
-        {props.cmsWelcome ? (
+        <h1 className="page-title-lg">{t("nav.dashboard")}</h1>
+        {cmsWelcomeDisplay ? (
           <p className="mt-3 text-balance text-lg font-medium tracking-tight text-foreground md:text-xl">
-            {props.cmsWelcome}
+            {cmsWelcomeDisplay}
           </p>
         ) : null}
-        {props.cmsSubtitle ? (
+        {cmsSubtitleDisplay ? (
           <p className="mt-2 max-w-2xl text-pretty whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-            {props.cmsSubtitle}
+            {cmsSubtitleDisplay}
           </p>
         ) : null}
         <p className="mt-4 text-sm text-muted-foreground">
-          Signed in as <span className="font-medium text-foreground">{props.userEmail}</span> (
-          {props.userRole.toLowerCase()}) in {props.orgName}.
+          {t("dashboard.signedInAs")}{" "}
+          <span className="font-medium text-foreground">{props.userEmail}</span> ({t(roleLabelKey)}){" "}
+          {t("dashboard.signedInIn")} {props.orgName}.
         </p>
       </motion.div>
 
@@ -146,12 +168,12 @@ export function DashboardBento(props: DashboardBentoProps) {
             <Home className="size-6" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">School home</p>
-            <h2 className="mt-1 text-lg font-semibold tracking-tight">Public family page</h2>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {t("dashboard.schoolHomeKicker")}
+            </p>
+            <h2 className="mt-1 text-lg font-semibold tracking-tight">{t("dashboard.publicFamilyTitle")}</h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-              Open the one-page site with hero, admissions, about us (and optional video), gallery, and contacts. School
-              admins manage copy and hero/video in <span className="font-medium text-foreground">Admin → CMS</span> and the
-              default hero image in <span className="font-medium text-foreground">School settings</span>.
+              {t("dashboard.publicFamilyBody")}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
@@ -160,11 +182,11 @@ export function DashboardBento(props: DashboardBentoProps) {
                 rel="noreferrer"
                 className={cn(buttonVariants({ variant: "default" }), "gap-2")}
               >
-                View public page
+                {t("dashboard.viewPublicPage")}
               </Link>
               {props.userRole === "ADMIN" ? (
                 <Link href={`${base}/admin/cms`} className={cn(buttonVariants({ variant: "outline" }))}>
-                  Edit in CMS
+                  {t("dashboard.editInCms")}
                 </Link>
               ) : null}
             </div>
@@ -174,33 +196,28 @@ export function DashboardBento(props: DashboardBentoProps) {
 
       <div className="grid auto-rows-fr gap-4 md:grid-cols-4">
         <BentoCard className="p-5 md:col-span-1" delay={0.03}>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">My courses</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("dashboard.myCourses")}</p>
           <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight">{props.enrollmentTotal}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Enrolled (showing up to 6)</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("dashboard.enrolledCaption")}</p>
         </BentoCard>
         <BentoCard className="p-5 md:col-span-1" delay={0.06}>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quizzes live</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("dashboard.quizzesLive")}</p>
           <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight">{props.publishedAssessments}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {props.assessmentsCardSubtitle ??
-              (props.studentScopedAssessments ? "In your enrolled courses" : "Across your organization")}
-          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{assessmentsCaption}</p>
         </BentoCard>
         {props.staff ? (
           <BentoCard className="p-5 md:col-span-2" delay={0.09}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Your catalog</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("dashboard.yourCatalog")}</p>
             <p className="mt-2 text-3xl font-semibold tabular-nums tracking-tight">{props.teachingCount}</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {props.draftCourses} draft{props.draftCourses === 1 ? "" : "s"}
+              {props.draftCourses}{" "}
+              {props.draftCourses === 1 ? t("dashboard.draft") : t("dashboard.drafts")}
             </p>
           </BentoCard>
         ) : (
           <BentoCard className="p-5 md:col-span-2" delay={0.09}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Quick tip</p>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Press <kbd className="rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-xs">⌘K</kbd> to
-              search and jump anywhere.
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("dashboard.quickTip")}</p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t("dashboard.quickTipCmdK")}</p>
           </BentoCard>
         )}
       </div>
@@ -209,14 +226,11 @@ export function DashboardBento(props: DashboardBentoProps) {
         <BentoCard className="flex flex-col p-0" delay={0.04}>
           <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3 dark:border-white/10">
             <MessagesSquare className="size-4 text-muted-foreground" aria-hidden />
-            <h2 className="text-sm font-semibold tracking-tight">School wall</h2>
+            <h2 className="text-sm font-semibold tracking-tight">{t("dashboard.schoolWall")}</h2>
           </div>
           <div className="flex flex-1 flex-col gap-2 p-4">
             {props.recentSchoolMessages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nothing posted yet. Say hello to everyone in your school — students, teachers, and admins share this
-                thread.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("dashboard.schoolWallEmpty")}</p>
             ) : (
               <ul className="space-y-3 text-sm">
                 {props.recentSchoolMessages.map((m) => (
@@ -229,7 +243,7 @@ export function DashboardBento(props: DashboardBentoProps) {
                         <p className="text-xs text-muted-foreground">{m.authorLabel}</p>
                         {m.isPlatform ? (
                           <Badge variant="secondary" className="px-1 py-0 text-[9px]">
-                            Platform
+                            {t("dashboard.platformBadge")}
                           </Badge>
                         ) : null}
                       </div>
@@ -246,7 +260,7 @@ export function DashboardBento(props: DashboardBentoProps) {
               href={`${base}/messages`}
               className={cn(buttonVariants({ variant: "default", size: "sm" }), "mt-auto w-full justify-center")}
             >
-              Open messages
+              {t("dashboard.openMessages")}
             </Link>
           </div>
         </BentoCard>
@@ -254,14 +268,12 @@ export function DashboardBento(props: DashboardBentoProps) {
         <BentoCard className="flex flex-col p-0" delay={0.05}>
           <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3 dark:border-white/10">
             <MessageCircle className="size-4 text-muted-foreground" aria-hidden />
-            <h2 className="text-sm font-semibold tracking-tight">Course discussions</h2>
+            <h2 className="text-sm font-semibold tracking-tight">{t("dashboard.courseDiscussions")}</h2>
           </div>
           <div className="flex flex-1 flex-col gap-2 p-4">
             {props.recentDiscussions.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                {props.staff
-                  ? "No discussion posts yet. Chat appears on each course page."
-                  : "Enroll in a course to see and join discussions."}
+                {props.staff ? t("dashboard.discussionsEmptyStaff") : t("dashboard.discussionsEmptyStudent")}
               </p>
             ) : (
               <ul className="space-y-3 text-sm">
@@ -287,7 +299,7 @@ export function DashboardBento(props: DashboardBentoProps) {
               href={`${base}/courses`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-auto w-full justify-center")}
             >
-              Go to courses
+              {t("dashboard.goToCourses")}
             </Link>
           </div>
         </BentoCard>
@@ -295,13 +307,11 @@ export function DashboardBento(props: DashboardBentoProps) {
         <BentoCard className="flex flex-col p-0" delay={0.07}>
           <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3 dark:border-white/10">
             <FileChartColumn className="size-4 text-muted-foreground" aria-hidden />
-            <h2 className="text-sm font-semibold tracking-tight">Report card</h2>
+            <h2 className="text-sm font-semibold tracking-tight">{t("shell.reportCard")}</h2>
           </div>
           <div className="flex flex-1 flex-col gap-2 p-4">
             {props.reportPreview.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No graded submissions yet. Complete assessments from your courses to build your report card.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("dashboard.reportCardEmpty")}</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {props.reportPreview.map((r) => (
@@ -313,7 +323,7 @@ export function DashboardBento(props: DashboardBentoProps) {
                       <p className="font-medium leading-tight">{r.assessmentTitle}</p>
                       <p className="text-xs text-muted-foreground">{r.courseTitle}</p>
                       <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                        Score {scoreLabel(r.totalScore, r.maxScore)}
+                        {t("dashboard.score")} {scoreLabel(r.totalScore, r.maxScore)}
                       </p>
                     </Link>
                   </li>
@@ -324,7 +334,7 @@ export function DashboardBento(props: DashboardBentoProps) {
               href={`${base}/report-card`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-auto w-full justify-center")}
             >
-              Full report card
+              {t("dashboard.fullReportCard")}
             </Link>
           </div>
         </BentoCard>
@@ -332,18 +342,13 @@ export function DashboardBento(props: DashboardBentoProps) {
         <BentoCard className="flex flex-col p-0" delay={0.09}>
           <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3 dark:border-white/10">
             <Award className="size-4 text-muted-foreground" aria-hidden />
-            <h2 className="text-sm font-semibold tracking-tight">Certificates</h2>
+            <h2 className="text-sm font-semibold tracking-tight">{t("nav.certificates")}</h2>
           </div>
           <div className="flex flex-1 flex-col gap-2 p-4">
             {props.staff ? (
-              <p className="text-sm text-muted-foreground">
-                Completion certificates are for students who finish all lessons in a course. See the Certificates page
-                for details.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("dashboard.certificatesStaff")}</p>
             ) : props.certificates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Complete every lesson in an enrolled course to unlock a certificate of completion.
-              </p>
+              <p className="text-sm text-muted-foreground">{t("dashboard.certificatesEmpty")}</p>
             ) : (
               <ul className="space-y-2 text-sm">
                 {props.certificates.slice(0, 4).map((c) => (
@@ -353,7 +358,7 @@ export function DashboardBento(props: DashboardBentoProps) {
                       className="flex items-center justify-between gap-2 rounded-lg border border-transparent px-1 py-1.5 transition-colors hover:border-border/80 hover:bg-muted/30 dark:hover:border-white/10"
                     >
                       <span className="min-w-0 truncate font-medium">{c.courseTitle}</span>
-                      <span className="shrink-0 text-xs font-medium text-primary">View</span>
+                      <span className="shrink-0 text-xs font-medium text-primary">{t("dashboard.view")}</span>
                     </Link>
                   </li>
                 ))}
@@ -363,7 +368,7 @@ export function DashboardBento(props: DashboardBentoProps) {
               href={`${base}/certificates`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-auto w-full justify-center")}
             >
-              All certificates
+              {t("dashboard.allCertificates")}
             </Link>
           </div>
         </BentoCard>
@@ -373,7 +378,7 @@ export function DashboardBento(props: DashboardBentoProps) {
         <section className="grid gap-4 lg:grid-cols-3">
           <div className="surface-bento lg:col-span-2">
             <h2 className="border-b border-border/60 px-5 py-4 text-sm font-semibold tracking-tight dark:border-white/10">
-              Continue learning
+              {t("dashboard.continueLearning")}
             </h2>
             <ul className="divide-y divide-border/60 dark:divide-white/10">
               {props.enrollments.map((e, i) => (
@@ -405,31 +410,31 @@ export function DashboardBento(props: DashboardBentoProps) {
             animate={reduce ? undefined : { opacity: 1, x: 0 }}
             transition={{ type: "spring", stiffness: 380, damping: 32, delay: 0.12 }}
           >
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shortcuts</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("dashboard.shortcuts")}</p>
             <div className="mt-2 flex flex-col gap-2">
               <Link href={`${base}/messages`} className={cn(buttonVariants(), "justify-center tracking-tight")}>
-                Messages
+                {t("nav.messages")}
               </Link>
               <Link href={`${base}/courses`} className={cn(buttonVariants({ variant: "outline" }), "justify-center tracking-tight")}>
-                Courses
+                {t("nav.courses")}
               </Link>
               <Link href={`${base}/assessments`} className={cn(buttonVariants({ variant: "outline" }), "justify-center")}>
-                Assessments
+                {t("nav.assessments")}
               </Link>
               <Link href={`${base}/report-card`} className={cn(buttonVariants({ variant: "outline" }), "justify-center")}>
-                Report card
+                {t("nav.reportCard")}
               </Link>
               <Link href={`${base}/certificates`} className={cn(buttonVariants({ variant: "outline" }), "justify-center")}>
-                Certificates
+                {t("nav.certificates")}
               </Link>
               <Link href={`${base}/settings`} className={cn(buttonVariants({ variant: "secondary" }), "justify-center")}>
-                Settings
+                {t("nav.settings")}
               </Link>
               <Link href={`${base}/blog`} className={cn(buttonVariants({ variant: "outline" }), "justify-center")}>
-                Blog
+                {t("nav.blog")}
               </Link>
               <Link href={`${base}/library`} className={cn(buttonVariants({ variant: "outline" }), "justify-center")}>
-                Library
+                {t("nav.library")}
               </Link>
             </div>
           </motion.div>
@@ -437,10 +442,10 @@ export function DashboardBento(props: DashboardBentoProps) {
       ) : (
         <div className="flex flex-wrap gap-2">
           <Link href={`${base}/courses`} className={cn(buttonVariants())}>
-            Browse courses
+            {t("dashboard.browseCourses")}
           </Link>
           <Link href={`${base}/library`} className={cn(buttonVariants({ variant: "outline" }))}>
-            Library
+            {t("nav.library")}
           </Link>
         </div>
       )}

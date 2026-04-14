@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { UI_LOCALE_TO_BCP47 } from "@/i18n/locales";
 import {
   defaultDashboardCalendarRange,
   type DashboardCalendarItemJson,
 } from "@/lib/calendar/dashboard-calendar-shared";
-
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
 const ACCENT_BORDER: Record<DashboardCalendarItemJson["accent"], string> = {
   emerald: "border-l-emerald-500",
@@ -77,6 +77,8 @@ export function DashboardSchoolCalendar({
   isAdmin: boolean;
   initialItems: DashboardCalendarItemJson[];
 }) {
+  const { t, locale } = useI18n();
+  const intlLocale = UI_LOCALE_TO_BCP47[locale];
   const base = `/o/${slug}`;
   const now = new Date();
   const [viewYear, setViewYear] = useState(now.getFullYear());
@@ -126,16 +128,18 @@ export function DashboardSchoolCalendar({
     [items, selected],
   );
 
-  const labelMonth = new Date(viewYear, viewMonth, 1).toLocaleString(undefined, {
+  const labelMonth = new Date(viewYear, viewMonth, 1).toLocaleString(intlLocale, {
     month: "long",
     year: "numeric",
   });
+
+  const weekdayLabels = useMemo(() => [0, 1, 2, 3, 4, 5, 6].map((i) => t(`dashboard.weekday.${i}`)), [t]);
 
   return (
     <section
       id="school-calendar"
       className="surface-bento scroll-mt-24 overflow-hidden p-0 md:p-0"
-      aria-label="School calendar"
+      aria-label={t("dashboard.calendar.title")}
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3 dark:border-white/10 md:px-5">
         <div className="flex items-center gap-2">
@@ -143,10 +147,8 @@ export function DashboardSchoolCalendar({
             <CalendarDays className="size-4" aria-hidden />
           </div>
           <div>
-            <h2 className="text-sm font-semibold tracking-tight">School calendar</h2>
-            <p className="text-xs text-muted-foreground">
-              Official dates, events, and dated quizzes &amp; exams (when staff set open/due times).
-            </p>
+            <h2 className="text-sm font-semibold tracking-tight">{t("dashboard.calendar.title")}</h2>
+            <p className="text-xs text-muted-foreground">{t("dashboard.calendar.lead")}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -155,14 +157,14 @@ export function DashboardSchoolCalendar({
               href={`${base}/admin/calendar`}
               className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
             >
-              Manage events
+              {t("dashboard.calendar.manageEvents")}
             </Link>
           ) : null}
           <div className="flex items-center gap-1">
             <button
               type="button"
               className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
-              aria-label="Previous month"
+              aria-label={t("dashboard.calendar.prevMonthAria")}
               onClick={onPrevMonth}
             >
               <ChevronLeft className="size-4" />
@@ -171,7 +173,7 @@ export function DashboardSchoolCalendar({
             <button
               type="button"
               className={cn(buttonVariants({ variant: "ghost", size: "icon" }))}
-              aria-label="Next month"
+              aria-label={t("dashboard.calendar.nextMonthAria")}
               onClick={onNextMonth}
             >
               <ChevronRight className="size-4" />
@@ -183,8 +185,8 @@ export function DashboardSchoolCalendar({
       <div className="grid gap-0 md:grid-cols-[minmax(0,1fr)_280px]">
         <div className="border-b border-border/60 p-3 dark:border-white/10 md:border-b-0 md:border-r">
           <div className="grid grid-cols-7 gap-px rounded-lg border border-border/60 bg-border/40 text-center text-[10px] font-medium uppercase tracking-wider text-muted-foreground dark:border-white/10">
-            {WEEKDAYS.map((d) => (
-              <div key={d} className="bg-background px-1 py-2">
+            {weekdayLabels.map((d, i) => (
+              <div key={i} className="bg-background px-1 py-2">
                 {d}
               </div>
             ))}
@@ -223,15 +225,15 @@ export function DashboardSchoolCalendar({
               );
             })}
           </div>
-          {loading ? <p className="mt-2 px-1 text-xs text-muted-foreground">Updating…</p> : null}
+          {loading ? <p className="mt-2 px-1 text-xs text-muted-foreground">{t("dashboard.calendar.updating")}</p> : null}
         </div>
 
         <div className="flex flex-col gap-2 p-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            {selected.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+            {selected.toLocaleDateString(intlLocale, { weekday: "long", month: "long", day: "numeric" })}
           </p>
           {itemsForSelected.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nothing scheduled this day.</p>
+            <p className="text-sm text-muted-foreground">{t("dashboard.calendar.nothingScheduled")}</p>
           ) : (
             <ul className="max-h-[min(50vh,22rem)] space-y-2 overflow-y-auto pr-1">
               {itemsForSelected.map((it) => {
@@ -247,9 +249,11 @@ export function DashboardSchoolCalendar({
                     {it.subtitle ? <p className="mt-0.5 text-xs text-muted-foreground">{it.subtitle}</p> : null}
                     <p className="mt-1 text-[10px] text-muted-foreground">
                       {it.allDay
-                        ? "All day"
-                        : `${new Date(it.startsAt).toLocaleTimeString(undefined, { timeStyle: "short" })}`}
-                      {it.source === "school" ? ` · School` : ` · ${it.kind === "DUE" ? "Due" : "Opens"}`}
+                        ? t("dashboard.calendar.allDay")
+                        : `${new Date(it.startsAt).toLocaleTimeString(intlLocale, { timeStyle: "short" })}`}
+                      {it.source === "school"
+                        ? ` · ${t("dashboard.calendar.sourceSchool")}`
+                        : ` · ${it.kind === "DUE" ? t("dashboard.calendar.kindDue") : t("dashboard.calendar.kindOpens")}`}
                     </p>
                   </div>
                 );
@@ -267,9 +271,7 @@ export function DashboardSchoolCalendar({
               })}
             </ul>
           )}
-          <p className="mt-auto pt-2 text-[10px] text-muted-foreground">
-            Change month to load a wider date window. Linked quizzes and exams respect class or department targeting.
-          </p>
+          <p className="mt-auto pt-2 text-[10px] text-muted-foreground">{t("dashboard.calendar.footerHint")}</p>
         </div>
       </div>
     </section>

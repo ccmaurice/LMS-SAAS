@@ -8,6 +8,7 @@ import { ReportCardView } from "@/components/report-card/report-card-view";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { getOrganizationLogoUrl } from "@/lib/org/org-logo";
+import { getServerT } from "@/i18n/server";
 
 export default async function ReportCardPage({
   params,
@@ -18,6 +19,7 @@ export default async function ReportCardPage({
 }) {
   const { slug } = await params;
   const sp = await searchParams;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) redirect("/login");
 
@@ -56,11 +58,11 @@ export default async function ReportCardPage({
       return (
         <div className="mx-auto max-w-4xl space-y-8">
           <div>
-            <h1 className="page-title">Report card</h1>
-            <p className="mt-1 text-sm text-muted-foreground">No student is linked to your parent account yet.</p>
+            <h1 className="page-title">{t("nav.reportCard")}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{t("orgPages.reportCard.parentNoStudent")}</p>
           </div>
           <Link href={`${base}/dashboard`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            ← Dashboard
+            {t("orgPages.backDashboard")}
           </Link>
         </div>
       );
@@ -85,20 +87,18 @@ export default async function ReportCardPage({
       <div className="mx-auto max-w-4xl space-y-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="page-title">Report card</h1>
+            <h1 className="page-title">{t("nav.reportCard")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              {user.role === "PARENT"
-                ? "Submitted assessments and scores for your linked student."
-                : "Submitted assessments and scores across your courses."}
+              {user.role === "PARENT" ? t("orgPages.reportCard.subtitleParent") : t("orgPages.reportCard.subtitleStudent")}
             </p>
           </div>
           <Link href={`${base}/dashboard`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            ← Dashboard
+            {t("orgPages.backDashboard")}
           </Link>
         </div>
         <div className="surface-bento p-8 text-center text-sm text-muted-foreground">
-          Report cards are not published right now. Your school administrator can turn them on under{" "}
-          <span className="font-medium text-foreground">Admin → School settings</span>.
+          {t("orgPages.reportCard.notPublishedBlurb")}{" "}
+          <span className="font-medium text-foreground">{t("orgPages.reportCard.notPublishedAdminHint")}</span>.
         </div>
       </div>
     );
@@ -137,29 +137,27 @@ export default async function ReportCardPage({
       <div className="mx-auto max-w-4xl space-y-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="page-title">Report card</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Submitted assessments and scores across your courses in this organization.
-            </p>
+            <h1 className="page-title">{t("nav.reportCard")}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{t("orgPages.reportCard.emptySubtitle")}</p>
           </div>
           <Link href={`${base}/dashboard`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            ← Dashboard
+            {t("orgPages.backDashboard")}
           </Link>
         </div>
         <div className="surface-bento space-y-3 p-8 text-center text-sm text-muted-foreground">
           <p>
-            No submitted assessments yet.{" "}
+            {t("orgPages.reportCard.noSubmissions")}{" "}
             <Link href={`${base}/assessments`} className="font-medium text-primary underline-offset-4 hover:underline">
-              Open assessments
+              {t("orgPages.reportCard.openAssessments")}
             </Link>{" "}
-            from a course you are enrolled in.
+            {t("orgPages.reportCard.fromEnrolledCourse")}
           </p>
           {orgPub?.educationLevel === "HIGHER_ED" ? (
             <p>
               <Link href={`${base}/transcript`} className="font-medium text-primary underline-offset-4 hover:underline">
-                View transcript &amp; GPA
+                {t("orgPages.reportCard.viewTranscriptGpa")}
               </Link>{" "}
-              (course enrollments and credit hours).
+              {t("orgPages.reportCard.transcriptGpaSuffix")}
             </p>
           ) : null}
         </div>
@@ -171,7 +169,7 @@ export default async function ReportCardPage({
     <div className="mx-auto max-w-4xl space-y-4 print:max-w-none">
       {user.role === "PARENT" && parentChildren.length > 1 ? (
         <div className="flex flex-wrap gap-2 text-sm">
-          <span className="text-muted-foreground">Student:</span>
+          <span className="text-muted-foreground">{t("orgPages.reportCard.studentLabel")}</span>
           {parentChildren.map((c) => (
             <Link
               key={c.id}

@@ -19,6 +19,7 @@ if (preservedDirectUrl !== undefined) {
 }
 
 import { hashPassword } from "../src/lib/auth/password";
+import { DASHBOARD_CMS_SEED_SUBTITLE, DASHBOARD_CMS_SEED_WELCOME } from "../src/lib/dashboard/cms-dashboard-defaults";
 import { GLOBAL_QUESTION_BANK_SEED } from "./question-bank-seed-data";
 
 async function main() {
@@ -45,18 +46,18 @@ async function main() {
 
   await prisma.cmsEntry.upsert({
     where: { organizationId_key: { organizationId: org.id, key: "dashboard.welcome" } },
-    create: { organizationId: org.id, key: "dashboard.welcome", value: "Welcome back — keep up the great work." },
-    update: { value: "Welcome back — keep up the great work." },
+    create: { organizationId: org.id, key: "dashboard.welcome", value: DASHBOARD_CMS_SEED_WELCOME },
+    update: { value: DASHBOARD_CMS_SEED_WELCOME },
   });
   await prisma.cmsEntry.upsert({
     where: { organizationId_key: { organizationId: org.id, key: "dashboard.subtitle" } },
     create: {
       organizationId: org.id,
       key: "dashboard.subtitle",
-      value: "Headlines here are editable by admins under CMS — no redeploy required.",
+      value: DASHBOARD_CMS_SEED_SUBTITLE,
     },
     update: {
-      value: "Headlines here are editable by admins under CMS — no redeploy required.",
+      value: DASHBOARD_CMS_SEED_SUBTITLE,
     },
   });
 

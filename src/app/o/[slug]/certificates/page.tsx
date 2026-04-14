@@ -6,6 +6,7 @@ import { isStaffRole } from "@/lib/courses/access";
 import { getEligibleCertificates, getEligibleCertificatesForStudent } from "@/lib/dashboard/insights";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
+import { getServerT } from "@/i18n/server";
 
 export default async function CertificatesPage({
   params,
@@ -16,6 +17,7 @@ export default async function CertificatesPage({
 }) {
   const { slug } = await params;
   const sp = await searchParams;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) redirect("/login");
 
@@ -42,14 +44,11 @@ export default async function CertificatesPage({
       return (
         <div className="mx-auto max-w-2xl space-y-8">
           <div>
-            <h1 className="page-title">Certificates</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              No student is linked to your parent account yet. Ask a school administrator to connect your account to your
-              child&apos;s student profile.
-            </p>
+            <h1 className="page-title">{t("nav.certificates")}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{t("orgPages.cert.parentNoStudent")}</p>
           </div>
           <Link href={`${base}/dashboard`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            ← Dashboard
+            {t("orgPages.backDashboard")}
           </Link>
         </div>
       );
@@ -79,30 +78,30 @@ export default async function CertificatesPage({
     <div className="mx-auto max-w-2xl space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="page-title">Certificates</h1>
+          <h1 className="page-title">{t("nav.certificates")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {staff
-              ? "Certificates are issued to students who complete every lesson in an enrolled course."
+              ? t("orgPages.cert.introStaff")
               : user.role === "PARENT"
-                ? "Courses where your linked student has completed all lessons. Open a certificate to print or save as PDF."
-                : "Courses where you have completed all lessons. Open a certificate to print or save as PDF."}
+                ? t("orgPages.cert.introParent")
+                : t("orgPages.cert.introStudent")}
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
-            Third parties can confirm a credential on the{" "}
+            {t("orgPages.cert.verifyLead")}{" "}
             <Link href={`/school/${encodeURIComponent(slug)}/verify-certificate`} className="underline-offset-4 hover:underline">
-              public verification page
+              {t("orgPages.cert.verifyLink")}
             </Link>
-            .
+            {t("orgPages.cert.verifyTail")}
           </p>
         </div>
         <Link href={`${base}/dashboard`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-          ← Dashboard
+          {t("orgPages.backDashboard")}
         </Link>
       </div>
 
       {user.role === "PARENT" && parentChildren.length > 1 ? (
         <div className="flex flex-wrap gap-2 text-sm">
-          <span className="text-muted-foreground">Student:</span>
+          <span className="text-muted-foreground">{t("orgPages.cert.studentLabel")}</span>
           {parentChildren.map((c) => (
             <Link
               key={c.id}
@@ -121,19 +120,15 @@ export default async function CertificatesPage({
       ) : null}
 
       {staff ? (
-        <div className="surface-bento p-6 text-sm text-muted-foreground">
-          Switch to a student account or enroll as a student to earn completion certificates.
-        </div>
+        <div className="surface-bento p-6 text-sm text-muted-foreground">{t("orgPages.cert.staffHint")}</div>
       ) : !orgPub?.certificatesPublished ? (
         <div className="surface-bento p-8 text-center text-sm text-muted-foreground">
-          Certificates are not published for students right now. Your school administrator can enable them under{" "}
-          <span className="font-medium text-foreground">Admin → School settings</span>.
+          {t("orgPages.cert.notPublished")}{" "}
+          <span className="font-medium text-foreground">{t("orgPages.reportCard.notPublishedAdminHint")}</span>.
         </div>
       ) : eligible.length === 0 ? (
         <div className="surface-bento p-8 text-center text-sm text-muted-foreground">
-          {user.role === "PARENT"
-            ? "No certificates yet for this student. When they finish every lesson in an enrolled course, it will appear here."
-            : "No certificates yet. Finish every lesson in a course you are enrolled in, then return here."}
+          {user.role === "PARENT" ? t("orgPages.cert.emptyParent") : t("orgPages.cert.emptyStudent")}
         </div>
       ) : (
         <ul className="space-y-3">
@@ -146,9 +141,7 @@ export default async function CertificatesPage({
                 className="surface-bento flex items-center justify-between gap-4 p-5 transition-colors hover:border-primary/30"
               >
                 <span className="font-medium tracking-tight">{c.courseTitle}</span>
-                <span className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>
-                  View certificate
-                </span>
+                <span className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>{t("orgPages.cert.viewCertificate")}</span>
               </Link>
             </li>
           ))}

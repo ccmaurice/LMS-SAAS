@@ -2,11 +2,13 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getEducationContext } from "@/lib/education_context";
+import { getServerT } from "@/i18n/server";
 import { ProfileAvatarEditor } from "@/components/profile/profile-avatar-editor";
 import { ProfileForm } from "@/components/settings/profile-form";
 
 export default async function SettingsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+  const t = await getServerT();
   const user = await getCurrentUser();
   if (!user || user.organization.slug !== slug) {
     redirect("/login");
@@ -32,20 +34,19 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="page-title">Settings</h1>
-        <p className="mt-1 text-muted-foreground">Profile for {user.email}</p>
+        <h1 className="page-title">{t("nav.settings")}</h1>
+        <p className="mt-1 text-muted-foreground">{t("orgPages.settings.profileFor").replace("%s", user.email)}</p>
       </div>
       {user.role === "STUDENT" && (cohortRows.length > 0 || currentTerm) ? (
         <section className="surface-bento space-y-2 p-6">
-          <h2 className="text-lg font-semibold tracking-tight">School placement</h2>
+          <h2 className="text-lg font-semibold tracking-tight">{t("orgPages.settings.schoolPlacement")}</h2>
           {currentTerm ? (
             <p className="text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{termLabel}:</span> {currentTerm.label}
             </p>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No current {termLabel.toLowerCase()} is set yet. Your administrator can add one under Admin → Academic
-              terms.
+              {t("orgPages.settings.noCurrentTerm").replace("%s", termLabel.toLowerCase())}
             </p>
           )}
           {cohortRows.length > 0 ? (
@@ -63,14 +64,13 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              You are not assigned to a {classLabel.toLowerCase()} yet. Your administrator can add you under Admin →
-              Classes &amp; homerooms.
+              {t("orgPages.settings.notInClass").replace("%s", classLabel.toLowerCase())}
             </p>
           )}
         </section>
       ) : null}
       <section className="surface-bento p-6">
-        <h2 className="text-lg font-semibold tracking-tight">Profile</h2>
+        <h2 className="text-lg font-semibold tracking-tight">{t("orgPages.settings.profileSection")}</h2>
         <div className="mt-4 space-y-8">
           <ProfileAvatarEditor
             user={{
