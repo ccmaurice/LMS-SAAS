@@ -10,7 +10,22 @@ import { SchoolsCarousel, type SchoolCarouselItem } from "@/components/marketing
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
 import { HERO_BRAND_LOGO_IMG_CLASSES } from "@/lib/ui/brand-logo-classes";
-import type { LandingFeature } from "@/lib/platform/landing-defaults";
+import { DEFAULT_LANDING, DEFAULT_LANDING_FEATURES, type LandingFeature } from "@/lib/platform/landing-defaults";
+
+function resolveDefaultHeroString(value: string, fallback: string, messageKey: string, t: (key: string) => string) {
+  return value === fallback ? t(messageKey) : value;
+}
+
+function resolveDefaultFeatureItem(item: LandingFeature, index: number, t: (key: string) => string): LandingFeature {
+  const def = DEFAULT_LANDING_FEATURES[index];
+  if (!def || item.title !== def.title || item.body !== def.body) return item;
+  const n = index + 1;
+  return {
+    ...item,
+    title: t(`landing.feat${n}.title`),
+    body: t(`landing.feat${n}.body`),
+  };
+}
 
 export type HomeLandingProps = {
   schools: SchoolCarouselItem[];
@@ -23,6 +38,9 @@ export type HomeLandingProps = {
 
 export function HomeLanding({ schools, logoSrc, kicker, headline, subheadline, features }: HomeLandingProps) {
   const { t } = useI18n();
+  const kickerDisplay = resolveDefaultHeroString(kicker, DEFAULT_LANDING.kicker, "landing.defaultKicker", t);
+  const headlineDisplay = resolveDefaultHeroString(headline, DEFAULT_LANDING.headline, "landing.defaultHeadline", t);
+  const subheadlineDisplay = resolveDefaultHeroString(subheadline, DEFAULT_LANDING.subheadline, "landing.defaultSubheadline", t);
   const reduce = useReducedMotion();
   const [motionReady, setMotionReady] = useState(false);
   useEffect(() => {
@@ -53,12 +71,12 @@ export function HomeLanding({ schools, logoSrc, kicker, headline, subheadline, f
               <img src={logoSrc} alt="" className={HERO_BRAND_LOGO_IMG_CLASSES} />
             </div>
           ) : null}
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{kicker}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">{kickerDisplay}</p>
           <h1 className="mx-auto mt-4 max-w-3xl text-balance text-4xl font-semibold tracking-tighter sm:text-5xl md:text-6xl">
-            {headline}
+            {headlineDisplay}
           </h1>
           <p className="mx-auto mt-5 max-w-xl text-pretty text-sm leading-relaxed text-muted-foreground md:text-base">
-            {subheadline}
+            {subheadlineDisplay}
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Link href="/login" className={cn(buttonVariants({ size: "lg" }), "min-w-36 tracking-tight")}>
@@ -84,19 +102,22 @@ export function HomeLanding({ schools, logoSrc, kicker, headline, subheadline, f
           animate={runMotion ? { opacity: 1, y: 0 } : undefined}
           transition={{ type: "spring", stiffness: 340, damping: 30, delay: 0.08 }}
         >
-          {features.map((item, i) => (
-            <motion.div
-              key={`${item.title}-${i}`}
-              className={cn("surface-bento p-5 md:p-6", item.span)}
-              initial={runMotion ? { opacity: 0, y: 12 } : false}
-              animate={runMotion ? { opacity: 1, y: 0 } : undefined}
-              transition={{ delay: 0.1 + i * 0.05, type: "spring", stiffness: 400, damping: 32 }}
-              whileHover={runMotion ? { y: -3, transition: { type: "spring", stiffness: 500, damping: 25 } } : undefined}
-            >
-              <h2 className="text-sm font-semibold tracking-tight">{item.title}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.body}</p>
-            </motion.div>
-          ))}
+          {features.map((item, i) => {
+            const card = resolveDefaultFeatureItem(item, i, t);
+            return (
+              <motion.div
+                key={`${card.title}-${i}`}
+                className={cn("surface-bento p-5 md:p-6", card.span)}
+                initial={runMotion ? { opacity: 0, y: 12 } : false}
+                animate={runMotion ? { opacity: 1, y: 0 } : undefined}
+                transition={{ delay: 0.1 + i * 0.05, type: "spring", stiffness: 400, damping: 32 }}
+                whileHover={runMotion ? { y: -3, transition: { type: "spring", stiffness: 500, damping: 25 } } : undefined}
+              >
+                <h2 className="text-sm font-semibold tracking-tight">{card.title}</h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{card.body}</p>
+              </motion.div>
+            );
+          })}
         </motion.div>
 
         <MobileAppDownload />
