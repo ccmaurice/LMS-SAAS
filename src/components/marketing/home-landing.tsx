@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { PublicUtilityToolbar } from "@/components/i18n/public-utility-toolbar";
+import { MobileAppDownload } from "@/components/marketing/mobile-app-download";
 import { SchoolsCarousel, type SchoolCarouselItem } from "@/components/marketing/schools-carousel";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -98,7 +99,9 @@ export function HomeLanding({ schools, logoSrc, kicker, headline, subheadline, f
           ))}
         </motion.div>
 
-        <p className="mt-12 text-center text-xs text-muted-foreground">
+        <MobileAppDownload />
+
+        <p className="mt-10 text-center text-xs text-muted-foreground">
           <Link href="/api/health" className="underline-offset-4 hover:text-foreground hover:underline">
             {t("landing.apiHealth")}
           </Link>

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
+import { PwaRegisterServiceWorker } from "@/components/pwa/register-service-worker";
 import { WhatsappSupportFab } from "@/components/support/whatsapp-support-fab";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -11,6 +12,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider>
       <I18nProvider>
+        <PwaRegisterServiceWorker />
         {children}
         <FloatingCornerActions />
         <Toaster richColors position="top-center" closeButton />

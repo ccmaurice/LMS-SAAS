@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getOrganizationLogoUrl } from "@/lib/org/org-logo";
+import { MobileAppDownload } from "@/components/marketing/mobile-app-download";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { cn } from "@/lib/utils";
@@ -353,6 +354,10 @@ export default async function SchoolPublicPage({ params }: { params: Promise<{ s
           </Section>
         );
       })}
+
+      <div className="border-t border-border/60 px-6 py-12 dark:border-white/10">
+        <MobileAppDownload />
+      </div>
 
       <footer className="border-t border-border/60 py-10 text-center text-xs text-muted-foreground dark:border-white/10">
         <p>

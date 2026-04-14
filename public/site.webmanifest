@@ -2,37 +2,43 @@
   "name": "SkillTech LMS",
   "short_name": "SkillTech",
   "description": "Multi-tenant learning management platform",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
+  "lang": "en",
+  "dir": "ltr",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#fafafa",
   "theme_color": "#312e81",
+  "categories": ["education", "productivity"],
   "icons": [
     {
-      "src": "/icon-192.png?v=5",
+      "src": "/icon-192.png?v=6",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png?v=5",
+      "src": "/icon-512.png?v=6",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/icon-512.png?v=5",
+      "src": "/icon-512.png?v=6",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "/favicon.ico?v=5",
+      "src": "/favicon.ico?v=6",
       "sizes": "32x32",
       "type": "image/x-icon",
       "purpose": "any"
     },
     {
-      "src": "/brand-icon.svg?v=5",
+      "src": "/brand-icon.svg?v=6",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any"

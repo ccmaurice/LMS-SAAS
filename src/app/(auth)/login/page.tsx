@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { LoginForm } from "@/components/auth/login-form";
+import { MobileAppDownload } from "@/components/marketing/mobile-app-download";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function LoginSkeleton() {
@@ -25,8 +26,11 @@ export default function LoginPage() {
     process.env.NODE_ENV === "development" &&
     !envFlagDisabled(process.env.NEXT_PUBLIC_HIDE_DEMO_LOGIN_HINT);
   return (
-    <Suspense fallback={<LoginSkeleton />}>
-      <LoginForm showDemoHint={showDemoHint} />
-    </Suspense>
+    <>
+      <Suspense fallback={<LoginSkeleton />}>
+        <LoginForm showDemoHint={showDemoHint} />
+      </Suspense>
+      <MobileAppDownload compact />
+    </>
   );
 }
