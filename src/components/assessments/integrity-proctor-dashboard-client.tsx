@@ -10,7 +10,7 @@ type ProctorEvent = {
   createdAt: Date;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   payload: any;
-  user: { name: string; email: string };
+  user: { name: string | null; email: string };
   dismissedAt: Date | null;
 };
 
@@ -41,7 +41,7 @@ export function IntegrityProctorDashboardClient({
 
   // Unique list of students in the logs
   const studentsList = useMemo(() => {
-    const list = new Map<string, { name: string; email: string }>();
+    const list = new Map<string, { name: string | null; email: string }>();
     events.forEach((e) => {
       list.set(e.user.email, e.user);
     });
