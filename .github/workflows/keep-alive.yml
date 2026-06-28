@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install Dependencies
@@ -26,6 +26,11 @@ jobs:
         run: npm run postinstall
 
       - name: Run Keep-Alive Ping
-        run: npx tsx scripts/keep-alive.ts
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::DATABASE_URL is not set or empty in GitHub Secrets. Please add it under Repository Secrets."
+            exit 1
+          fi
+          npx tsx scripts/keep-alive.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

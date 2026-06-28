@@ -1,16 +1,23 @@
 import dotenv from "dotenv";
 import dotenvExpand from "dotenv-expand";
 import path from "node:path";
+import fs from "node:fs";
 
-// Load .env and .env.local variables
+// Load .env and .env.local variables only if they exist
 const envLocalPath = path.resolve(process.cwd(), ".env.local");
 const envPath = path.resolve(process.cwd(), ".env");
 
-const localEnv = dotenv.config({ path: envLocalPath });
-dotenvExpand.expand(localEnv);
+if (fs.existsSync(envLocalPath)) {
+  console.log("Loading .env.local");
+  const localEnv = dotenv.config({ path: envLocalPath });
+  dotenvExpand.expand(localEnv);
+}
 
-const mainEnv = dotenv.config({ path: envPath });
-dotenvExpand.expand(mainEnv);
+if (fs.existsSync(envPath)) {
+  console.log("Loading .env");
+  const mainEnv = dotenv.config({ path: envPath });
+  dotenvExpand.expand(mainEnv);
+}
 
 import { prisma } from "../src/lib/db";
 
