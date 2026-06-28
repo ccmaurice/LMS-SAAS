@@ -19,6 +19,7 @@ import { proctorEventTypeLabel } from "@/lib/assessments/proctoring-summary";
 import { IntegrityLogFilters } from "@/components/assessments/integrity-log-filters";
 import { ProctoringExcuseEventButton } from "@/components/assessments/proctoring-excuse-button";
 import { getServerT } from "@/i18n/server";
+import { IntegrityProctorDashboardClient } from "@/components/assessments/integrity-proctor-dashboard-client";
 
 export default async function AssessmentIntegrityPage({
   params,
@@ -113,6 +114,12 @@ export default async function AssessmentIntegrityPage({
           </Link>
         </div>
       </div>
+
+      <IntegrityProctorDashboardClient
+        initialEvents={events}
+        assessmentTitle={assessment.title}
+        assessmentId={assessmentId}
+      />
 
       <IntegrityLogFilters
         integrityPath={integrityPath}

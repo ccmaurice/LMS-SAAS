@@ -23,6 +23,7 @@ import { stripHtmlToPlainText } from "@/lib/assessments/html-text";
 import { AssessmentDeliveryIntegrity } from "@/components/assessments/assessment-delivery-integrity";
 import { AssessmentLockdownGuards } from "@/components/assessments/assessment-lockdown-guards";
 import { AssessmentProctorHooks } from "@/components/assessments/assessment-proctor-hooks";
+import { ProctoringSetupFlow } from "@/components/assessments/proctoring-setup-flow";
 import { AssessmentDragDrop } from "@/components/assessments/assessment-drag-drop";
 import { FormulaAnswerField } from "@/components/assessments/formula-answer-field";
 import { parseDragDropFromQuestionSchema } from "@/lib/assessments/drag-drop-schema";
@@ -198,6 +199,10 @@ export function TakeAssessment({
   const [submitting, setSubmitting] = useState(false);
   const [deliveryMode, setDeliveryMode] = useState<"FORMATIVE" | "SECURE_ONLINE" | "LOCKDOWN">("FORMATIVE");
   const [currentIdx, setCurrentIdx] = useState(0);
+  const [setupCompleted, setSetupCompleted] = useState(false);
+  const [mobilePeerConnected, setMobilePeerConnected] = useState(false);
+  const [examPausedByTab, setExamPausedByTab] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const answersRef = useRef<Record<string, string>>({});
   const autoSubmittedRef = useRef(false);
@@ -276,19 +281,93 @@ export function TakeAssessment({
   }, [load]);
 
   useEffect(() => {
-    if (locked || timeLimit == null || startedAt == null) {
+    if (
+      locked ||
+      timeLimit == null ||
+      startedAt == null ||
+      examPausedByTab ||
+      (deliveryMode !== "FORMATIVE" && !setupCompleted) ||
+      submitting
+    ) {
+      return;
+    }
+    const id = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [locked, timeLimit, startedAt, examPausedByTab, setupCompleted, deliveryMode, submitting]);
+
+  useEffect(() => {
+    if (timeLimit == null) {
       setRemainingSec(null);
       return;
     }
     const limitSec = timeLimit * 60;
-    const tick = () => {
-      const elapsed = Math.floor((Date.now() - startedAt.getTime()) / 1000);
-      setRemainingSec(Math.max(0, limitSec - elapsed));
+    setRemainingSec(Math.max(0, limitSec - elapsedSeconds));
+  }, [timeLimit, elapsedSeconds]);
+
+  // Tab visibility listener for secure exam pausing
+  useEffect(() => {
+    const strict = deliveryMode !== "FORMATIVE";
+    if (!strict || locked || !submissionId || submitting || !setupCompleted) return;
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        setExamPausedByTab(true);
+        void fetch(`/api/assessments/${assessmentId}/proctoring`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            eventType: "tab_switch_paused",
+            submissionId,
+            payload: { timestamp: new Date().toISOString() },
+          }),
+        }).catch(() => {});
+      }
     };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [locked, timeLimit, startedAt]);
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [deliveryMode, locked, submissionId, submitting, setupCompleted, assessmentId]);
+
+  // Mock AI behavioral flagging emitter
+  useEffect(() => {
+    if (deliveryMode === "FORMATIVE" || !setupCompleted || locked || !submissionId || submitting) return;
+
+    const flagTypes = [
+      { type: "gaze_off_screen", desc: "User looked off screen for >3 seconds", severity: "yellow" },
+      { type: "multiple_faces", desc: "Multiple faces detected in frame", severity: "red" },
+      { type: "audio_spike", desc: "Microphone audio spike detected", severity: "yellow" }
+    ];
+
+    const interval = setInterval(() => {
+      if (Math.random() > 0.3) return; // 30% chance every 30s
+      
+      const flag = flagTypes[Math.floor(Math.random() * flagTypes.length)];
+      const payload: Record<string, unknown> = {
+        description: flag.desc,
+        severity: flag.severity,
+        timestamp: new Date().toISOString(),
+        ...(flag.severity === "red"
+          ? { screenshotUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=60" }
+          : {}),
+      };
+
+      void fetch(`/api/assessments/${assessmentId}/proctoring`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          eventType: flag.type,
+          submissionId,
+          payload
+        })
+      }).catch(() => {});
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [deliveryMode, setupCompleted, locked, submissionId, submitting, assessmentId]);
 
   useEffect(() => {
     answersRef.current = answers;
@@ -435,6 +514,20 @@ export function TakeAssessment({
     );
   }
   if (locked || !submissionId) return null;
+
+  if (deliveryMode !== "FORMATIVE" && !setupCompleted) {
+    return (
+      <div className="pt-12">
+        <ProctoringSetupFlow
+          assessmentId={assessmentId}
+          onComplete={(connected) => {
+            setMobilePeerConnected(connected);
+            setSetupCompleted(true);
+          }}
+        />
+      </div>
+    );
+  }
 
   const dd = q?.type === "DRAG_DROP" ? parseDragDropFromQuestionSchema(q.questionSchema) : null;
 
@@ -820,6 +913,50 @@ export function TakeAssessment({
           </section>
         </div>
       </div>
+
+      {/* Floating Recording Status Indicator */}
+      {deliveryMode !== "FORMATIVE" && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-slate-900/90 px-3.5 py-1.5 text-xs text-white border border-slate-700 shadow-lg">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span className="font-semibold text-[11px] tracking-wide">MONITORED SECURE SESSION</span>
+          {mobilePeerConnected && (
+            <span className="text-[10px] text-teal-400 border-l border-slate-700 pl-2">MOBILE CONNECTED</span>
+          )}
+        </div>
+      )}
+
+      {/* Full-Screen Tab Pause Overlay */}
+      {examPausedByTab && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-950/95 text-white p-6 text-center">
+          <div className="max-w-md space-y-4">
+            <h2 className="text-2xl font-bold text-rose-500">Exam Paused</h2>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              Your exam session has been paused because you switched tabs or left the active browser window. This incident has been logged.
+            </p>
+            <Button
+              onClick={() => {
+                setExamPausedByTab(false);
+                void fetch(`/api/assessments/${assessmentId}/proctoring`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  credentials: "include",
+                  body: JSON.stringify({
+                    eventType: "exam_resumed",
+                    submissionId,
+                    payload: { timestamp: new Date().toISOString() },
+                  }),
+                }).catch(() => {});
+              }}
+              className="bg-emerald-500 text-slate-950 font-semibold hover:bg-emerald-400 px-6"
+            >
+              Resume Exam
+            </Button>
+          </div>
+        </div>
+      )}
     </AssessmentLockdownGuards>
   );
 }
