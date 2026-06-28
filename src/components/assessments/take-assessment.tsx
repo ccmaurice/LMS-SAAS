@@ -203,6 +203,7 @@ export function TakeAssessment({
   const [mobilePeerConnected, setMobilePeerConnected] = useState(false);
   const [examPausedByTab, setExamPausedByTab] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [studentEmail, setStudentEmail] = useState("");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const answersRef = useRef<Record<string, string>>({});
   const autoSubmittedRef = useRef(false);
@@ -215,9 +216,10 @@ export function TakeAssessment({
     autoSubmittedRef.current = false;
     setCurrentIdx(0);
     try {
-      const [aRes, sRes] = await Promise.all([
+      const [aRes, sRes, uRes] = await Promise.all([
         fetch(`/api/assessments/${assessmentId}`, { credentials: "include" }),
         fetch(`/api/assessments/${assessmentId}/submissions`, { method: "POST", credentials: "include" }),
+        fetch("/api/auth/me", { credentials: "include" }),
       ]);
       if (!aRes.ok) {
         setError(t("assessments.take.loadError"));
@@ -235,6 +237,15 @@ export function TakeAssessment({
       setTimeLimit(aData.assessment.timeLimitMinutes);
       setDeliveryMode(aData.assessment.deliveryMode ?? "FORMATIVE");
       setQuestions(aData.questions);
+
+      if (uRes.ok) {
+        try {
+          const uData = await uRes.json();
+          setStudentEmail(uData.user?.email || "");
+        } catch {
+          /* ignore */
+        }
+      }
 
       if (!sRes.ok) {
         try {
@@ -279,6 +290,34 @@ export function TakeAssessment({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Poll for proctor commands / prompts
+  useEffect(() => {
+    if (deliveryMode === "FORMATIVE" || !studentEmail || locked || !submissionId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/proctor/signal?action=get_command&studentEmail=${encodeURIComponent(studentEmail)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.command === "prompt_camera") {
+            alert("PROCTOR ALERT: The invigilator has requested that you check your webcam and microphone immediately. Please ensure your camera is enabled and visible.");
+          } else if (data.command === "force_camera") {
+            alert("PROCTOR WARNING: The invigilator has triggered a forced camera activation request. Accessing media streams...");
+            try {
+              await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            } catch (err) {
+              console.error("Forced camera stream activation failed:", err);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error checking proctor commands:", err);
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [deliveryMode, studentEmail, locked, submissionId]);
 
   useEffect(() => {
     if (

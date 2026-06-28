@@ -11,8 +11,37 @@ type RoomState = {
 
 const activeRooms = new Map<string, RoomState>();
 
+type ProctorCommand = {
+  studentEmail: string;
+  command: "prompt_camera" | "force_camera";
+  timestamp: number;
+};
+
+let activeCommands: ProctorCommand[] = [];
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
+  const action = searchParams.get("action")?.trim();
+
+  if (action === "get_command") {
+    const studentEmail = searchParams.get("studentEmail")?.trim();
+    if (!studentEmail) {
+      return NextResponse.json({ error: "studentEmail is required." }, { status: 400 });
+    }
+
+    const now = Date.now();
+    // Clean stale commands
+    activeCommands = activeCommands.filter((cmd) => now - cmd.timestamp < 15000);
+
+    const index = activeCommands.findIndex((cmd) => cmd.studentEmail === studentEmail);
+    if (index !== -1) {
+      const foundCmd = activeCommands[index];
+      activeCommands.splice(index, 1);
+      return NextResponse.json({ command: foundCmd.command });
+    }
+    return NextResponse.json({ command: null });
+  }
+
   const code = searchParams.get("code")?.trim();
   const role = searchParams.get("role")?.trim(); // "desktop" | "mobile"
 
@@ -52,9 +81,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { action, code, role, sdp, candidate } = body;
+  const { action, code, role, sdp, candidate, studentEmail, command } = body;
 
-  // 1. Create a new room code
+  // 1. Send Command (Proctor to Student)
+  if (action === "send_command") {
+    if (!studentEmail || !command) {
+      return NextResponse.json({ error: "studentEmail and command are required." }, { status: 400 });
+    }
+    activeCommands.push({
+      studentEmail,
+      command,
+      timestamp: Date.now(),
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  // 2. Create a new room code
   if (action === "create") {
     const newCode = Math.floor(100000 + Math.random() * 900000).toString();
     activeRooms.set(newCode, {
@@ -75,12 +117,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Room not found or expired." }, { status: 404 });
   }
 
-  // 2. Validate/join room
+  // 3. Validate/join room
   if (action === "join") {
     return NextResponse.json({ ok: true });
   }
 
-  // 3. Send SDP offer / answer
+  // 4. Send SDP offer / answer
   if (action === "sdp") {
     if (!role || !sdp) {
       return NextResponse.json({ error: "Role and sdp are required." }, { status: 400 });
@@ -93,7 +135,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // 4. Send ICE candidates
+  // 5. Send ICE candidates
   if (action === "candidate") {
     if (!role || !candidate) {
       return NextResponse.json({ error: "Role and candidate are required." }, { status: 400 });
@@ -106,7 +148,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // 5. Clean up/close room
+  // 6. Clean up/close room
   if (action === "close") {
     activeRooms.delete(code);
     return NextResponse.json({ ok: true });

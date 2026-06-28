@@ -216,6 +216,43 @@ export function IntegrityProctorDashboardClient({
     }, 1000);
   };
 
+  // Dispatch real-time invigilator prompts to candidate page
+  const sendProctorCommand = async (studentEmail: string, command: "prompt_camera" | "force_camera") => {
+    try {
+      const res = await fetch("/api/proctor/signal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "send_command",
+          studentEmail,
+          command,
+        }),
+      });
+      if (res.ok) {
+        const now = new Date();
+        const newEv: ProctorEvent = {
+          id: Math.random().toString(),
+          eventType: command === "prompt_camera" ? "proctor_prompt_camera" : "proctor_force_camera",
+          createdAt: now,
+          dismissedAt: null,
+          user: studentsList.find((s) => s.email === studentEmail) || {
+            name: studentEmail,
+            email: studentEmail,
+          },
+          payload: {
+            description: command === "prompt_camera" 
+              ? "Sent prompt to student to turn on camera and audio" 
+              : "Forced camera activation request on student screen",
+            severity: "yellow",
+          },
+        };
+        setEvents((prev) => [newEv, ...prev]);
+      }
+    } catch (err) {
+      console.error("Failed to dispatch proctor command:", err);
+    }
+  };
+
   // Risk calculation based on event history
   const riskAnalysis = useMemo(() => {
     if (studentEvents.length === 0)
@@ -390,6 +427,22 @@ export function IntegrityProctorDashboardClient({
                         REC ({recState.remaining}s)
                       </div>
                     )}
+                  </div>
+
+                  {/* Proctor Request Bar */}
+                  <div className="px-3 py-2 bg-muted/10 flex gap-2 border-t border-border/40">
+                    <button
+                      onClick={() => sendProctorCommand(stud.email, "prompt_camera")}
+                      className="flex-1 text-[9px] font-semibold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded py-1 transition-all"
+                    >
+                      Prompt Camera
+                    </button>
+                    <button
+                      onClick={() => sendProctorCommand(stud.email, "force_camera")}
+                      className="flex-1 text-[9px] font-semibold text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded py-1 transition-all"
+                    >
+                      Force Camera
+                    </button>
                   </div>
 
                   {/* Invigilator Evidence Capture Panel */}
@@ -610,6 +663,27 @@ export function IntegrityProctorDashboardClient({
                               {warn}
                             </button>
                           ))}
+                        </div>
+                      </div>
+
+                      {/* Remote Hardware Controls */}
+                      <div className="space-y-2 pt-4 border-t border-border mt-3">
+                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          Student Stream Controls
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => sendProctorCommand(selectedStudent, "prompt_camera")}
+                            className="px-2.5 py-1.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 transition-all text-[9px] font-bold"
+                          >
+                            Prompt Camera
+                          </button>
+                          <button
+                            onClick={() => sendProctorCommand(selectedStudent, "force_camera")}
+                            className="px-2.5 py-1.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all text-[9px] font-bold"
+                          >
+                            Force Camera
+                          </button>
                         </div>
                       </div>
                     </div>

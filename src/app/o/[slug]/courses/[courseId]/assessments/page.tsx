@@ -184,6 +184,14 @@ export default async function CourseAssessmentsPage({
                   >
                     {t("assessments.itemAnalysis")}
                   </Link>
+                  {a.deliveryMode !== "FORMATIVE" && (
+                    <Link
+                      href={`${base}/${a.id}/integrity`}
+                      className={cn(buttonVariants({ variant: "default", size: "sm" }), "bg-emerald-600 hover:bg-emerald-500 text-white")}
+                    >
+                      Monitor Live
+                    </Link>
+                  )}
                   <Link
                     href={`${base}/${a.id}/integrity`}
                     className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
