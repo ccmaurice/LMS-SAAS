@@ -65,6 +65,12 @@ function GoogleGlyph() {
   );
 }
 
+const DEMO_ACCOUNTS = [
+  { role: "Admin", slug: "demo-school", email: "admin@test.com", password: "password123" },
+  { role: "Teacher", slug: "demo-school", email: "teacher@test.com", password: "password123" },
+  { role: "Student", slug: "demo-school", email: "student@test.com", password: "password123" },
+];
+
 export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -142,6 +148,23 @@ export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) 
             <div className="rounded-md border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
               <p className="font-medium text-foreground">{t("auth.demoHintTitle")}</p>
               <p className="mt-1">{t("auth.demoHintBody")}</p>
+              <div className="flex flex-wrap gap-1.5 mt-2" role="group" aria-label="Load demo credentials">
+                {DEMO_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.role}
+                    type="button"
+                    onClick={() => {
+                      setOrganizationSlug(acc.slug);
+                      setEmail(acc.email);
+                      setPassword(acc.password);
+                    }}
+                    className="inline-flex items-center rounded bg-muted hover:bg-accent hover:text-accent-foreground text-[10px] font-semibold text-foreground px-2 py-0.5 border border-border/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    aria-label={`Load ${acc.role} credentials`}
+                  >
+                    {acc.role}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : null}
           {error ? (
