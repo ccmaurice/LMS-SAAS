@@ -519,7 +519,7 @@ export function TakeAssessment({
     return (
       <div className="pt-12">
         <ProctoringSetupFlow
-          assessmentId={assessmentId}
+          _assessmentId={assessmentId}
           onComplete={(connected) => {
             setMobilePeerConnected(connected);
             setSetupCompleted(true);
