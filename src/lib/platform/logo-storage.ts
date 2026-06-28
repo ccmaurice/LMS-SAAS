@@ -1,12 +1,10 @@
-import path from "node:path";
-
-import { extForAvatarMime } from "@/lib/profile/avatar-storage";
+import { extForAvatarMime } from "@/lib/profile/avatar-mime";
 import { isBlobStoredRef } from "@/lib/uploads/blob-ref";
 
 export const MAX_PLATFORM_LOGO_BYTES = 2 * 1024 * 1024;
 
 export function platformLogoStorageKey(ext: string): string {
-  return path.posix.join("platform", "landing", `logo${ext}`);
+  return "platform/landing/logo" + ext;
 }
 
 export function isSafePlatformLogoKey(key: string): boolean {

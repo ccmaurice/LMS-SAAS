@@ -6,7 +6,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "dev:browser": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/open-clean-browser.ps1",
     "build": "next build",
     "start": "next start",

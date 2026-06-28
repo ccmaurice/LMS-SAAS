@@ -1,22 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
+import { AVATAR_MIME_TO_EXT, extForAvatarMime, isRemoteAvatarRef } from "./avatar-mime";
 
 export const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 
-export const AVATAR_MIME_TO_EXT: Record<string, string> = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-  "image/gif": ".gif",
-};
-
-export function isRemoteAvatarRef(image: string): boolean {
-  return /^https?:\/\//i.test(image.trim());
-}
-
-export function extForAvatarMime(mime: string): string | null {
-  const m = mime.toLowerCase().split(";")[0]!.trim();
-  return AVATAR_MIME_TO_EXT[m] ?? null;
-}
+export { AVATAR_MIME_TO_EXT, extForAvatarMime, isRemoteAvatarRef };
 
 export function userAvatarStorageKey(userId: string, fileId: string, ext: string): string {
   return `avatars/users/${userId}/${fileId}${ext}`;

@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import { isBlobStoredRef } from "@/lib/uploads/blob-ref";
 
 /** Favicons are small; keep uploads tight. */
@@ -21,7 +19,7 @@ export function extForFaviconMime(mime: string): string | null {
 }
 
 export function platformFaviconStorageKey(ext: string): string {
-  return path.posix.join("platform", "landing", `favicon${ext}`);
+  return "platform/landing/favicon" + ext;
 }
 
 export function isSafePlatformFaviconKey(key: string): boolean {

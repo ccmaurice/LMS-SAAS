@@ -1,9 +1,9 @@
 # Local dev: install deps, migrate, seed, start Next.js at http://localhost:3000
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 Set-Location $PSScriptRoot
 
-Write-Host "`n=== SaaS LMS — local start ===`n" -ForegroundColor Cyan
+Write-Host "`n=== SaaS LMS - local start ===`n" -ForegroundColor Cyan
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
   Write-Host "Node.js is not installed or not on PATH. Install LTS from https://nodejs.org" -ForegroundColor Red
@@ -13,7 +13,7 @@ Write-Host "Node $(node -v)" -ForegroundColor DarkGray
 
 if (-not (Test-Path ".env")) {
   Copy-Item ".env.example" ".env"
-  Write-Host "Created .env from .env.example — review JWT_SECRET for production later." -ForegroundColor Yellow
+  Write-Host "Created .env from .env.example - review JWT_SECRET for production later." -ForegroundColor Yellow
 }
 
 Write-Host "`nInstalling packages..." -ForegroundColor White
@@ -38,5 +38,5 @@ npm run db:seed
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "`nStarting dev server: http://localhost:3000" -ForegroundColor Green
-Write-Host "Demo logins: admin@test.com | teacher@test.com | student@test.com — password: password123`n" -ForegroundColor DarkGray
+Write-Host "Demo logins: admin@test.com | teacher@test.com | student@test.com - password: password123`n" -ForegroundColor DarkGray
 npm run dev

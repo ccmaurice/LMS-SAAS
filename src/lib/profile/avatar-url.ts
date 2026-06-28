@@ -1,4 +1,4 @@
-import { isRemoteAvatarRef } from "@/lib/profile/avatar-storage";
+import { isRemoteAvatarRef } from "@/lib/profile/avatar-mime";
 
 /** Public URL for <img src> — remote URLs as-is, uploaded files via org API route. */
 export function orgUserAvatarDisplayUrl(user: { id: string; image: string | null }): string | null {
