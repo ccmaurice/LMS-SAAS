@@ -95,6 +95,23 @@ export function PlatformLoginForm() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
+          <div className="pt-1.5 space-y-1.5">
+            <p className="text-[11px] text-muted-foreground font-medium">Quick Logins (Click to load):</p>
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="Load platform credentials">
+              <button
+                key="operator"
+                type="button"
+                onClick={() => {
+                  setEmail("platform@local");
+                  setPassword("RBfnoSzdpBlmMlz-Qwigfw");
+                }}
+                className="inline-flex items-center rounded bg-muted hover:bg-accent hover:text-accent-foreground text-[10px] font-semibold text-foreground px-2.5 py-1 border border-border/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                aria-label="Load Platform Operator credentials"
+              >
+                Platform Operator
+              </button>
+            </div>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-3 sm:flex-row sm:justify-between">
           <Link href="/" className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}>
