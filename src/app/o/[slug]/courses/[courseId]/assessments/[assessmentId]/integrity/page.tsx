@@ -117,8 +117,8 @@ export default async function AssessmentIntegrityPage({
 
       <IntegrityProctorDashboardClient
         initialEvents={events}
-        assessmentTitle={assessment.title}
-        assessmentId={assessmentId}
+        _assessmentTitle={assessment.title}
+        _assessmentId={assessmentId}
       />
 
       <IntegrityLogFilters
