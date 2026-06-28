@@ -1,8 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, AlertTriangle, CheckCircle, Shield, Sparkles, MessageSquare, Maximize2, Monitor } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle,
+  Shield,
+  Sparkles,
+  MessageSquare,
+  Maximize2,
+  Monitor,
+  Camera,
+  Video,
+  VideoOff,
+  LayoutGrid,
+  Activity,
+  Download,
+} from "lucide-react";
 
 type ProctorEvent = {
   id: string;
@@ -27,7 +42,17 @@ export function IntegrityProctorDashboardClient({
   const [selectedStudent, setSelectedStudent] = useState<string | null>(
     initialEvents[0]?.user.email || null
   );
-  
+  const [activeTab, setActiveTab] = useState<"live" | "history">("live");
+
+  // Live stream invigilation states
+  const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
+  const [monitoringActive, setMonitoringActive] = useState(false);
+  const [recordingStates, setRecordingStates] = useState<
+    Record<string, { active: boolean; remaining: number }>
+  >({});
+
+  const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
+
   // Custom mock chat alerts sent by proctor
   const [proctorChats, setProctorChats] = useState<{ id: string; msg: string; time: string }[]>([]);
 
@@ -56,13 +81,153 @@ export function IntegrityProctorDashboardClient({
       .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   }, [selectedStudent, events]);
 
+  // Start live monitoring (requests webcam)
+  const startLiveMonitoring = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 },
+        audio: false, // video only for invigilator grid
+      });
+      setLiveStream(stream);
+      setMonitoringActive(true);
+
+      // Attach stream to all active student video nodes
+      studentsList.forEach((stud) => {
+        const el = videoRefs.current[stud.email];
+        if (el) el.srcObject = stream;
+      });
+    } catch (err) {
+      console.error("Failed to request webcam for invigilation grid:", err);
+    }
+  };
+
+  // Stop live monitoring
+  const stopLiveMonitoring = useCallback(() => {
+    if (liveStream) {
+      liveStream.getTracks().forEach((track) => track.stop());
+      setLiveStream(null);
+    }
+    setMonitoringActive(false);
+  }, [liveStream]);
+
+  // Clean up stream on unmount
+  useEffect(() => {
+    return () => {
+      if (liveStream) {
+        liveStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [liveStream]);
+
+  // Capture Snapshot as Evidence
+  const takeSnapshot = (studentEmail: string) => {
+    const videoEl = videoRefs.current[studentEmail];
+    if (!videoEl) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = videoEl.videoWidth || 640;
+    canvas.height = videoEl.videoHeight || 480;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg");
+
+      // Trigger download
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `evidence_snapshot_${studentEmail.replace(/[@.]/g, "_")}.jpg`;
+      link.click();
+
+      // Log incident
+      const now = new Date();
+      const newEv: ProctorEvent = {
+        id: Math.random().toString(),
+        eventType: "evidence_snapshot",
+        createdAt: now,
+        dismissedAt: null,
+        user: studentsList.find((s) => s.email === studentEmail) || {
+          name: studentEmail,
+          email: studentEmail,
+        },
+        payload: {
+          description: "Invigilator manually captured a photo snapshot as evidence",
+          severity: "red",
+          screenshotUrl: dataUrl,
+        },
+      };
+      setEvents((prev) => [newEv, ...prev]);
+    }
+  };
+
+  // Record 5s Clip as Evidence
+  const recordClip = (studentEmail: string) => {
+    if (!liveStream) return;
+
+    setRecordingStates((prev) => ({ ...prev, [studentEmail]: { active: true, remaining: 5 } }));
+
+    const mediaRecorder = new MediaRecorder(liveStream, { mimeType: "video/webm" });
+    const chunks: Blob[] = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(chunks, { type: "video/webm" });
+      const url = URL.createObjectURL(blob);
+
+      // Trigger download
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `evidence_clip_${studentEmail.replace(/[@.]/g, "_")}.webm`;
+      link.click();
+
+      setRecordingStates((prev) => ({ ...prev, [studentEmail]: { active: false, remaining: 0 } }));
+
+      // Log incident
+      const now = new Date();
+      const newEv: ProctorEvent = {
+        id: Math.random().toString(),
+        eventType: "evidence_clip",
+        createdAt: now,
+        dismissedAt: null,
+        user: studentsList.find((s) => s.email === studentEmail) || {
+          name: studentEmail,
+          email: studentEmail,
+        },
+        payload: {
+          description: "Invigilator recorded a 5-second video clip as evidence",
+          severity: "red",
+        },
+      };
+      setEvents((prev) => [newEv, ...prev]);
+    };
+
+    mediaRecorder.start();
+
+    let count = 5;
+    const interval = setInterval(() => {
+      count--;
+      setRecordingStates((prev) => ({ ...prev, [studentEmail]: { active: true, remaining: count } }));
+      if (count <= 0) {
+        clearInterval(interval);
+        mediaRecorder.stop();
+      }
+    }, 1000);
+  };
+
   // Risk calculation based on event history
   const riskAnalysis = useMemo(() => {
-    if (studentEvents.length === 0) return { score: 0, rating: "Safe", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" };
-    
+    if (studentEvents.length === 0)
+      return {
+        score: 0,
+        rating: "Safe",
+        color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+      };
+
     let redCount = 0;
     let yellowCount = 0;
-    
+
     studentEvents.forEach((e) => {
       const severity = e.payload?.severity || "";
       if (severity === "red" || e.eventType === "tab_switch_paused") redCount++;
@@ -70,23 +235,28 @@ export function IntegrityProctorDashboardClient({
     });
 
     const score = Math.min(100, redCount * 35 + yellowCount * 15);
-    
+
     if (score >= 70) {
       return { score, rating: "Suspicious", color: "text-rose-500 bg-rose-500/10 border-rose-500/20" };
     }
     if (score >= 30) {
       return { score, rating: "Warning", color: "text-amber-500 bg-amber-500/10 border-amber-500/20" };
     }
-    return { score, rating: "Safe", color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20" };
+    return {
+      score,
+      rating: "Safe",
+      color: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20",
+    };
   }, [studentEvents]);
 
   // Trigger quick proctor intervention
   function sendIntervention(msg: string) {
     const now = new Date();
-    // 1. Add locally to chat timeline
-    setProctorChats((prev) => [...prev, { id: Math.random().toString(), msg, time: now.toLocaleTimeString() }]);
+    setProctorChats((prev) => [
+      ...prev,
+      { id: Math.random().toString(), msg, time: now.toLocaleTimeString() },
+    ]);
 
-    // 2. Log as a proctor event in the database
     if (selectedStudent) {
       const matchedEvent = events.find((e) => e.user.email === selectedStudent);
       const newEv: ProctorEvent = {
@@ -105,232 +275,424 @@ export function IntegrityProctorDashboardClient({
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 text-foreground">
-      {/* Sidebar: Student list */}
-      <div className="xl:col-span-3 space-y-4">
-        <div className="surface-glass rounded-xl border border-border p-4">
-          <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase mb-3 flex items-center gap-1.5">
-            <Shield className="w-4 h-4 text-primary" />
-            Monitored Candidates
-          </h2>
-          <div className="space-y-1.5">
-            {studentsList.map((stud) => {
-              const active = stud.email === selectedStudent;
-              return (
-                <button
-                  key={stud.email}
-                  onClick={() => setSelectedStudent(stud.email)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                    active
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "hover:bg-muted text-foreground"
-                  }`}
+    <div className="space-y-6 text-foreground">
+      {/* Role-based Tab switcher */}
+      <div className="flex border-b border-border/80 dark:border-white/10">
+        <button
+          onClick={() => setActiveTab("live")}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === "live"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <LayoutGrid className="w-4 h-4" />
+          Live Grid Monitor
+        </button>
+        <button
+          onClick={() => setActiveTab("history")}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === "history"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <Activity className="w-4 h-4" />
+          Incident Log History
+        </button>
+      </div>
+
+      {/* 1. Live Grid Monitor Tab */}
+      {activeTab === "live" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-muted/30 p-4 rounded-xl border border-border/60">
+            <div>
+              <h2 className="text-sm font-bold flex items-center gap-1.5">
+                <Shield className="w-4 h-4 text-emerald-500" />
+                Live Invigilation Console (Role: Staff)
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Start feeds to watch candidate webcams live. Use captures to log evidence.
+              </p>
+            </div>
+            <div>
+              {!monitoringActive ? (
+                <Button
+                  onClick={startLiveMonitoring}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 text-xs font-semibold"
                 >
-                  <div className="truncate font-semibold">{stud.name}</div>
-                  <div className={`truncate text-[10px] ${active ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                    {stud.email}
+                  <Video className="w-4 h-4" />
+                  Start Live Feeds
+                </Button>
+              ) : (
+                <Button
+                  onClick={stopLiveMonitoring}
+                  variant="destructive"
+                  className="flex items-center gap-1.5 text-xs font-semibold"
+                >
+                  <VideoOff className="w-4 h-4" />
+                  Stop Live Feeds
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {studentsList.map((stud) => {
+              const recState = recordingStates[stud.email];
+              const isRecording = recState?.active;
+              
+              return (
+                <div
+                  key={stud.email}
+                  className="surface-glass rounded-xl border border-border overflow-hidden flex flex-col justify-between shadow-sm"
+                >
+                  {/* Student Header */}
+                  <div className="p-3 bg-muted/40 border-b border-border/60 flex justify-between items-start">
+                    <div className="truncate pr-2">
+                      <div className="font-bold text-xs truncate">{stud.name}</div>
+                      <div className="text-[9px] text-muted-foreground truncate">{stud.email}</div>
+                    </div>
+                    <span className="text-[9px] bg-emerald-500/10 text-emerald-500 px-2 py-0.5 rounded-full border border-emerald-500/20 font-bold shrink-0">
+                      ACTIVE
+                    </span>
                   </div>
-                </button>
+
+                  {/* Video Viewport */}
+                  <div className="relative aspect-video bg-slate-950 flex items-center justify-center">
+                    <video
+                      ref={(el) => {
+                        videoRefs.current[stud.email] = el;
+                        if (el && liveStream && el.srcObject !== liveStream) {
+                          el.srcObject = liveStream;
+                        }
+                      }}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`w-full h-full object-cover scale-x-[-1] ${
+                        !monitoringActive ? "hidden" : ""
+                      }`}
+                    />
+                    
+                    {!monitoringActive && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 space-y-1.5">
+                        <VideoOff className="w-8 h-8 text-muted-foreground/40" />
+                        <span className="text-[10px] text-muted-foreground font-medium">
+                          Video stream offline
+                        </span>
+                      </div>
+                    )}
+
+                    {isRecording && (
+                      <div className="absolute top-2 left-2 bg-rose-600/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse">
+                        <span className="w-1 h-1 rounded-full bg-white" />
+                        REC ({recState.remaining}s)
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Invigilator Evidence Capture Panel */}
+                  <div className="p-3 bg-muted/20 flex gap-2 border-t border-border/60">
+                    <Button
+                      onClick={() => takeSnapshot(stud.email)}
+                      disabled={!monitoringActive}
+                      className="flex-1 bg-primary text-primary-foreground font-bold hover:bg-primary/95 text-[10px] flex items-center justify-center gap-1 h-8"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      Snapshot
+                    </Button>
+                    <Button
+                      onClick={() => recordClip(stud.email)}
+                      disabled={!monitoringActive || isRecording}
+                      variant="outline"
+                      className="flex-1 border-border/80 text-[10px] font-bold flex items-center justify-center gap-1 h-8"
+                    >
+                      <Video className="w-3.5 h-3.5 text-rose-500" />
+                      Record Clip
+                    </Button>
+                  </div>
+                </div>
               );
             })}
+
             {studentsList.length === 0 && (
-              <div className="text-xs text-muted-foreground text-center py-4">No active exam logs.</div>
+              <div className="col-span-full py-16 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl">
+                No active exam sessions to display.
+              </div>
             )}
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Main monitoring feeds */}
-      <div className="xl:col-span-9 space-y-6">
-        {selectedStudent ? (
-          <>
-            {/* Split layout: Video feeds & Timeline */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column: PIP Video Feeds */}
-              <div className="lg:col-span-8 space-y-4">
-                <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 border border-border flex items-center justify-center group shadow-md">
-                  {/* Outer Main Frame: Screen Share */}
-                  <div className="absolute inset-0 flex items-center justify-center p-4">
-                    <Monitor className="w-16 h-16 text-slate-800 absolute group-hover:scale-105 transition-transform" />
-                    <img 
-                      src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80" 
-                      alt="Student Screen Share" 
-                      className="w-full h-full object-cover opacity-90 rounded border border-slate-800"
-                    />
-                  </div>
-                  
-                  {/* Floating PIP frame: Webcam (Student Face View) */}
-                  <div className="absolute bottom-4 right-4 w-32 md:w-40 aspect-video bg-black rounded-lg overflow-hidden border-2 border-primary shadow-2xl flex items-center justify-center cursor-move transition-transform hover:scale-105">
-                    <img 
-                      src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80" 
-                      alt="Student Webcam Feed" 
-                      className="w-full h-full object-cover scale-x-[-1]"
-                    />
-                    <div className="absolute bottom-1 left-1 bg-black/60 px-1 py-0.5 rounded text-[8px] text-white">
-                      Webcam
-                    </div>
-                  </div>
-
-                  {/* Secondary Pairing: Desk View (WebRTC) */}
-                  <div className="absolute bottom-4 left-4 w-32 md:w-40 aspect-video bg-black rounded-lg overflow-hidden border border-slate-700 shadow-2xl flex items-center justify-center">
-                    <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center gap-1.5 p-2 text-center">
-                      <Sparkles className="w-4 h-4 text-teal-400" />
-                      <span className="text-[9px] text-white font-medium">Desk View (Mobile)</span>
-                      <span className="text-[8px] text-emerald-400 flex items-center gap-1">
-                        <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
-                        P2P Stream Active
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Risk Level Summary & Timeline */}
-                <div className="surface-glass rounded-xl border border-border p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Exam Security Status</h3>
-                      <p className="text-lg font-bold text-foreground">Timeline Integrity Check</p>
-                    </div>
-                    <div className={`px-3 py-1 rounded-full border text-xs font-bold ${riskAnalysis.color}`}>
-                      {riskAnalysis.rating} (Risk: {riskAnalysis.score}%)
-                    </div>
-                  </div>
-
-                  {/* Incident Risk Timeline visualization bar */}
-                  <div className="space-y-1">
-                    <div className="text-[10px] text-muted-foreground font-semibold flex justify-between">
-                      <span>START OF EXAM</span>
-                      <span>CURRENT MOMENT</span>
-                    </div>
-                    <div className="relative h-6 bg-slate-800 rounded-full overflow-hidden flex border border-slate-700">
-                      {studentEvents.length === 0 ? (
-                        <div className="w-full bg-emerald-500 flex items-center justify-center text-[10px] font-bold text-emerald-950">
-                          CLEAN RECORD
-                        </div>
-                      ) : (
-                        studentEvents.map((e) => {
-                          const severity = e.payload?.severity || "";
-                          const color = severity === "red" || e.eventType === "tab_switch_paused" ? "bg-rose-500" : severity === "yellow" ? "bg-amber-500" : "bg-emerald-500";
-                          const width = (100 / studentEvents.length).toFixed(1) + "%";
-                          return (
-                            <div
-                              key={e.id}
-                              style={{ width }}
-                              className={`h-full border-r border-slate-900/40 ${color} cursor-pointer hover:brightness-110 transition-all`}
-                              title={`${e.eventType}: ${e.payload?.description || "Incident"}`}
-                            />
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Live Chat Intervention */}
-              <div className="lg:col-span-4 space-y-4">
-                <div className="surface-glass rounded-xl border border-border p-4 flex flex-col h-full min-h-[360px] justify-between">
-                  <div className="space-y-4">
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                      <MessageSquare className="w-4 h-4 text-primary" />
-                      Live Intervention Chat
-                    </h3>
-                    
-                    {/* Live messages listing */}
-                    <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                      {proctorChats.map((c) => (
-                        <div key={c.id} className="bg-primary/10 border border-primary/20 rounded-lg p-2.5 space-y-1">
-                          <div className="text-[10px] text-primary font-semibold flex justify-between">
-                            <span>PROCTOR ALERT</span>
-                            <span>{c.time}</span>
-                          </div>
-                          <div className="text-xs text-foreground leading-relaxed">{c.msg}</div>
-                        </div>
-                      ))}
-                      {proctorChats.length === 0 && (
-                        <div className="text-center text-xs text-muted-foreground py-12">
-                          No messages sent. Click a quick warning below to alert the student.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Preset warning buttons */}
-                  <div className="space-y-2 pt-4 border-t border-border">
-                    <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                      Quick Warnings
-                    </div>
-                    <div className="grid grid-cols-1 gap-1.5">
-                      {PRESET_WARNINGS.map((warn, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => sendIntervention(warn)}
-                          className="w-full text-left px-2.5 py-1.5 rounded bg-muted hover:bg-primary/20 hover:text-primary transition-all text-[10px] font-medium border border-border/40"
-                        >
-                          {warn}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Smart Incident Log list */}
-            <div className="surface-glass rounded-xl border border-border p-4 space-y-3">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Detailed Log History
-              </h3>
-              <div className="space-y-2">
-                {studentEvents.map((e) => {
-                  const severity = e.payload?.severity || "";
-                  const Icon = severity === "red" || e.eventType === "tab_switch_paused" ? AlertCircle : severity === "yellow" ? AlertTriangle : CheckCircle;
-                  const color = severity === "red" || e.eventType === "tab_switch_paused" ? "text-rose-500 bg-rose-500/10 border-rose-500/20" : severity === "yellow" ? "text-amber-500 bg-amber-500/10 border-amber-500/20" : "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
-                  
+      {/* 2. Incident Log History Tab */}
+      {activeTab === "history" && (
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+          {/* Sidebar: Student list */}
+          <div className="xl:col-span-3 space-y-4">
+            <div className="surface-glass rounded-xl border border-border p-4">
+              <h2 className="text-sm font-semibold tracking-wide text-muted-foreground uppercase mb-3 flex items-center gap-1.5">
+                <Shield className="w-4 h-4 text-primary" />
+                Monitored Candidates
+              </h2>
+              <div className="space-y-1.5">
+                {studentsList.map((stud) => {
+                  const active = stud.email === selectedStudent;
                   return (
-                    <div 
-                      key={e.id}
-                      className={`flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border text-xs font-medium transition-all ${color}`}
+                    <button
+                      key={stud.email}
+                      onClick={() => setSelectedStudent(stud.email)}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                        active
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "hover:bg-muted text-foreground"
+                      }`}
                     >
-                      <div className="flex items-start gap-2.5">
-                        <Icon className="w-4 h-4 shrink-0 mt-0.5" />
-                        <div>
-                          <div className="font-semibold text-foreground">
-                            {e.eventType.toUpperCase().replace(/_/g, " ")}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">
-                            {e.payload?.description || "No description provided."}
-                          </div>
-                        </div>
+                      <div className="truncate font-semibold">{stud.name}</div>
+                      <div
+                        className={`truncate text-[10px] ${
+                          active ? "text-primary-foreground/80" : "text-muted-foreground"
+                        }`}
+                      >
+                        {stud.email}
                       </div>
-                      
-                      <div className="flex items-center gap-3 shrink-0 self-end md:self-center">
-                        {e.payload?.screenshotUrl && (
-                          <a 
-                            href={e.payload.screenshotUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-[10px] text-primary hover:underline font-semibold flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5"
-                          >
-                            <Maximize2 className="w-3 h-3" /> Screen Capture
-                          </a>
-                        )}
-                        <span className="text-[10px] text-muted-foreground tabular-nums">
-                          {new Date(e.createdAt).toLocaleTimeString()}
-                        </span>
-                      </div>
-                    </div>
+                    </button>
                   );
                 })}
+                {studentsList.length === 0 && (
+                  <div className="text-xs text-muted-foreground text-center py-4">
+                    No active exam logs.
+                  </div>
+                )}
               </div>
             </div>
-          </>
-        ) : (
-          <div className="text-center py-20 text-muted-foreground border border-border border-dashed rounded-xl">
-            No monitored students have generated logs for this assessment yet.
           </div>
-        )}
-      </div>
+
+          {/* Main monitoring feeds */}
+          <div className="xl:col-span-9 space-y-6">
+            {selectedStudent ? (
+              <>
+                {/* Split layout: Video feeds & Timeline */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  {/* Left Column: PIP Video Feeds */}
+                  <div className="lg:col-span-8 space-y-4">
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 border border-border flex items-center justify-center group shadow-md">
+                      {/* Outer Main Frame: Screen Share */}
+                      <div className="absolute inset-0 flex items-center justify-center p-4">
+                        <Monitor className="w-16 h-16 text-slate-800 absolute group-hover:scale-105 transition-transform" />
+                        <img
+                          src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"
+                          alt="Student Screen Share"
+                          className="w-full h-full object-cover opacity-90 rounded border border-slate-800"
+                        />
+                      </div>
+
+                      {/* Floating PIP frame: Webcam (Student Face View) */}
+                      <div className="absolute bottom-4 right-4 w-32 md:w-40 aspect-video bg-black rounded-lg overflow-hidden border-2 border-primary shadow-2xl flex items-center justify-center cursor-move transition-transform hover:scale-105">
+                        <img
+                          src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80"
+                          alt="Student Webcam Feed"
+                          className="w-full h-full object-cover scale-x-[-1]"
+                        />
+                        <div className="absolute bottom-1 left-1 bg-black/60 px-1 py-0.5 rounded text-[8px] text-white">
+                          Webcam
+                        </div>
+                      </div>
+
+                      {/* Secondary Pairing: Desk View (WebRTC) */}
+                      <div className="absolute bottom-4 left-4 w-32 md:w-40 aspect-video bg-black rounded-lg overflow-hidden border border-slate-700 shadow-2xl flex items-center justify-center">
+                        <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center gap-1.5 p-2 text-center">
+                          <Sparkles className="w-4 h-4 text-teal-400" />
+                          <span className="text-[9px] text-white font-medium">Desk View (Mobile)</span>
+                          <span className="text-[8px] text-emerald-400 flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                            P2P Stream Active
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Risk Level Summary & Timeline */}
+                    <div className="surface-glass rounded-xl border border-border p-4 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                            Exam Security Status
+                          </h3>
+                          <p className="text-lg font-bold text-foreground">Timeline Integrity Check</p>
+                        </div>
+                        <div
+                          className={`px-3 py-1 rounded-full border text-xs font-bold ${riskAnalysis.color}`}
+                        >
+                          {riskAnalysis.rating} (Risk: {riskAnalysis.score}%)
+                        </div>
+                      </div>
+
+                      {/* Incident Risk Timeline visualization bar */}
+                      <div className="space-y-1">
+                        <div className="text-[10px] text-muted-foreground font-semibold flex justify-between">
+                          <span>START OF EXAM</span>
+                          <span>CURRENT MOMENT</span>
+                        </div>
+                        <div className="relative h-6 bg-slate-800 rounded-full overflow-hidden flex border border-slate-700">
+                          {studentEvents.length === 0 ? (
+                            <div className="w-full bg-emerald-500 flex items-center justify-center text-[10px] font-bold text-emerald-950">
+                              CLEAN RECORD
+                            </div>
+                          ) : (
+                            studentEvents.map((e) => {
+                              const severity = e.payload?.severity || "";
+                              const color =
+                                severity === "red" || e.eventType === "tab_switch_paused"
+                                  ? "bg-rose-500"
+                                  : severity === "yellow"
+                                  ? "bg-amber-500"
+                                  : "bg-emerald-500";
+                              const width = (100 / studentEvents.length).toFixed(1) + "%";
+                              return (
+                                <div
+                                  key={e.id}
+                                  style={{ width }}
+                                  className={`h-full border-r border-slate-900/40 ${color} cursor-pointer hover:brightness-110 transition-all`}
+                                  title={`${e.eventType}: ${e.payload?.description || "Incident"}`}
+                                />
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Live Chat Intervention */}
+                  <div className="lg:col-span-4 space-y-4">
+                    <div className="surface-glass rounded-xl border border-border p-4 flex flex-col h-full min-h-[360px] justify-between">
+                      <div className="space-y-4">
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                          <MessageSquare className="w-4 h-4 text-primary" />
+                          Live Intervention Chat
+                        </h3>
+
+                        {/* Live messages listing */}
+                        <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                          {proctorChats.map((c) => (
+                            <div
+                              key={c.id}
+                              className="bg-primary/10 border border-primary/20 rounded-lg p-2.5 space-y-1"
+                            >
+                              <div className="text-[10px] text-primary font-semibold flex justify-between">
+                                <span>PROCTOR ALERT</span>
+                                <span>{c.time}</span>
+                              </div>
+                              <div className="text-xs text-foreground leading-relaxed">{c.msg}</div>
+                            </div>
+                          ))}
+                          {proctorChats.length === 0 && (
+                            <div className="text-center text-xs text-muted-foreground py-12">
+                              No messages sent. Click a quick warning below to alert the student.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Preset warning buttons */}
+                      <div className="space-y-2 pt-4 border-t border-border">
+                        <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          Quick Warnings
+                        </div>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {PRESET_WARNINGS.map((warn, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => sendIntervention(warn)}
+                              className="w-full text-left px-2.5 py-1.5 rounded bg-muted hover:bg-primary/20 hover:text-primary transition-all text-[10px] font-medium border border-border/40"
+                            >
+                              {warn}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Smart Incident Log list */}
+                <div className="surface-glass rounded-xl border border-border p-4 space-y-3">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Detailed Log History
+                  </h3>
+                  <div className="space-y-2">
+                    {studentEvents.map((e) => {
+                      const severity = e.payload?.severity || "";
+                      const Icon =
+                        severity === "red" || e.eventType === "tab_switch_paused"
+                          ? AlertCircle
+                          : severity === "yellow"
+                          ? AlertTriangle
+                          : CheckCircle;
+                      const color =
+                        severity === "red" || e.eventType === "tab_switch_paused"
+                          ? "text-rose-500 bg-rose-500/10 border-rose-500/20"
+                          : severity === "yellow"
+                          ? "text-amber-500 bg-amber-500/10 border-amber-500/20"
+                          : "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
+
+                      return (
+                        <div
+                          key={e.id}
+                          className={`flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 rounded-lg border text-xs font-medium transition-all ${color}`}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <Icon className="w-4 h-4 shrink-0 mt-0.5" />
+                            <div>
+                              <div className="font-semibold text-foreground">
+                                {e.eventType.toUpperCase().replace(/_/g, " ")}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground mt-0.5">
+                                {e.payload?.description || "No description provided."}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 shrink-0 self-end md:self-center">
+                            {e.payload?.screenshotUrl && (
+                              <a
+                                href={e.payload.screenshotUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-primary hover:underline font-semibold flex items-center gap-1 bg-primary/10 border border-primary/20 rounded px-1.5 py-0.5"
+                              >
+                                <Maximize2 className="w-3 h-3" /> Screen Capture
+                              </a>
+                            )}
+                            {e.eventType === "evidence_snapshot" && (
+                              <span className="text-[10px] text-rose-500 font-semibold flex items-center gap-1 bg-rose-500/10 border border-rose-500/20 rounded px-1.5 py-0.5">
+                                <Download className="w-3 h-3" /> Photo Saved
+                              </span>
+                            )}
+                            {e.eventType === "evidence_clip" && (
+                              <span className="text-[10px] text-rose-500 font-semibold flex items-center gap-1 bg-rose-500/10 border border-rose-500/20 rounded px-1.5 py-0.5">
+                                <Download className="w-3 h-3" /> Clip Saved
+                              </span>
+                            )}
+                            <span className="text-[10px] text-muted-foreground tabular-nums">
+                              {new Date(e.createdAt).toLocaleTimeString()}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-20 text-muted-foreground border border-border border-dashed rounded-xl">
+                No monitored students have generated logs for this assessment yet.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
