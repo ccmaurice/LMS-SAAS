@@ -14,7 +14,7 @@ export function ProctoringSetupFlow({
 }: {
   _assessmentId?: string;
   studentEmail?: string;
-  onComplete: (mobilePeerConnected: boolean) => void;
+  onComplete: (mobilePeerConnected: boolean, stream: MediaStream | null) => void;
 }) {
   const [step, setStep] = useState<SetupStep>("welcome");
   
@@ -80,6 +80,7 @@ export function ProctoringSetupFlow({
     videoRef.current = el;
     if (el && localStream) {
       el.srcObject = localStream;
+      el.play().catch((err) => console.warn("Setup video play interrupted:", err));
     }
   }, [localStream]);
 
@@ -230,12 +231,11 @@ export function ProctoringSetupFlow({
       void generatePairingCode();
     }
     return () => {
-      stopWebcam();
       if (peerConnectionRef.current) {
         peerConnectionRef.current.close();
       }
     };
-  }, [step, pairingCode, generatePairingCode, stopWebcam]);
+  }, [step, pairingCode, generatePairingCode]);
 
   return (
     <div className="surface-glass rounded-xl p-8 max-w-xl mx-auto border border-border shadow-md space-y-6 text-foreground">
@@ -363,14 +363,14 @@ export function ProctoringSetupFlow({
 
           <div className="flex flex-col gap-2 pt-2">
             <Button onClick={() => {
-              onComplete(mobileConnected);
+              onComplete(mobileConnected, localStream);
             }} className="w-full bg-primary hover:bg-primary/90 font-bold" disabled={!mobileConnected}>
-              Start Assessment (with Mobile Camera)
+               Start Assessment (with Mobile Camera)
             </Button>
             <Button 
               variant="outline" 
               onClick={() => {
-                onComplete(false);
+                onComplete(false, localStream);
               }} 
               className="w-full border-dashed"
             >

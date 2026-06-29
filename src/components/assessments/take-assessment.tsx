@@ -361,11 +361,12 @@ export function TakeAssessment({
     };
   }, [onMouseMove, onTouchMove, onMouseUp]);
 
-  // 1. Acquire local webcam stream when secure setup is completed
+  // 1. Acquire local webcam stream when secure setup is completed (fallback)
   useEffect(() => {
-    if (!setupCompleted || deliveryMode === "FORMATIVE" || locked) return;
+    if (!setupCompleted || deliveryMode === "FORMATIVE" || locked || localStream) return;
 
     let activeStream: MediaStream | null = null;
+    let timerId: ReturnType<typeof setTimeout> | null = null;
 
     const startWebcam = async () => {
       try {
@@ -396,20 +397,25 @@ export function TakeAssessment({
       }
     };
 
-    void startWebcam();
+    // Delay by 600ms to allow setup camera hardware to cleanly release in case of transition race conditions
+    timerId = setTimeout(() => {
+      void startWebcam();
+    }, 600);
 
     return () => {
+      if (timerId) clearTimeout(timerId);
       if (activeStream) {
         activeStream.getTracks().forEach((track) => track.stop());
       }
     };
-  }, [setupCompleted, deliveryMode, locked]);
+  }, [setupCompleted, deliveryMode, locked, localStream]);
 
   // 2. Callback refs to bind local webcam stream to video elements immediately upon mounting
   const localVideoCallback = useCallback((el: HTMLVideoElement | null) => {
     localVideoRef.current = el;
     if (el && localStream) {
       el.srcObject = localStream;
+      el.play().catch((err) => console.warn("Local video play interrupted:", err));
     }
   }, [localStream]);
 
@@ -417,6 +423,7 @@ export function TakeAssessment({
     hiddenVideoRef.current = el;
     if (el && localStream) {
       el.srcObject = localStream;
+      el.play().catch((err) => console.warn("Hidden video play interrupted:", err));
     }
   }, [localStream]);
 
@@ -750,8 +757,11 @@ export function TakeAssessment({
         <ProctoringSetupFlow
           _assessmentId={assessmentId}
           studentEmail={studentEmail}
-          onComplete={(connected) => {
+          onComplete={(connected, stream) => {
             setMobilePeerConnected(connected);
+            if (stream) {
+              setLocalStream(stream);
+            }
             setSetupCompleted(true);
           }}
         />
