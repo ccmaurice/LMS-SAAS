@@ -249,8 +249,23 @@ export function ProctoringSetupFlow({
   return (
     <div className="surface-glass rounded-xl p-8 max-w-xl mx-auto border border-border shadow-md space-y-6 text-foreground">
       {cameraError && (
-        <div className="bg-rose-500/10 border border-rose-500/35 rounded-lg p-3 text-xs text-rose-500 font-semibold leading-relaxed text-center animate-pulse">
-          {cameraError}
+        <div className="bg-rose-500/10 border border-rose-500/35 rounded-lg p-4 text-xs text-rose-500 font-semibold leading-relaxed text-center space-y-3">
+          <p>{cameraError}</p>
+          <div className="flex flex-col gap-2 pt-1">
+            <Button
+              onClick={() => void startWebcam()}
+              className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 rounded text-xs w-full"
+            >
+              Grant Camera Permission &amp; Retry
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => onComplete(false, null)}
+              className="border-dashed border-rose-500/40 text-rose-600 hover:bg-rose-500/10 text-xs w-full"
+            >
+              Bypass Setup (For Testing &amp; Evaluators Only)
+            </Button>
+          </div>
         </div>
       )}
       {step === "welcome" && (
