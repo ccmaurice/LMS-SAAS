@@ -218,6 +218,8 @@ export function TakeAssessment({
   const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
   const [localVideoMounted, setLocalVideoMounted] = useState(false);
   const [hiddenVideoMounted, setHiddenVideoMounted] = useState(false);
+  const [mobileStream, setMobileStream] = useState<MediaStream | null>(null);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
@@ -226,6 +228,15 @@ export function TakeAssessment({
   const autoSubmittedRef = useRef(false);
 
   const base = `/o/${orgSlug}/courses/${courseId}/assessments`;
+
+  // Clean up WebRTC peer connection on unmount
+  useEffect(() => {
+    return () => {
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+      }
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -769,10 +780,16 @@ export function TakeAssessment({
         <ProctoringSetupFlow
           _assessmentId={assessmentId}
           studentEmail={studentEmail}
-          onComplete={(connected, stream) => {
+          onComplete={(connected, stream, mobStream, pc) => {
             setMobilePeerConnected(connected);
             if (stream) {
               setLocalStream(stream);
+            }
+            if (mobStream) {
+              setMobileStream(mobStream);
+            }
+            if (pc) {
+              peerConnectionRef.current = pc;
             }
             setSetupCompleted(true);
           }}
@@ -1211,26 +1228,53 @@ export function TakeAssessment({
             </button>
           </div>
 
-          {/* Camera Viewport */}
+          {/* Camera Viewports */}
           {showPreview ? (
-            <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
-              <video
-                ref={localVideoCallback}
-                autoPlay
-                playsInline
-                muted
-                className={`w-full h-full object-cover scale-x-[-1] ${!cameraActive ? "hidden" : ""}`}
-              />
-              {!cameraActive && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 text-rose-500">
-                  <VideoOff className="w-6 h-6 mb-1 opacity-70" />
-                  <span className="text-[9px] font-bold">Camera Feed Paused</span>
+            <div className="flex flex-col gap-2">
+              {/* Primary Webcam */}
+              <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
+                <video
+                  ref={localVideoCallback}
+                  autoPlay
+                  playsInline
+                  muted
+                  className={`w-full h-full object-cover scale-x-[-1] ${!cameraActive ? "hidden" : ""}`}
+                />
+                {!cameraActive && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 text-rose-500">
+                    <VideoOff className="w-6 h-6 mb-1 opacity-70" />
+                    <span className="text-[9px] font-bold">Camera Feed Paused</span>
+                  </div>
+                )}
+                <div className="absolute top-1 left-1 bg-slate-900/80 px-1 py-0.5 rounded text-[8px] font-bold text-slate-300">
+                  Primary
+                </div>
+              </div>
+
+              {/* Secondary Support Camera */}
+              {mobilePeerConnected && mobileStream && (
+                <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
+                  <video
+                    ref={(el) => {
+                      if (el) {
+                        el.srcObject = mobileStream;
+                        el.play().catch((err) => console.warn("Mobile video play failed:", err));
+                      }
+                    }}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-1 left-1 bg-slate-900/80 px-1 py-0.5 rounded text-[8px] font-bold text-emerald-400">
+                    Support Cam
+                  </div>
                 </div>
               )}
             </div>
           ) : (
             <div className="py-1 text-center text-[9px] text-slate-400">
-              Webcam feed minimized
+              Webcam feeds minimized
             </div>
           )}
 

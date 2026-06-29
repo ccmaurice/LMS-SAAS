@@ -46,12 +46,18 @@ export function ProctoringSetupFlow({
 }: {
   _assessmentId?: string;
   studentEmail?: string;
-  onComplete: (mobilePeerConnected: boolean, stream: MediaStream | null) => void;
+  onComplete: (
+    mobilePeerConnected: boolean,
+    stream: MediaStream | null,
+    mobileStream: MediaStream | null,
+    pc: RTCPeerConnection | null
+  ) => void;
 }) {
   const [step, setStep] = useState<SetupStep>("welcome");
   
   // Media streams
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [mobileStream, setMobileStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [videoMounted, setVideoMounted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -161,8 +167,10 @@ export function ProctoringSetupFlow({
     pc.ontrack = (event) => {
       console.info("Desktop received mobile video track:", event.streams[0]);
       setMobileConnected(true);
+      const stream = event.streams[0];
+      setMobileStream(stream);
       if (mobileVideoRef.current) {
-        mobileVideoRef.current.srcObject = event.streams[0];
+        mobileVideoRef.current.srcObject = stream;
       }
     };
 
@@ -276,9 +284,7 @@ export function ProctoringSetupFlow({
       void generatePairingCode();
     }
     return () => {
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
+      // Do not close peerConnection here since we hand it off to the parent TakeAssessment
     };
   }, [step, pairingCode, generatePairingCode]);
 
@@ -296,7 +302,7 @@ export function ProctoringSetupFlow({
             </Button>
             <Button
               variant="outline"
-              onClick={() => onComplete(false, null)}
+              onClick={() => onComplete(false, null, null, null)}
               className="border-dashed border-rose-500/40 text-rose-600 hover:bg-rose-500/10 text-xs w-full"
             >
               Bypass Setup (For Testing &amp; Evaluators Only)
@@ -441,14 +447,14 @@ export function ProctoringSetupFlow({
 
           <div className="flex flex-col gap-2 pt-2">
             <Button onClick={() => {
-              onComplete(mobileConnected, localStream);
+              onComplete(mobileConnected, localStream, mobileStream, peerConnectionRef.current);
             }} className="w-full bg-primary hover:bg-primary/90 font-bold" disabled={!mobileConnected}>
                Start Assessment (with Mobile Camera)
             </Button>
             <Button 
               variant="outline" 
               onClick={() => {
-                onComplete(false, localStream);
+                onComplete(false, localStream, null, null);
               }} 
               className="w-full border-dashed"
             >
