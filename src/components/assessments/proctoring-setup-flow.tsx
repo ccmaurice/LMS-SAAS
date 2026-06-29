@@ -70,22 +70,9 @@ export function ProctoringSetupFlow({
     }
   }, []);
 
-  // Stop local camera
-  const stopWebcam = useCallback(() => {
-    if (localStream) {
-      localStream.getTracks().forEach((track) => track.stop());
-      setLocalStream(null);
-    }
-  }, [localStream]);
 
-  // Request permissions automatically on mount
-  useEffect(() => {
-    void startWebcam();
-    return () => {
-      stopWebcam();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+
 
   // Callback ref to bind local webcam stream to video element immediately upon mounting
   const videoCallback = useCallback((el: HTMLVideoElement | null) => {
@@ -291,11 +278,13 @@ export function ProctoringSetupFlow({
             This exam requires proctoring monitoring. You will be guided through a webcam environment scan, ID verification, and mobile secondary camera pairing before beginning.
           </p>
           <Button 
-            onClick={() => setStep("room_scan")} 
-            className="w-full mt-4" 
-            disabled={!!cameraError || !localStream}
+            onClick={async () => {
+              setStep("room_scan");
+              await startWebcam();
+            }} 
+            className="w-full mt-4 font-bold"
           >
-            {cameraError ? "Camera Access Blocked" : "Get Started"}
+            Get Started
           </Button>
         </div>
       )}
