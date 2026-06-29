@@ -55,7 +55,7 @@ export async function POST(_req: Request, ctx: { params: Promise<{ assessmentId:
     });
   }
 
-  if (result.kind !== "locked" && assessment.deliveryMode !== "FORMATIVE") {
+  if (assessment.deliveryMode !== "FORMATIVE") {
     try {
       await prisma.proctoringEvent.create({
         data: {
