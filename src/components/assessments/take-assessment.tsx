@@ -521,10 +521,25 @@ export function TakeAssessment({
               setCameraActive(true);
             } else {
               try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 }, audio: true });
-                setLocalStream(stream);
-                setCameraActive(true);
-                setMicActive(true);
+                const constraintsQueue = [
+                  { video: true, audio: true },
+                  { video: { width: { ideal: 320 }, height: { ideal: 240 } }, audio: true },
+                  { video: true, audio: false },
+                ];
+                let successStream: MediaStream | null = null;
+                for (const constraints of constraintsQueue) {
+                  try {
+                    successStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    break;
+                  } catch {
+                    // Try next constraints
+                  }
+                }
+                if (successStream) {
+                  setLocalStream(successStream);
+                  setCameraActive(true);
+                  setMicActive(successStream.getAudioTracks().length > 0);
+                }
               } catch (err) {
                 console.error("Forced camera stream activation failed:", err);
               }

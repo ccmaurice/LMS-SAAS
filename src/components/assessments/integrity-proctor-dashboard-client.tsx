@@ -87,10 +87,23 @@ export function IntegrityProctorDashboardClient({
   // Start live monitoring (requests webcam)
   const startLiveMonitoring = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-        audio: false, // video only for invigilator grid
-      });
+      const constraintsQueue = [
+        { video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+        { video: true, audio: false },
+      ];
+      let stream: MediaStream | null = null;
+      let lastError: unknown = null;
+      for (const constraints of constraintsQueue) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          break;
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      if (!stream) {
+        throw lastError;
+      }
       setLiveStream(stream);
       setMonitoringActive(true);
 
@@ -101,6 +114,17 @@ export function IntegrityProctorDashboardClient({
       });
     } catch (err) {
       console.error("Failed to request webcam for invigilation grid:", err);
+      let name = "";
+      if (err instanceof Error) {
+        name = err.name;
+      } else if (typeof err === "object" && err !== null) {
+        name = (err as { name?: string }).name || "";
+      }
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        alert("Camera permission was denied. Please allow camera access in your browser settings to start live monitoring.");
+      } else {
+        alert("Could not access camera for monitoring grid. Please check your camera connection.");
+      }
     }
   };
 

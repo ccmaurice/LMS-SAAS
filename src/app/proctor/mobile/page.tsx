@@ -5,6 +5,35 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Camera, Loader2, PhoneOff, Video } from "lucide-react";
 
+function getFriendlyErrorMessage(error: unknown): string {
+  if (!error) return "Could not access camera.";
+  let name = "";
+  let msg = "";
+  if (error instanceof Error) {
+    name = error.name;
+    msg = error.message;
+  } else if (typeof error === "object" && error !== null) {
+    name = (error as { name?: string }).name || "Error";
+    msg = (error as { message?: string }).message || String(error);
+  } else {
+    name = String(error);
+  }
+  
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Camera permission was denied. Please allow camera access in your mobile browser settings and try again.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No camera detected on your device. Please ensure your device has a working camera.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError" || name === "SourceUnavailableError") {
+    return "Your camera is currently in use by another app. Please close other camera apps and try again.";
+  }
+  if (name === "SecurityError") {
+    return "Camera access requires a secure connection (HTTPS).";
+  }
+  return `Error: ${msg || name}`;
+}
+
 function MobileBroadcastContent() {
   const searchParams = useSearchParams();
   const code = searchParams.get("code")?.trim() || "";
@@ -41,11 +70,31 @@ function MobileBroadcastContent() {
     setError(null);
 
     try {
-      // 1. Get back-camera feed
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: 640, height: 480 },
-        audio: false, // video only for secondary view
-      });
+      // 1. Get back-camera feed (with constraint cascade for maximum compatibility)
+      const constraintsQueue = [
+        { video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+        { video: { facingMode: "environment" }, audio: false },
+        { video: true, audio: false },
+      ];
+
+      let mediaStream: MediaStream | null = null;
+      let lastError: unknown = null;
+
+      for (const constraints of constraintsQueue) {
+        try {
+          console.info("Mobile attempting getUserMedia with constraints:", constraints);
+          mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+          break;
+        } catch (err) {
+          console.warn("Mobile failed constraints:", constraints, err);
+          lastError = err;
+        }
+      }
+
+      if (!mediaStream) {
+        throw lastError;
+      }
+
       setStream(mediaStream);
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
@@ -128,9 +177,10 @@ function MobileBroadcastContent() {
         }
       }, 1500);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Broadcast failed:", err);
-      setError(err.message || "Failed to start streaming. Check camera permissions.");
+      const friendlyMsg = getFriendlyErrorMessage(err);
+      setError(friendlyMsg);
       setConnecting(false);
       stopBroadcast();
     }
