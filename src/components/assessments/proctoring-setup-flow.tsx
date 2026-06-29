@@ -8,6 +8,38 @@ import { Camera, CheckCircle2, Loader2, UserCheck } from "lucide-react";
 
 type SetupStep = "welcome" | "room_scan" | "id_check" | "mobile_pair" | "complete";
 
+function getFriendlyErrorMessage(error: unknown): string {
+  if (!error) return "Could not access camera or microphone.";
+  let name = "";
+  let msg = "";
+  if (error instanceof Error) {
+    name = error.name;
+    msg = error.message;
+  } else if (typeof error === "object" && error !== null) {
+    name = (error as { name?: string }).name || "Error";
+    msg = (error as { message?: string }).message || String(error);
+  } else {
+    name = String(error);
+  }
+  
+  if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+    return "Camera/microphone permission was denied. Please click the camera icon in your browser address bar (or the lock/settings icon next to the URL), change the permission to 'Allow', and click 'Grant Camera Permission & Retry'.";
+  }
+  if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+    return "No camera or microphone detected on your device. Please plug in a webcam/microphone or ensure they are enabled in your OS settings.";
+  }
+  if (name === "NotReadableError" || name === "TrackStartError" || name === "SourceUnavailableError") {
+    return "Your webcam or microphone is currently being used by another application (like Zoom, MS Teams, Skype, or another browser tab). Please close those programs and click 'Grant Camera Permission & Retry'.";
+  }
+  if (name === "OverconstrainedError") {
+    return "The requested camera settings are not supported by your camera hardware. Simple resolution fallback will be attempted.";
+  }
+  if (name === "SecurityError") {
+    return "Camera access is blocked because this page is served over an insecure context. HTTPS is required.";
+  }
+  return `Error accessing media devices (${name}): ${msg}`;
+}
+
 export function ProctoringSetupFlow({
   studentEmail,
   onComplete,
@@ -43,13 +75,15 @@ export function ProctoringSetupFlow({
   const startWebcam = useCallback(async () => {
     setCameraError(null);
     const constraintsQueue = [
+      { video: { facingMode: "user" }, audio: true },
       { video: true, audio: true },
       { video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: true },
       { video: true, audio: false },
-      { video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+      { video: { facingMode: "user" }, audio: false },
     ];
 
     let success = false;
+    let lastError: unknown = null;
     for (const constraints of constraintsQueue) {
       try {
         console.info("Attempting setup getUserMedia with constraints:", constraints);
@@ -62,11 +96,13 @@ export function ProctoringSetupFlow({
         break;
       } catch (err) {
         console.warn("Failed setup getUserMedia with constraints:", constraints, err);
+        lastError = err;
       }
     }
 
     if (!success) {
-      setCameraError("Camera and microphone access are required for this exam. Please check your browser permission settings, allow access, and reload the page.");
+      const msg = getFriendlyErrorMessage(lastError);
+      setCameraError(msg);
     }
   }, []);
 
