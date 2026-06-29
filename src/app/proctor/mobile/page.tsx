@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Camera, Loader2, PhoneOff, Video } from "lucide-react";
+import { Camera, Loader2, PhoneOff, Video, AlertTriangle } from "lucide-react";
 
 function getFriendlyErrorMessage(error: unknown): string {
   if (!error) return "Could not access camera.";
@@ -43,6 +43,19 @@ function MobileBroadcastContent() {
   const [connecting, setConnecting] = useState(false);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [activeInstructionTab, setActiveInstructionTab] = useState<"android" | "ios">("android");
+
+  // Auto-detect mobile OS on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const ua = window.navigator.userAgent;
+      if (/iPhone|iPad|iPod/i.test(ua)) {
+        setActiveInstructionTab("ios");
+      } else {
+        setActiveInstructionTab("android");
+      }
+    }
+  }, []);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
@@ -315,9 +328,78 @@ function MobileBroadcastContent() {
       {/* Controls & Footer */}
       <div className="space-y-4 max-w-sm mx-auto w-full">
         {error && (
-          <p className="text-xs text-rose-400 text-center bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg">
-            {error}
-          </p>
+          <div className="bg-rose-500/10 border border-rose-500/25 rounded-xl p-4 text-sm space-y-4 animate-in fade-in duration-300">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="space-y-0.5 text-left">
+                <h3 className="font-semibold text-rose-400 text-xs">Camera Access Blocked</h3>
+                <p className="text-[11px] text-slate-405 leading-relaxed">
+                  {error}. Please follow these steps to grant permission:
+                </p>
+              </div>
+            </div>
+
+            {/* Tab Selection */}
+            <div className="grid grid-cols-2 gap-1 p-0.5 bg-slate-900 rounded-lg text-[10px]">
+              <button
+                type="button"
+                onClick={() => setActiveInstructionTab("android")}
+                className={`py-1 rounded font-semibold transition-all ${
+                  activeInstructionTab === "android"
+                    ? "bg-slate-800 text-white shadow"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                Android (Chrome)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveInstructionTab("ios")}
+                className={`py-1 rounded font-semibold transition-all ${
+                  activeInstructionTab === "ios"
+                    ? "bg-slate-800 text-white shadow"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                iPhone (Safari/Chrome)
+              </button>
+            </div>
+
+            {/* Instructions */}
+            <div className="bg-slate-950 border border-white/5 rounded-lg p-2.5 text-[11px] text-left text-slate-300 space-y-2">
+              {activeInstructionTab === "android" ? (
+                <ul className="space-y-2">
+                  <li className="flex gap-1.5">
+                    <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-teal-500/10 text-teal-400 font-bold text-[9px] shrink-0 mt-0.5">1</span>
+                    <div>
+                      <span className="font-semibold text-white">Browser Settings:</span> Tap the <span className="font-semibold text-white">Lock/Sliders icon</span> in Chrome's address bar, select <span className="font-semibold text-white">Permissions</span>, and toggle <span className="font-semibold text-white">Camera</span> to <span className="font-semibold text-white">Allow</span>.
+                    </div>
+                  </li>
+                  <li className="flex gap-1.5">
+                    <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-teal-500/10 text-teal-400 font-bold text-[9px] shrink-0 mt-0.5">2</span>
+                    <div>
+                      <span className="font-semibold text-white">System Settings:</span> If still blocked, go to your phone's <span className="font-semibold text-white">Settings &rarr; Apps &rarr; Chrome &rarr; Permissions</span> and allow <span className="font-semibold text-white">Camera</span>.
+                    </div>
+                  </li>
+                </ul>
+              ) : (
+                <ul className="space-y-2">
+                  <li className="flex gap-1.5">
+                    <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-teal-500/10 text-teal-400 font-bold text-[9px] shrink-0 mt-0.5">1</span>
+                    <div>
+                      <span className="font-semibold text-white">Address Bar:</span> Tap the <span className="font-semibold text-white">aA / Lock icon</span>, tap <span className="font-semibold text-white">Website Settings</span>, and change <span className="font-semibold text-white">Camera</span> to <span className="font-semibold text-white">Allow</span>.
+                    </div>
+                  </li>
+                  <li className="flex gap-1.5">
+                    <span className="flex items-center justify-center w-3.5 h-3.5 rounded-full bg-teal-500/10 text-teal-400 font-bold text-[9px] shrink-0 mt-0.5">2</span>
+                    <div>
+                      <span className="font-semibold text-white">Settings Panel:</span> Open your iPhone's <span className="font-semibold text-white">Settings</span> app, scroll down to <span className="font-semibold text-white">Safari</span> (or <span className="font-semibold text-white">Chrome</span>), and enable the <span className="font-semibold text-white">Camera</span> permission.
+                    </div>
+                  </li>
+                </ul>
+              )}
+            </div>
+          </div>
         )}
 
         {broadcasting && (

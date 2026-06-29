@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toCanvas } from "qrcode";
 import { Button } from "@/components/ui/button";
-import { Camera, CheckCircle2, Loader2 } from "lucide-react";
+import { Camera, CheckCircle2, Loader2, AlertTriangle } from "lucide-react";
 
 type SetupStep = "welcome" | "room_scan" | "mobile_pair" | "complete";
 
@@ -69,7 +69,22 @@ export function ProctoringSetupFlow({
   const [mobileConnected, setMobileConnected] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const [activeInstructionTab, setActiveInstructionTab] = useState<"android" | "ios" | "desktop">("android");
   const mobileVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Auto-detect user OS on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const ua = window.navigator.userAgent;
+      if (/Android/i.test(ua)) {
+        setActiveInstructionTab("android");
+      } else if (/iPhone|iPad|iPod/i.test(ua)) {
+        setActiveInstructionTab("ios");
+      } else {
+        setActiveInstructionTab("desktop");
+      }
+    }
+  }, []);
 
   // Initialize webcam automatically on mount
   const startWebcam = useCallback(async () => {
@@ -300,12 +315,109 @@ export function ProctoringSetupFlow({
   return (
     <div className="surface-glass rounded-xl p-8 max-w-xl mx-auto border border-border shadow-md space-y-6 text-foreground">
       {cameraError && (
-        <div className="bg-rose-500/10 border border-rose-500/35 rounded-lg p-4 text-xs text-rose-500 font-semibold leading-relaxed text-center space-y-3">
-          <p>{cameraError}</p>
+        <div className="bg-rose-500/5 border border-rose-500/20 rounded-xl p-5 text-sm space-y-4 animate-in fade-in duration-300">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+            <div className="space-y-1 text-left">
+              <h3 className="font-bold text-rose-500">Camera &amp; Mic Access Blocked</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {cameraError}. Since your browser has blocked camera/microphone access, follow these quick steps to unblock it so you can take your exam:
+              </p>
+            </div>
+          </div>
+
+          {/* Tab Selection */}
+          <div className="grid grid-cols-3 gap-1.5 p-1 bg-muted rounded-lg text-xs">
+            <button
+              onClick={() => setActiveInstructionTab("android")}
+              className={`py-1.5 rounded-md font-semibold transition-all ${
+                activeInstructionTab === "android"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Android (Chrome)
+            </button>
+            <button
+              onClick={() => setActiveInstructionTab("ios")}
+              className={`py-1.5 rounded-md font-semibold transition-all ${
+                activeInstructionTab === "ios"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              iPhone (Safari)
+            </button>
+            <button
+              onClick={() => setActiveInstructionTab("desktop")}
+              className={`py-1.5 rounded-md font-semibold transition-all ${
+                activeInstructionTab === "desktop"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Desktop
+            </button>
+          </div>
+
+          {/* Instructions Content */}
+          <div className="bg-background border border-border rounded-lg p-3 text-xs text-left space-y-3">
+            {activeInstructionTab === "android" && (
+              <ul className="space-y-2.5">
+                <li className="flex gap-2">
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary/10 text-primary font-bold text-[10px] shrink-0 mt-0.5">1</span>
+                  <div>
+                    <span className="font-semibold text-foreground">Chrome Site Settings:</span> Tap the <span className="font-semibold text-foreground">Lock/Sliders icon</span> on the left side of the address bar, select <span className="font-semibold text-foreground">Permissions</span>, and toggle <span className="font-semibold text-foreground">Camera</span> &amp; <span className="font-semibold text-foreground">Microphone</span> to <span className="font-semibold text-foreground">Allow</span>.
+                  </div>
+                </li>
+                <li className="flex gap-2">
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary/10 text-primary font-bold text-[10px] shrink-0 mt-0.5">2</span>
+                  <div>
+                    <span className="font-semibold text-foreground">Android OS Permissions:</span> If still blocked, open your phone&apos;s <span className="font-semibold text-foreground">Settings</span> &rarr; <span className="font-semibold text-foreground">Apps</span> &rarr; <span className="font-semibold text-foreground">Chrome</span> &rarr; <span className="font-semibold text-foreground">Permissions</span>, and ensure <span className="font-semibold text-foreground">Camera</span> and <span className="font-semibold text-foreground">Microphone</span> are set to <span className="font-semibold text-foreground">Allow only while using the app</span>.
+                  </div>
+                </li>
+              </ul>
+            )}
+
+            {activeInstructionTab === "ios" && (
+              <ul className="space-y-2.5">
+                <li className="flex gap-2">
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary/10 text-primary font-bold text-[10px] shrink-0 mt-0.5">1</span>
+                  <div>
+                    <span className="font-semibold text-foreground">Safari/Chrome Settings:</span> Tap the <span className="font-semibold text-foreground">aA / Lock icon</span> in the address bar, tap <span className="font-semibold text-foreground">Website Settings</span>, and choose <span className="font-semibold text-foreground">Allow</span> for Camera &amp; Microphone.
+                  </div>
+                </li>
+                <li className="flex gap-2">
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary/10 text-primary font-bold text-[10px] shrink-0 mt-0.5">2</span>
+                  <div>
+                    <span className="font-semibold text-foreground">iOS Settings Panel:</span> Open your iPhone&apos;s <span className="font-semibold text-foreground">Settings</span> app, scroll down to <span className="font-semibold text-foreground">Safari</span> (or <span className="font-semibold text-foreground">Chrome</span>), and verify both <span className="font-semibold text-foreground">Camera</span> and <span className="font-semibold text-foreground">Microphone</span> permissions are toggled <span className="font-semibold text-foreground">ON</span>.
+                  </div>
+                </li>
+              </ul>
+            )}
+
+            {activeInstructionTab === "desktop" && (
+              <ul className="space-y-2.5">
+                <li className="flex gap-2">
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary/10 text-primary font-bold text-[10px] shrink-0 mt-0.5">1</span>
+                  <div>
+                    <span className="font-semibold text-foreground">Address Bar Lock:</span> Click the <span className="font-semibold text-foreground">Lock icon</span> directly to the left of the website URL in the address bar.
+                  </div>
+                </li>
+                <li className="flex gap-2">
+                  <span className="flex items-center justify-center w-4 h-4 rounded-full bg-primary/10 text-primary font-bold text-[10px] shrink-0 mt-0.5">2</span>
+                  <div>
+                    <span className="font-semibold text-foreground">Toggle Permissions:</span> Switch the <span className="font-semibold text-foreground">Camera</span> and <span className="font-semibold text-foreground">Microphone</span> selectors to <span className="font-semibold text-foreground">Allow</span>, and reload the page.
+                  </div>
+                </li>
+              </ul>
+            )}
+          </div>
+
           <div className="flex flex-col gap-2 pt-1">
             <Button
               onClick={() => void startWebcam()}
-              className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 rounded text-xs w-full"
+              className="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2 rounded text-xs w-full animate-in fade-in duration-300"
             >
               Grant Camera Permission &amp; Retry
             </Button>
