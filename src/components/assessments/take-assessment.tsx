@@ -10,6 +10,12 @@ import {
   Clock,
   FileQuestion,
   X,
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -204,6 +210,11 @@ export function TakeAssessment({
   const [examPausedByTab, setExamPausedByTab] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [studentEmail, setStudentEmail] = useState("");
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [cameraActive, setCameraActive] = useState(true);
+  const [micActive, setMicActive] = useState(true);
+  const [showPreview, setShowPreview] = useState(true);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const answersRef = useRef<Record<string, string>>({});
   const autoSubmittedRef = useRef(false);
@@ -291,7 +302,95 @@ export function TakeAssessment({
     void load();
   }, [load]);
 
-  // Poll for proctor commands / prompts
+  // 1. Acquire local webcam stream when secure setup is completed
+  useEffect(() => {
+    if (!setupCompleted || deliveryMode === "FORMATIVE" || locked) return;
+
+    let activeStream: MediaStream | null = null;
+
+    const startWebcam = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 320, height: 240 },
+          audio: true,
+        });
+        activeStream = stream;
+        setLocalStream(stream);
+        setCameraActive(true);
+        setMicActive(true);
+      } catch (err) {
+        console.error("Failed to access student camera/mic in exam window:", err);
+      }
+    };
+
+    void startWebcam();
+
+    return () => {
+      if (activeStream) {
+        activeStream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [setupCompleted, deliveryMode, locked]);
+
+  // 2. Bind local webcam stream to video element
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream, showPreview]);
+
+  // 3. Capture frame from local video and upload to signaling server
+  useEffect(() => {
+    if (!localStream || !studentEmail || deliveryMode === "FORMATIVE" || locked) return;
+
+    const interval = setInterval(() => {
+      if (!localVideoRef.current) return;
+
+      const video = localVideoRef.current;
+      const videoTrack = localStream.getVideoTracks()[0];
+      
+      // If camera track is disabled, upload "disabled" status
+      if (!videoTrack || !videoTrack.enabled) {
+        void fetch("/api/proctor/signal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "upload_feed",
+            studentEmail,
+            primaryFeed: "disabled",
+          }),
+        }).catch(() => {});
+        return;
+      }
+
+      // Draw video frame to small canvas
+      const canvas = document.createElement("canvas");
+      canvas.width = 160;
+      canvas.height = 120;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        try {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const base64Jpeg = canvas.toDataURL("image/jpeg", 0.5); // 50% compression
+          void fetch("/api/proctor/signal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "upload_feed",
+              studentEmail,
+              primaryFeed: base64Jpeg,
+            }),
+          }).catch(() => {});
+        } catch (e) {
+          console.error("Failed to capture frame:", e);
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [localStream, studentEmail, deliveryMode, locked]);
+
+  // 4. Poll for proctor commands / prompts (supports remote force reactivation)
   useEffect(() => {
     if (deliveryMode === "FORMATIVE" || !studentEmail || locked || !submissionId) return;
 
@@ -303,11 +402,21 @@ export function TakeAssessment({
           if (data.command === "prompt_camera") {
             alert("PROCTOR ALERT: The invigilator has requested that you check your webcam and microphone immediately. Please ensure your camera is enabled and visible.");
           } else if (data.command === "force_camera") {
-            alert("PROCTOR WARNING: The invigilator has triggered a forced camera activation request. Accessing media streams...");
-            try {
-              await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            } catch (err) {
-              console.error("Forced camera stream activation failed:", err);
+            alert("PROCTOR WARNING: The invigilator has triggered a forced camera activation request. Reactivating camera feed...");
+            if (localStream) {
+              localStream.getVideoTracks().forEach((track) => {
+                track.enabled = true;
+              });
+              setCameraActive(true);
+            } else {
+              try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 }, audio: true });
+                setLocalStream(stream);
+                setCameraActive(true);
+                setMicActive(true);
+              } catch (err) {
+                console.error("Forced camera stream activation failed:", err);
+              }
             }
           }
         }
@@ -317,7 +426,7 @@ export function TakeAssessment({
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [deliveryMode, studentEmail, locked, submissionId]);
+  }, [deliveryMode, studentEmail, locked, submissionId, localStream]);
 
   useEffect(() => {
     if (
@@ -559,6 +668,7 @@ export function TakeAssessment({
       <div className="pt-12">
         <ProctoringSetupFlow
           _assessmentId={assessmentId}
+          studentEmail={studentEmail}
           onComplete={(connected) => {
             setMobilePeerConnected(connected);
             setSetupCompleted(true);
@@ -567,6 +677,24 @@ export function TakeAssessment({
       </div>
     );
   }
+
+  const toggleCamera = () => {
+    if (localStream) {
+      localStream.getVideoTracks().forEach((track) => {
+        track.enabled = !track.enabled;
+        setCameraActive(track.enabled);
+      });
+    }
+  };
+
+  const toggleMic = () => {
+    if (localStream) {
+      localStream.getAudioTracks().forEach((track) => {
+        track.enabled = !track.enabled;
+        setMicActive(track.enabled);
+      });
+    }
+  };
 
   const dd = q?.type === "DRAG_DROP" ? parseDragDropFromQuestionSchema(q.questionSchema) : null;
 
@@ -953,17 +1081,83 @@ export function TakeAssessment({
         </div>
       </div>
 
-      {/* Floating Recording Status Indicator */}
-      {deliveryMode !== "FORMATIVE" && (
-        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-slate-900/90 px-3.5 py-1.5 text-xs text-white border border-slate-700 shadow-lg">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <span className="font-semibold text-[11px] tracking-wide">MONITORED SECURE SESSION</span>
-          {mobilePeerConnected && (
-            <span className="text-[10px] text-teal-400 border-l border-slate-700 pl-2">MOBILE CONNECTED</span>
+      {/* Floating Recording Status Indicator & Live Webcam Preview */}
+      {deliveryMode !== "FORMATIVE" && setupCompleted && (
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 rounded-xl bg-slate-900/95 p-3 text-xs text-white border border-slate-800 shadow-2xl w-56 transition-all duration-300">
+          {/* Header bar */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span className="font-extrabold text-[9px] tracking-widest text-emerald-400 uppercase">PROCTOR MONITOR</span>
+            </div>
+            
+            <button
+              onClick={() => setShowPreview(!showPreview)}
+              className="text-slate-400 hover:text-white transition-colors"
+              title={showPreview ? "Hide Camera Preview" : "Show Camera Preview"}
+            >
+              {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+
+          {/* Camera Viewport */}
+          {showPreview ? (
+            <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover scale-x-[-1] ${!cameraActive ? "hidden" : ""}`}
+              />
+              {!cameraActive && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2 text-rose-500">
+                  <VideoOff className="w-6 h-6 mb-1 opacity-70" />
+                  <span className="text-[9px] font-bold">Camera Feed Paused</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="py-1 text-center text-[9px] text-slate-400">
+              Webcam feed minimized
+            </div>
           )}
+
+          {/* Device Toggles */}
+          <div className="flex gap-2 pt-1 border-t border-slate-800/80">
+            <button
+              onClick={toggleMic}
+              className={`p-1.5 rounded transition-all flex-1 flex justify-center items-center ${
+                micActive
+                  ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                  : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+              }`}
+              title={micActive ? "Mute Microphone" : "Unmute Microphone"}
+            >
+              {micActive ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={toggleCamera}
+              className={`p-1.5 rounded transition-all flex-1 flex justify-center items-center ${
+                cameraActive
+                  ? "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                  : "bg-rose-500/20 text-rose-400 border border-rose-500/30"
+              }`}
+              title={cameraActive ? "Turn Camera Off" : "Turn Camera On"}
+            >
+              {cameraActive ? <Video className="w-3.5 h-3.5" /> : <VideoOff className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+
+          {/* Connection diagnostics */}
+          <div className="text-[8px] text-slate-400 flex justify-between font-mono pt-1">
+            <span>MIC: {micActive ? "ON" : "OFF"}</span>
+            <span>CAM: {cameraActive ? "ON" : "OFF"}</span>
+            <span>MOBILE: {mobilePeerConnected ? "PAIRED" : "NONE"}</span>
+          </div>
         </div>
       )}
 

@@ -9,9 +9,11 @@ import { Camera, CheckCircle2, Loader2, UserCheck } from "lucide-react";
 type SetupStep = "welcome" | "room_scan" | "id_check" | "mobile_pair" | "complete";
 
 export function ProctoringSetupFlow({
+  studentEmail,
   onComplete,
 }: {
   _assessmentId?: string;
+  studentEmail?: string;
   onComplete: (mobilePeerConnected: boolean) => void;
 }) {
   const [step, setStep] = useState<SetupStep>("welcome");
@@ -183,6 +185,15 @@ export function ProctoringSetupFlow({
       const data = await res.json();
       if (data.code) {
         setPairingCode(data.code);
+
+        // Link studentEmail to the code on the signaling router
+        if (studentEmail) {
+          await fetch("/api/proctor/signal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "join", code: data.code, studentEmail }),
+          }).catch(() => {});
+        }
         
         // Draw QR code on canvas
         const mobileUrl = `${window.location.origin}/proctor/mobile?code=${data.code}`;
@@ -196,7 +207,7 @@ export function ProctoringSetupFlow({
     } catch (err) {
       console.error("Failed to generate pairing code:", err);
     }
-  }, [startWebrctNegotiation]);
+  }, [startWebrctNegotiation, studentEmail]);
 
   // Clean up
   useEffect(() => {

@@ -153,6 +153,40 @@ function MobileBroadcastContent() {
     return () => stopBroadcast();
   }, []);
 
+  // Periodic secondary mobile camera frame upload loop
+  useEffect(() => {
+    if (!broadcasting || !stream || !code) return;
+
+    const interval = setInterval(() => {
+      if (!videoRef.current) return;
+
+      const video = videoRef.current;
+      const canvas = document.createElement("canvas");
+      canvas.width = 160;
+      canvas.height = 120;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        try {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const base64Jpeg = canvas.toDataURL("image/jpeg", 0.5); // 50% compression
+          void fetch("/api/proctor/signal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "upload_feed",
+              code,
+              secondaryFeed: base64Jpeg,
+            }),
+          }).catch(() => {});
+        } catch (e) {
+          console.error("Mobile frame upload failed:", e);
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [broadcasting, stream, code]);
+
   function formatTime(sec: number) {
     const m = Math.floor(sec / 60);
     const s = sec % 60;

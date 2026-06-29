@@ -47,6 +47,9 @@ export function IntegrityProctorDashboardClient({
   // Live stream invigilation states
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [monitoringActive, setMonitoringActive] = useState(false);
+  const [liveFeeds, setLiveFeeds] = useState<
+    Record<string, { primaryFeed?: string; secondaryFeed?: string }>
+  >({});
   const [recordingStates, setRecordingStates] = useState<
     Record<string, { active: boolean; remaining: number }>
   >({});
@@ -119,8 +122,70 @@ export function IntegrityProctorDashboardClient({
     };
   }, [liveStream]);
 
+  // Poll signaling server for actual student camera feeds
+  useEffect(() => {
+    if (!monitoringActive) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/proctor/signal?action=get_feeds");
+        if (res.ok) {
+          const data = await res.json();
+          const map: Record<string, { primaryFeed?: string; secondaryFeed?: string }> = {};
+          if (data.feeds) {
+            for (const f of data.feeds) {
+              map[f.studentEmail] = {
+                primaryFeed: f.primaryFeed,
+                secondaryFeed: f.secondaryFeed,
+              };
+            }
+          }
+          setLiveFeeds(map);
+        }
+      } catch (err) {
+        console.error("Error fetching live student feeds:", err);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [monitoringActive]);
+
+  // Log snapshot captures in candidate's incident logs
+  const logSnapshotIncident = (studentEmail: string, dataUrl?: string) => {
+    const now = new Date();
+    const newEv: ProctorEvent = {
+      id: Math.random().toString(),
+      eventType: "evidence_snapshot",
+      createdAt: now,
+      dismissedAt: null,
+      user: studentsList.find((s) => s.email === studentEmail) || {
+        name: studentEmail,
+        email: studentEmail,
+      },
+      payload: {
+        description: "Invigilator manually captured a photo snapshot as evidence",
+        severity: "red",
+        screenshotUrl: dataUrl,
+      },
+    };
+    setEvents((prev) => [newEv, ...prev]);
+  };
+
   // Capture Snapshot as Evidence
   const takeSnapshot = (studentEmail: string) => {
+    const feed = liveFeeds[studentEmail];
+
+    if (feed?.primaryFeed && feed.primaryFeed !== "disabled") {
+      // Trigger download from base64 string
+      const link = document.createElement("a");
+      link.href = feed.primaryFeed;
+      link.download = `evidence_snapshot_${studentEmail.replace(/[@.]/g, "_")}.jpg`;
+      link.click();
+
+      logSnapshotIncident(studentEmail, feed.primaryFeed);
+      return;
+    }
+
     const videoEl = videoRefs.current[studentEmail];
     if (!videoEl) return;
 
@@ -138,24 +203,7 @@ export function IntegrityProctorDashboardClient({
       link.download = `evidence_snapshot_${studentEmail.replace(/[@.]/g, "_")}.jpg`;
       link.click();
 
-      // Log incident
-      const now = new Date();
-      const newEv: ProctorEvent = {
-        id: Math.random().toString(),
-        eventType: "evidence_snapshot",
-        createdAt: now,
-        dismissedAt: null,
-        user: studentsList.find((s) => s.email === studentEmail) || {
-          name: studentEmail,
-          email: studentEmail,
-        },
-        payload: {
-          description: "Invigilator manually captured a photo snapshot as evidence",
-          severity: "red",
-          screenshotUrl: dataUrl,
-        },
-      };
-      setEvents((prev) => [newEv, ...prev]);
+      logSnapshotIncident(studentEmail, dataUrl);
     }
   };
 
@@ -396,48 +444,81 @@ export function IntegrityProctorDashboardClient({
                   </div>
 
                   {/* Video Viewport */}
-                  <div className="relative aspect-video bg-slate-950 flex items-center justify-center">
-                    <video
-                      ref={(el) => {
-                        videoRefs.current[stud.email] = el;
-                        if (el && liveStream && el.srcObject !== liveStream) {
-                          el.srcObject = liveStream;
-                        }
-                      }}
-                      autoPlay
-                      playsInline
-                      muted
-                      className={`w-full h-full object-cover scale-x-[-1] ${
-                        !monitoringActive ? "hidden" : ""
-                      }`}
-                    />
+                  <div className="relative aspect-video bg-slate-950 flex items-center justify-center overflow-hidden">
+                    {monitoringActive && liveFeeds[stud.email]?.primaryFeed && liveFeeds[stud.email].primaryFeed !== "disabled" ? (
+                      <img
+                        src={liveFeeds[stud.email].primaryFeed}
+                        alt={`${stud.name || stud.email} feed`}
+                        className="w-full h-full object-cover scale-x-[-1]"
+                      />
+                    ) : (
+                      <video
+                        ref={(el) => {
+                          videoRefs.current[stud.email] = el;
+                          if (el && liveStream && el.srcObject !== liveStream) {
+                            el.srcObject = liveStream;
+                          }
+                        }}
+                        autoPlay
+                        playsInline
+                        muted
+                        className={`w-full h-full object-cover scale-x-[-1] ${
+                          !monitoringActive || (liveFeeds[stud.email]?.primaryFeed && liveFeeds[stud.email].primaryFeed !== "disabled") ? "hidden" : ""
+                        }`}
+                      />
+                    )}
+
+                    {monitoringActive && liveFeeds[stud.email]?.primaryFeed === "disabled" && (
+                      <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center text-center p-4 space-y-1.5 z-10">
+                        <VideoOff className="w-8 h-8 text-rose-500/80 animate-pulse" />
+                        <span className="text-[10px] text-rose-400 font-semibold">
+                          Camera feed disabled by candidate
+                        </span>
+                      </div>
+                    )}
 
                     {monitoringActive && (
                       <>
                         {/* Blinking Live Indicator */}
-                        <div className="absolute top-2 right-2 bg-emerald-500/90 text-emerald-950 text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                        <div className="absolute top-2 right-2 bg-emerald-500/90 text-emerald-950 text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 z-10">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-950 animate-pulse" />
                           LIVE FEED
                         </div>
 
-                        {/* Face bounding box overlay */}
-                        <div className="absolute top-[22%] left-[28%] w-[44%] h-[55%] border-2 border-emerald-500/60 rounded-lg border-dashed pointer-events-none animate-pulse">
-                          <div className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-emerald-400" />
-                          <div className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-emerald-400" />
-                          <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-emerald-400" />
-                          <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-emerald-400" />
-                          
-                          <span className="absolute -top-5 left-0 text-[7px] bg-emerald-500 text-emerald-950 font-extrabold px-1 rounded uppercase tracking-wide">
-                            Face Detected (98%)
-                          </span>
-                        </div>
+                        {/* Face bounding box overlay (only when camera is active) */}
+                        {liveFeeds[stud.email]?.primaryFeed !== "disabled" && (
+                          <div className="absolute top-[22%] left-[28%] w-[44%] h-[55%] border-2 border-emerald-500/60 rounded-lg border-dashed pointer-events-none animate-pulse z-10">
+                            <div className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-emerald-400" />
+                            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-emerald-400" />
+                            <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-emerald-400" />
+                            <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-emerald-400" />
+                            
+                            <span className="absolute -top-5 left-0 text-[7px] bg-emerald-500 text-emerald-950 font-extrabold px-1 rounded uppercase tracking-wide">
+                              Face Detected (98%)
+                            </span>
+                          </div>
+                        )}
 
                         {/* Telemetry data overlay */}
-                        <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center text-[7px] text-emerald-400 font-mono pointer-events-none bg-slate-950/85 px-2 py-1 rounded border border-emerald-500/20">
+                        <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center text-[7px] text-emerald-400 font-mono pointer-events-none bg-slate-950/85 px-2 py-1 rounded border border-emerald-500/20 z-10">
                           <span>GAZE: SECURE</span>
                           <span>MIC: ACTIVE</span>
                           <span>SECURE PORT: WebRTC</span>
                         </div>
+
+                        {/* Paired Mobile Support Feed PIP */}
+                        {liveFeeds[stud.email]?.secondaryFeed && liveFeeds[stud.email].secondaryFeed !== "disabled" && (
+                          <div className="absolute bottom-2 right-2 w-16 aspect-video bg-black rounded border border-slate-700 overflow-hidden shadow-lg z-20 hover:scale-150 transition-all duration-300">
+                            <img
+                              src={liveFeeds[stud.email].secondaryFeed}
+                              alt="Support Cam"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-0.5 left-0.5 bg-teal-500/85 text-[6px] text-slate-950 font-bold px-0.8 rounded">
+                              SEC
+                            </div>
+                          </div>
+                        )}
                       </>
                     )}
                     
@@ -451,7 +532,7 @@ export function IntegrityProctorDashboardClient({
                     )}
 
                     {isRecording && (
-                      <div className="absolute top-2 left-2 bg-rose-600/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse">
+                      <div className="absolute top-2 left-2 bg-rose-600/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 animate-pulse z-10">
                         <span className="w-1 h-1 rounded-full bg-white" />
                         REC ({recState.remaining}s)
                       </div>

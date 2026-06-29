@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 // Simple in-memory signaling store for WebRTC coordination (clears on server restart)
 type RoomState = {
   code: string;
+  studentEmail?: string;
   desktopSdp?: any;
   mobileSdp?: any;
   desktopCandidates: any[];
@@ -19,9 +20,24 @@ type ProctorCommand = {
 
 let activeCommands: ProctorCommand[] = [];
 
+type StudentFeed = {
+  studentEmail: string;
+  primaryFeed?: string;   // base64 jpeg
+  secondaryFeed?: string; // base64 jpeg
+  timestamp: number;
+};
+
+let activeFeeds: StudentFeed[] = [];
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const action = searchParams.get("action")?.trim();
+
+  if (action === "get_feeds") {
+    const now = Date.now();
+    activeFeeds = activeFeeds.filter((feed) => now - feed.timestamp < 12000);
+    return NextResponse.json({ feeds: activeFeeds });
+  }
 
   if (action === "get_command") {
     const studentEmail = searchParams.get("studentEmail")?.trim();
@@ -81,7 +97,37 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { action, code, role, sdp, candidate, studentEmail, command } = body;
+  const { action, code, role, sdp, candidate, studentEmail, command, primaryFeed, secondaryFeed } = body;
+
+  // 0. Upload live camera frames (from student page or mobile device)
+  if (action === "upload_feed") {
+    let email = studentEmail;
+    if (!email && code) {
+      const rm = activeRooms.get(code);
+      if (rm && rm.studentEmail) {
+        email = rm.studentEmail;
+      }
+    }
+    if (!email) {
+      return NextResponse.json({ error: "studentEmail or room code mapping is required." }, { status: 400 });
+    }
+    const now = Date.now();
+    const index = activeFeeds.findIndex((f) => f.studentEmail === email);
+    if (index !== -1) {
+      const feed = activeFeeds[index];
+      if (primaryFeed !== undefined) feed.primaryFeed = primaryFeed;
+      if (secondaryFeed !== undefined) feed.secondaryFeed = secondaryFeed;
+      feed.timestamp = now;
+    } else {
+      activeFeeds.push({
+        studentEmail: email,
+        primaryFeed,
+        secondaryFeed,
+        timestamp: now,
+      });
+    }
+    return NextResponse.json({ ok: true });
+  }
 
   // 1. Send Command (Proctor to Student)
   if (action === "send_command") {
@@ -119,6 +165,9 @@ export async function POST(req: Request) {
 
   // 3. Validate/join room
   if (action === "join") {
+    if (studentEmail) {
+      room.studentEmail = studentEmail;
+    }
     return NextResponse.json({ ok: true });
   }
 
