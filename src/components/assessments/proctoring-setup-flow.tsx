@@ -330,11 +330,20 @@ export function ProctoringSetupFlow({
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col gap-2 pt-2">
             <Button onClick={() => {
               onComplete(mobileConnected);
-            }} className="w-full" disabled={!mobileConnected}>
-              Start Assessment
+            }} className="w-full bg-primary hover:bg-primary/90 font-bold" disabled={!mobileConnected}>
+              Start Assessment (with Mobile Camera)
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                onComplete(false);
+              }} 
+              className="w-full border-dashed"
+            >
+              Skip Mobile Camera &amp; Start Exam
             </Button>
           </div>
         </div>

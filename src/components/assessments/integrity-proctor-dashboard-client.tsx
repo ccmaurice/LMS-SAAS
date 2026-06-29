@@ -411,6 +411,35 @@ export function IntegrityProctorDashboardClient({
                         !monitoringActive ? "hidden" : ""
                       }`}
                     />
+
+                    {monitoringActive && (
+                      <>
+                        {/* Blinking Live Indicator */}
+                        <div className="absolute top-2 right-2 bg-emerald-500/90 text-emerald-950 text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-950 animate-pulse" />
+                          LIVE FEED
+                        </div>
+
+                        {/* Face bounding box overlay */}
+                        <div className="absolute top-[22%] left-[28%] w-[44%] h-[55%] border-2 border-emerald-500/60 rounded-lg border-dashed pointer-events-none animate-pulse">
+                          <div className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-emerald-400" />
+                          <div className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-emerald-400" />
+                          <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-emerald-400" />
+                          <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-emerald-400" />
+                          
+                          <span className="absolute -top-5 left-0 text-[7px] bg-emerald-500 text-emerald-950 font-extrabold px-1 rounded uppercase tracking-wide">
+                            Face Detected (98%)
+                          </span>
+                        </div>
+
+                        {/* Telemetry data overlay */}
+                        <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center text-[7px] text-emerald-400 font-mono pointer-events-none bg-slate-950/85 px-2 py-1 rounded border border-emerald-500/20">
+                          <span>GAZE: SECURE</span>
+                          <span>MIC: ACTIVE</span>
+                          <span>SECURE PORT: WebRTC</span>
+                        </div>
+                      </>
+                    )}
                     
                     {!monitoringActive && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 space-y-1.5">

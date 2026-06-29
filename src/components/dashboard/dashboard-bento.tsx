@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { MessageCircle, MessagesSquare, FileChartColumn, Award, Home } from "lucide-react";
+import { MessageCircle, MessagesSquare, FileChartColumn, Award, Home, Shield } from "lucide-react";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
@@ -340,37 +340,68 @@ export function DashboardBento(props: DashboardBentoProps) {
         </BentoCard>
 
         <BentoCard className="flex flex-col p-0" delay={0.09}>
-          <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3 dark:border-white/10">
-            <Award className="size-4 text-muted-foreground" aria-hidden />
-            <h2 className="text-sm font-semibold tracking-tight">{t("nav.certificates")}</h2>
-          </div>
-          <div className="flex flex-1 flex-col gap-2 p-4">
-            {props.staff ? (
-              <p className="text-sm text-muted-foreground">{t("dashboard.certificatesStaff")}</p>
-            ) : props.certificates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("dashboard.certificatesEmpty")}</p>
-            ) : (
-              <ul className="space-y-2 text-sm">
-                {props.certificates.slice(0, 4).map((c) => (
-                  <li key={c.courseId}>
-                    <Link
-                      href={`${base}/courses/${c.courseId}/certificate`}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-transparent px-1 py-1.5 transition-colors hover:border-border/80 hover:bg-muted/30 dark:hover:border-white/10"
-                    >
-                      <span className="min-w-0 truncate font-medium">{c.courseTitle}</span>
-                      <span className="shrink-0 text-xs font-medium text-primary">{t("dashboard.view")}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Link
-              href={`${base}/certificates`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-auto w-full justify-center")}
-            >
-              {t("dashboard.allCertificates")}
-            </Link>
-          </div>
+          {props.staff ? (
+            <>
+              <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3 dark:border-white/10">
+                <Shield className="size-4 text-emerald-500" aria-hidden />
+                <h2 className="text-sm font-semibold tracking-tight">Exam Proctoring &amp; Integrity</h2>
+              </div>
+              <div className="flex flex-1 flex-col gap-3 p-4">
+                <div className="text-xs text-muted-foreground leading-relaxed">
+                  Real-time exam invigilation, browser focus tracking, WebRTC secondary camera feeds, and automated audit logs.
+                </div>
+                <div className="space-y-1.5 mt-auto">
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    Quick Controls
+                  </div>
+                  <Link
+                    href={`${base}/assessments`}
+                    className={cn(buttonVariants({ variant: "default", size: "sm" }), "w-full justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold")}
+                  >
+                    Monitor Live Feeds
+                  </Link>
+                  <Link
+                    href={`${base}/assessments`}
+                    className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-full justify-center")}
+                  >
+                    Access Integrity Logs
+                  </Link>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3 dark:border-white/10">
+                <Award className="size-4 text-muted-foreground" aria-hidden />
+                <h2 className="text-sm font-semibold tracking-tight">{t("nav.certificates")}</h2>
+              </div>
+              <div className="flex flex-1 flex-col gap-2 p-4">
+                {props.certificates.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t("dashboard.certificatesEmpty")}</p>
+                ) : (
+                  <ul className="space-y-2 text-sm">
+                    {props.certificates.slice(0, 4).map((c) => (
+                      <li key={c.courseId}>
+                        <Link
+                          href={`${base}/courses/${c.courseId}/certificate`}
+                          className="flex items-center justify-between gap-2 rounded-lg border border-transparent px-1 py-1.5 transition-colors hover:border-border/80 hover:bg-muted/30 dark:hover:border-white/10"
+                        >
+                          <span className="min-w-0 truncate font-medium">{c.courseTitle}</span>
+                          <span className="shrink-0 text-xs font-medium text-primary">{t("dashboard.view")}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Link
+                  href={`${base}/certificates`}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "mt-auto w-full justify-center")}
+                >
+                  {t("dashboard.allCertificates")}
+                </Link>
+              </div>
+            </>
+          )}
         </BentoCard>
       </section>
 
@@ -412,6 +443,14 @@ export function DashboardBento(props: DashboardBentoProps) {
           >
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t("dashboard.shortcuts")}</p>
             <div className="mt-2 flex flex-col gap-2">
+              {props.staff && (
+                <Link
+                  href={`${base}/assessments`}
+                  className={cn(buttonVariants({ variant: "default" }), "justify-center bg-emerald-600 hover:bg-emerald-500 text-white font-bold")}
+                >
+                  Proctoring Console
+                </Link>
+              )}
               <Link href={`${base}/messages`} className={cn(buttonVariants(), "justify-center tracking-tight")}>
                 {t("nav.messages")}
               </Link>

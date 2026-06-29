@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/api/guard";
 import { canStudentTakeAssessment, getAssessmentInOrg } from "@/lib/assessments/access";
 import { findActiveDraft, resolveStudentStartAttempt } from "@/lib/assessments/retake";
+import { isStaffRole } from "@/lib/courses/access";
 
 function clampAttempts(n: number): number {
   if (!Number.isFinite(n)) return 1;
@@ -18,7 +19,8 @@ export async function POST(_req: Request, ctx: { params: Promise<{ assessmentId:
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (!(await canStudentTakeAssessment(user.id, assessment))) {
+  const isStaff = isStaffRole(user.role);
+  if (!isStaff && !(await canStudentTakeAssessment(user.id, assessment))) {
     return NextResponse.json({ error: "Not available" }, { status: 403 });
   }
 
@@ -51,6 +53,26 @@ export async function POST(_req: Request, ctx: { params: Promise<{ assessmentId:
       completedAttempts: result.completedAttempts,
       maxAttemptsPerStudent: result.maxAttempts,
     });
+  }
+
+  if (result.kind !== "locked" && assessment.deliveryMode !== "FORMATIVE") {
+    try {
+      await prisma.proctoringEvent.create({
+        data: {
+          organizationId: user.organizationId,
+          userId: user.id,
+          assessmentId,
+          submissionId: result.submission.id,
+          eventType: "student_started_exam",
+          payload: {
+            description: `${user.name || user.email} started the proctored exam attempt.`,
+            severity: "green",
+          },
+        },
+      });
+    } catch (e) {
+      console.error("Failed to log student_started_exam event:", e);
+    }
   }
 
   return NextResponse.json({
