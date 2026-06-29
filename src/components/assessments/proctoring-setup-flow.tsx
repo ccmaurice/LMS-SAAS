@@ -21,6 +21,7 @@ export function ProctoringSetupFlow({
   // Media streams
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [videoMounted, setVideoMounted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   
   // ID Verification state
@@ -78,11 +79,19 @@ export function ProctoringSetupFlow({
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     videoRef.current = el;
-    if (el && localStream) {
-      el.srcObject = localStream;
-      el.play().catch((err) => console.warn("Setup video play interrupted:", err));
+    setVideoMounted(!!el);
+  }, []);
+
+  // Ensure stream is bound and plays when stream or video element becomes available
+  useEffect(() => {
+    if (videoRef.current && localStream) {
+      const video = videoRef.current;
+      if (video.srcObject !== localStream) {
+        video.srcObject = localStream;
+        video.play().catch((err) => console.warn("Setup video play failed:", err));
+      }
     }
-  }, [localStream]);
+  }, [localStream, videoMounted]);
 
   // Capture ID snapshot
   function captureIdSnapshot() {
@@ -253,8 +262,12 @@ export function ProctoringSetupFlow({
           <p className="text-sm text-muted-foreground leading-relaxed">
             This exam requires proctoring monitoring. You will be guided through a webcam environment scan, ID verification, and mobile secondary camera pairing before beginning.
           </p>
-          <Button onClick={() => setStep("room_scan")} className="w-full mt-4">
-            Get Started
+          <Button 
+            onClick={() => setStep("room_scan")} 
+            className="w-full mt-4" 
+            disabled={!!cameraError || !localStream}
+          >
+            {cameraError ? "Camera Access Blocked" : "Get Started"}
           </Button>
         </div>
       )}
@@ -275,11 +288,19 @@ export function ProctoringSetupFlow({
             )}
           </div>
           {!roomScanCompleted ? (
-            <Button onClick={() => setRoomScanCompleted(true)} className="w-full">
+            <Button 
+              onClick={() => setRoomScanCompleted(true)} 
+              className="w-full"
+              disabled={!!cameraError || !localStream}
+            >
               Confirm Room Scan
             </Button>
           ) : (
-            <Button onClick={() => setStep("id_check")} className="w-full">
+            <Button 
+              onClick={() => setStep("id_check")} 
+              className="w-full"
+              disabled={!!cameraError || !localStream}
+            >
               Proceed to ID Verification
             </Button>
           )}
@@ -313,7 +334,11 @@ export function ProctoringSetupFlow({
             )}
           </div>
           {!idCapturedImage ? (
-            <Button onClick={captureIdSnapshot} className="w-full">
+            <Button 
+              onClick={captureIdSnapshot} 
+              className="w-full"
+              disabled={!!cameraError || !localStream}
+            >
               Capture ID Snapshot
             </Button>
           ) : (

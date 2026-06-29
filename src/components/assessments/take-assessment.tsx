@@ -216,6 +216,8 @@ export function TakeAssessment({
   const [showPreview, setShowPreview] = useState(true);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [localVideoMounted, setLocalVideoMounted] = useState(false);
+  const [hiddenVideoMounted, setHiddenVideoMounted] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
@@ -410,22 +412,38 @@ export function TakeAssessment({
     };
   }, [setupCompleted, deliveryMode, locked, localStream]);
 
-  // 2. Callback refs to bind local webcam stream to video elements immediately upon mounting
+  // 2. Callback refs to track mounting and assign DOM elements to refs
   const localVideoCallback = useCallback((el: HTMLVideoElement | null) => {
     localVideoRef.current = el;
-    if (el && localStream) {
-      el.srcObject = localStream;
-      el.play().catch((err) => console.warn("Local video play interrupted:", err));
-    }
-  }, [localStream]);
+    setLocalVideoMounted(!!el);
+  }, []);
 
   const hiddenVideoCallback = useCallback((el: HTMLVideoElement | null) => {
     hiddenVideoRef.current = el;
-    if (el && localStream) {
-      el.srcObject = localStream;
-      el.play().catch((err) => console.warn("Hidden video play interrupted:", err));
+    setHiddenVideoMounted(!!el);
+  }, []);
+
+  // Ensure visible video element is bound to stream when mounted or stream updates
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      const video = localVideoRef.current;
+      if (video.srcObject !== localStream) {
+        video.srcObject = localStream;
+        video.play().catch((err) => console.warn("Local video play failed:", err));
+      }
     }
-  }, [localStream]);
+  }, [localStream, localVideoMounted]);
+
+  // Ensure hidden video element is bound to stream when mounted or stream updates
+  useEffect(() => {
+    if (hiddenVideoRef.current && localStream) {
+      const video = hiddenVideoRef.current;
+      if (video.srcObject !== localStream) {
+        video.srcObject = localStream;
+        video.play().catch((err) => console.warn("Hidden video play failed:", err));
+      }
+    }
+  }, [localStream, hiddenVideoMounted]);
 
   // 3. Capture frame from local video and upload to signaling server
   useEffect(() => {
