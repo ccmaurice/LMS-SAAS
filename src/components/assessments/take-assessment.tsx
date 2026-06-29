@@ -405,15 +405,20 @@ export function TakeAssessment({
     };
   }, [setupCompleted, deliveryMode, locked]);
 
-  // 2. Bind local webcam stream to video elements
-  useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
+  // 2. Callback refs to bind local webcam stream to video elements immediately upon mounting
+  const localVideoCallback = useCallback((el: HTMLVideoElement | null) => {
+    localVideoRef.current = el;
+    if (el && localStream) {
+      el.srcObject = localStream;
     }
-    if (hiddenVideoRef.current && localStream) {
-      hiddenVideoRef.current.srcObject = localStream;
+  }, [localStream]);
+
+  const hiddenVideoCallback = useCallback((el: HTMLVideoElement | null) => {
+    hiddenVideoRef.current = el;
+    if (el && localStream) {
+      el.srcObject = localStream;
     }
-  }, [localStream, showPreview]);
+  }, [localStream]);
 
   // 3. Capture frame from local video and upload to signaling server
   useEffect(() => {
@@ -1188,7 +1193,7 @@ export function TakeAssessment({
           {showPreview ? (
             <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
               <video
-                ref={localVideoRef}
+                ref={localVideoCallback}
                 autoPlay
                 playsInline
                 muted
@@ -1274,7 +1279,7 @@ export function TakeAssessment({
       {/* Hidden persistent video element for secure proctoring frame captures */}
       {deliveryMode !== "FORMATIVE" && setupCompleted && (
         <video
-          ref={hiddenVideoRef}
+          ref={hiddenVideoCallback}
           autoPlay
           playsInline
           muted

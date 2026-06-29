@@ -73,12 +73,15 @@ export function ProctoringSetupFlow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-bind stream when step changes and video element mounts
-  useEffect(() => {
-    if (videoRef.current && localStream) {
-      videoRef.current.srcObject = localStream;
+  // Callback ref to bind local webcam stream to video element immediately upon mounting
+  const videoCallback = useCallback((el: HTMLVideoElement | null) => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    videoRef.current = el;
+    if (el && localStream) {
+      el.srcObject = localStream;
     }
-  }, [localStream, step]);
+  }, [localStream]);
 
   // Capture ID snapshot
   function captureIdSnapshot() {
@@ -263,7 +266,7 @@ export function ProctoringSetupFlow({
             Slowly pan your webcam 360 degrees to show your physical test-taking space.
           </p>
           <div className="relative aspect-video rounded-lg overflow-hidden bg-black border border-border">
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+            <video ref={videoCallback} autoPlay playsInline muted className="w-full h-full object-cover" />
             {roomScanCompleted && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-primary gap-2">
                 <CheckCircle2 className="w-6 h-6" />
@@ -293,7 +296,7 @@ export function ProctoringSetupFlow({
             {idCapturedImage ? (
               <img src={idCapturedImage} alt="Captured ID Card" className="w-full h-full object-cover" />
             ) : (
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+              <video ref={videoCallback} autoPlay playsInline muted className="w-full h-full object-cover" />
             )}
             {verifyingId && (
               <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
