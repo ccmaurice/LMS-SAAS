@@ -42,17 +42,30 @@ export function ProctoringSetupFlow({
   // Initialize webcam automatically on mount
   const startWebcam = useCallback(async () => {
     setCameraError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-        audio: true,
-      });
-      setLocalStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+    const constraintsQueue = [
+      { video: true, audio: true },
+      { video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: true },
+      { video: true, audio: false },
+      { video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+    ];
+
+    let success = false;
+    for (const constraints of constraintsQueue) {
+      try {
+        console.info("Attempting setup getUserMedia with constraints:", constraints);
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        setLocalStream(stream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        success = true;
+        break;
+      } catch (err) {
+        console.warn("Failed setup getUserMedia with constraints:", constraints, err);
       }
-    } catch (err) {
-      console.error("Failed to access camera/mic automatically:", err);
+    }
+
+    if (!success) {
       setCameraError("Camera and microphone access are required for this exam. Please check your browser permission settings, allow access, and reload the page.");
     }
   }, []);

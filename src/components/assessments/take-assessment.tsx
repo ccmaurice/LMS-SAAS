@@ -371,30 +371,24 @@ export function TakeAssessment({
     let timerId: ReturnType<typeof setTimeout> | null = null;
 
     const startWebcam = async () => {
-      try {
-        // Try acquiring both video and audio first
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 320, height: 240 },
-          audio: true,
-        });
-        activeStream = stream;
-        setLocalStream(stream);
-        setCameraActive(true);
-        setMicActive(true);
-      } catch (err) {
-        console.warn("Could not access both camera and mic, attempting camera only fallback:", err);
+      const constraintsQueue = [
+        { video: true, audio: true },
+        { video: { width: { ideal: 320 }, height: { ideal: 240 } }, audio: true },
+        { video: true, audio: false },
+        { video: { width: { ideal: 320 }, height: { ideal: 240 } }, audio: false },
+      ];
+
+      for (const constraints of constraintsQueue) {
         try {
-          // Fallback to camera only
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 320, height: 240 },
-            audio: false,
-          });
+          console.info("Attempting fallback getUserMedia with constraints:", constraints);
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
           activeStream = stream;
           setLocalStream(stream);
           setCameraActive(true);
-          setMicActive(false);
-        } catch (err2) {
-          console.error("Failed to acquire student webcam stream:", err2);
+          setMicActive(constraints.audio !== false);
+          break;
+        } catch (err) {
+          console.warn("Failed fallback getUserMedia with constraints:", constraints, err);
         }
       }
     };
