@@ -60,6 +60,30 @@ function MobileBroadcastContent() {
     return () => clearInterval(timer);
   }, [broadcasting]);
 
+  // Ensure stream is bound and plays when stream or video element becomes available
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      const video = videoRef.current;
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
+        video.muted = true;
+        video.setAttribute("playsinline", "true");
+
+        let playAttempts = 0;
+        const tryPlay = () => {
+          video.play().catch((err) => {
+            console.warn(`Mobile video play failed (attempt ${playAttempts}):`, err);
+            playAttempts++;
+            if (playAttempts < 3) {
+              setTimeout(tryPlay, 200);
+            }
+          });
+        };
+        tryPlay();
+      }
+    }
+  }, [stream]);
+
   async function startBroadcast() {
     if (!code) {
       setError("Invalid or missing pairing code.");
@@ -96,9 +120,6 @@ function MobileBroadcastContent() {
       }
 
       setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
 
       // 2. Initialize Peer Connection
       const pc = new RTCPeerConnection({

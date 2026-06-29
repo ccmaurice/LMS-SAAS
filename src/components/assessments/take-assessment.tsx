@@ -382,24 +382,46 @@ export function TakeAssessment({
     let timerId: ReturnType<typeof setTimeout> | null = null;
 
     const startWebcam = async () => {
-      const constraintsQueue = [
-        { video: true, audio: true },
-        { video: { width: { ideal: 320 }, height: { ideal: 240 } }, audio: true },
-        { video: true, audio: false },
-        { video: { width: { ideal: 320 }, height: { ideal: 240 } }, audio: false },
-      ];
+      const ua = navigator.userAgent;
+      const isChromeMobile = /Chrome/.test(ua) && /Android|iPhone|iPad|iPod/.test(ua);
+
+      const constraintsQueue = isChromeMobile
+        ? [
+            { video: { facingMode: "user", width: { ideal: 640, max: 720 }, height: { ideal: 480, max: 480 } }, audio: true },
+            { video: { facingMode: "user" }, audio: true },
+            { video: true, audio: true },
+            { video: true, audio: false }
+          ]
+        : [
+            { video: true, audio: true },
+            { video: { width: { ideal: 320 }, height: { ideal: 240 } }, audio: true },
+            { video: true, audio: false },
+            { video: { width: { ideal: 320 }, height: { ideal: 240 } }, audio: false },
+          ];
 
       for (const constraints of constraintsQueue) {
-        try {
-          console.info("Attempting fallback getUserMedia with constraints:", constraints);
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        let attempts = 0;
+        const maxAttempts = isChromeMobile ? 3 : 1;
+        let stream: MediaStream | null = null;
+
+        while (attempts < maxAttempts && !stream) {
+          try {
+            attempts++;
+            console.info(`Attempt ${attempts} fallback getUserMedia with constraints:`, constraints);
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+          } catch (err) {
+            if (attempts < maxAttempts) {
+              await new Promise((r) => setTimeout(r, 300));
+            }
+          }
+        }
+
+        if (stream) {
           activeStream = stream;
           setLocalStream(stream);
           setCameraActive(true);
-          setMicActive(constraints.audio !== false);
+          setMicActive(stream.getAudioTracks().length > 0);
           break;
-        } catch (err) {
-          console.warn("Failed fallback getUserMedia with constraints:", constraints, err);
         }
       }
     };
@@ -434,7 +456,20 @@ export function TakeAssessment({
       const video = localVideoRef.current;
       if (video.srcObject !== localStream) {
         video.srcObject = localStream;
-        video.play().catch((err) => console.warn("Local video play failed:", err));
+        video.muted = true;
+        video.setAttribute("playsinline", "true");
+
+        let playAttempts = 0;
+        const tryPlay = () => {
+          video.play().catch((err) => {
+            console.warn(`Local video play failed (attempt ${playAttempts}):`, err);
+            playAttempts++;
+            if (playAttempts < 3) {
+              setTimeout(tryPlay, 200);
+            }
+          });
+        };
+        tryPlay();
       }
     }
   }, [localStream, localVideoMounted]);
@@ -445,7 +480,20 @@ export function TakeAssessment({
       const video = hiddenVideoRef.current;
       if (video.srcObject !== localStream) {
         video.srcObject = localStream;
-        video.play().catch((err) => console.warn("Hidden video play failed:", err));
+        video.muted = true;
+        video.setAttribute("playsinline", "true");
+
+        let playAttempts = 0;
+        const tryPlay = () => {
+          video.play().catch((err) => {
+            console.warn(`Hidden video play failed (attempt ${playAttempts}):`, err);
+            playAttempts++;
+            if (playAttempts < 3) {
+              setTimeout(tryPlay, 200);
+            }
+          });
+        };
+        tryPlay();
       }
     }
   }, [localStream, hiddenVideoMounted]);

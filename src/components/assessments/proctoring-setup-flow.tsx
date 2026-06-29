@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable react-hooks/set-state-in-effect */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toCanvas } from "qrcode";
@@ -75,29 +74,51 @@ export function ProctoringSetupFlow({
   // Initialize webcam automatically on mount
   const startWebcam = useCallback(async () => {
     setCameraError(null);
-    const constraintsQueue = [
-      { video: { facingMode: "user" }, audio: true },
-      { video: true, audio: true },
-      { video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: true },
-      { video: true, audio: false },
-      { video: { facingMode: "user" }, audio: false },
-    ];
+    const ua = navigator.userAgent;
+    const isChromeMobile = /Chrome/.test(ua) && /Android|iPhone|iPad|iPod/.test(ua);
+
+    const constraintsQueue = isChromeMobile
+      ? [
+          { video: { facingMode: "user", width: { ideal: 640, max: 720 }, height: { ideal: 480, max: 480 } }, audio: true },
+          { video: { facingMode: "user" }, audio: true },
+          { video: true, audio: true },
+          { video: true, audio: false },
+        ]
+      : [
+          { video: { facingMode: "user" }, audio: true },
+          { video: true, audio: true },
+          { video: { width: { ideal: 640 }, height: { ideal: 480 } }, audio: true },
+          { video: true, audio: false },
+          { video: { facingMode: "user" }, audio: false },
+        ];
 
     let success = false;
     let lastError: unknown = null;
     for (const constraints of constraintsQueue) {
-      try {
-        console.info("Attempting setup getUserMedia with constraints:", constraints);
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      let attempts = 0;
+      const maxAttempts = isChromeMobile ? 3 : 1;
+      let stream: MediaStream | null = null;
+
+      while (attempts < maxAttempts && !stream) {
+        try {
+          attempts++;
+          console.info(`Attempt ${attempts} setup getUserMedia with constraints:`, constraints);
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (err) {
+          lastError = err;
+          if (attempts < maxAttempts) {
+            await new Promise((r) => setTimeout(r, 300));
+          }
+        }
+      }
+
+      if (stream) {
         setLocalStream(stream);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
         success = true;
         break;
-      } catch (err) {
-        console.warn("Failed setup getUserMedia with constraints:", constraints, err);
-        lastError = err;
       }
     }
 
@@ -125,7 +146,20 @@ export function ProctoringSetupFlow({
       const video = videoRef.current;
       if (video.srcObject !== localStream) {
         video.srcObject = localStream;
-        video.play().catch((err) => console.warn("Setup video play failed:", err));
+        video.muted = true;
+        video.setAttribute("playsinline", "true");
+
+        let playAttempts = 0;
+        const tryPlay = () => {
+          video.play().catch((err) => {
+            console.warn(`Setup video play failed (attempt ${playAttempts}):`, err);
+            playAttempts++;
+            if (playAttempts < 3) {
+              setTimeout(tryPlay, 200);
+            }
+          });
+        };
+        tryPlay();
       }
     }
   }, [localStream, videoMounted]);
