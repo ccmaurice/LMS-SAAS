@@ -215,6 +215,7 @@ export function TakeAssessment({
   const [micActive, setMicActive] = useState(true);
   const [showPreview, setShowPreview] = useState(true);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const hiddenVideoRef = useRef<HTMLVideoElement | null>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
@@ -368,6 +369,7 @@ export function TakeAssessment({
 
     const startWebcam = async () => {
       try {
+        // Try acquiring both video and audio first
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 320, height: 240 },
           audio: true,
@@ -377,7 +379,20 @@ export function TakeAssessment({
         setCameraActive(true);
         setMicActive(true);
       } catch (err) {
-        console.error("Failed to access student camera/mic in exam window:", err);
+        console.warn("Could not access both camera and mic, attempting camera only fallback:", err);
+        try {
+          // Fallback to camera only
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 320, height: 240 },
+            audio: false,
+          });
+          activeStream = stream;
+          setLocalStream(stream);
+          setCameraActive(true);
+          setMicActive(false);
+        } catch (err2) {
+          console.error("Failed to acquire student webcam stream:", err2);
+        }
       }
     };
 
@@ -390,10 +405,13 @@ export function TakeAssessment({
     };
   }, [setupCompleted, deliveryMode, locked]);
 
-  // 2. Bind local webcam stream to video element
+  // 2. Bind local webcam stream to video elements
   useEffect(() => {
     if (localVideoRef.current && localStream) {
       localVideoRef.current.srcObject = localStream;
+    }
+    if (hiddenVideoRef.current && localStream) {
+      hiddenVideoRef.current.srcObject = localStream;
     }
   }, [localStream, showPreview]);
 
@@ -402,9 +420,9 @@ export function TakeAssessment({
     if (!localStream || !studentEmail || deliveryMode === "FORMATIVE" || locked) return;
 
     const interval = setInterval(() => {
-      if (!localVideoRef.current) return;
+      if (!hiddenVideoRef.current) return;
 
-      const video = localVideoRef.current;
+      const video = hiddenVideoRef.current;
       const videoTrack = localStream.getVideoTracks()[0];
       
       // If camera track is disabled, upload "disabled" status
@@ -1252,6 +1270,17 @@ export function TakeAssessment({
             </Button>
           </div>
         </div>
+      )}
+      {/* Hidden persistent video element for secure proctoring frame captures */}
+      {deliveryMode !== "FORMATIVE" && setupCompleted && (
+        <video
+          ref={hiddenVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className="hidden"
+          style={{ display: "none" }}
+        />
       )}
     </AssessmentLockdownGuards>
   );

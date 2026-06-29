@@ -46,7 +46,7 @@ export function IntegrityProctorDashboardClient({
 
   // Live stream invigilation states
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
-  const [monitoringActive, setMonitoringActive] = useState(false);
+  const [monitoringActive, setMonitoringActive] = useState(true);
   const [liveFeeds, setLiveFeeds] = useState<
     Record<string, { primaryFeed?: string; secondaryFeed?: string }>
   >({});
