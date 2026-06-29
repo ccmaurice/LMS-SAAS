@@ -20,6 +20,7 @@ export function ProctoringSetupFlow({
   
   // Media streams
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   
   // ID Verification state
@@ -37,16 +38,21 @@ export function ProctoringSetupFlow({
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const mobileVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Initialize webcam
+  // Initialize webcam automatically on mount
   const startWebcam = useCallback(async () => {
+    setCameraError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 },
+        audio: true,
+      });
       setLocalStream(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      console.error("Failed to access camera/mic:", err);
+      console.error("Failed to access camera/mic automatically:", err);
+      setCameraError("Camera and microphone access are required for this exam. Please check your browser permission settings, allow access, and reload the page.");
     }
   }, []);
 
@@ -58,15 +64,21 @@ export function ProctoringSetupFlow({
     }
   }, [localStream]);
 
-  // Step transitions
+  // Request permissions automatically on mount
   useEffect(() => {
-    if (step === "room_scan" || step === "id_check") {
-      void startWebcam();
-    } else {
+    void startWebcam();
+    return () => {
       stopWebcam();
-    }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, []);
+
+  // Re-bind stream when step changes and video element mounts
+  useEffect(() => {
+    if (videoRef.current && localStream) {
+      videoRef.current.srcObject = localStream;
+    }
+  }, [localStream, step]);
 
   // Capture ID snapshot
   function captureIdSnapshot() {
@@ -224,6 +236,11 @@ export function ProctoringSetupFlow({
 
   return (
     <div className="surface-glass rounded-xl p-8 max-w-xl mx-auto border border-border shadow-md space-y-6 text-foreground">
+      {cameraError && (
+        <div className="bg-rose-500/10 border border-rose-500/35 rounded-lg p-3 text-xs text-rose-500 font-semibold leading-relaxed text-center animate-pulse">
+          {cameraError}
+        </div>
+      )}
       {step === "welcome" && (
         <div className="space-y-4 text-center">
           <div className="mx-auto bg-primary/10 w-16 h-16 rounded-full flex items-center justify-center text-primary">

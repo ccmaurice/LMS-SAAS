@@ -215,6 +215,9 @@ export function TakeAssessment({
   const [micActive, setMicActive] = useState(true);
   const [showPreview, setShowPreview] = useState(true);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const answersRef = useRef<Record<string, string>>({});
   const autoSubmittedRef = useRef(false);
@@ -301,6 +304,61 @@ export function TakeAssessment({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 0. Drag and reposition listeners for floating proctor box
+  const onMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest(".drag-handle")) {
+      isDraggingRef.current = true;
+      dragStartRef.current = { x: e.clientX - position.x, y: e.clientY - position.y };
+      e.preventDefault();
+    }
+  };
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest(".drag-handle")) {
+      isDraggingRef.current = true;
+      const touch = e.touches[0];
+      if (touch) {
+        dragStartRef.current = { x: touch.clientX - position.x, y: touch.clientY - position.y };
+      }
+    }
+  };
+
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDraggingRef.current) return;
+    setPosition({
+      x: e.clientX - dragStartRef.current.x,
+      y: e.clientY - dragStartRef.current.y,
+    });
+  }, []);
+
+  const onTouchMove = useCallback((e: TouchEvent) => {
+    if (!isDraggingRef.current) return;
+    const touch = e.touches[0];
+    if (touch) {
+      setPosition({
+        x: touch.clientX - dragStartRef.current.x,
+        y: touch.clientY - dragStartRef.current.y,
+      });
+    }
+  }, []);
+
+  const onMouseUp = useCallback(() => {
+    isDraggingRef.current = false;
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onMouseUp);
+    };
+  }, [onMouseMove, onTouchMove, onMouseUp]);
 
   // 1. Acquire local webcam stream when secure setup is completed
   useEffect(() => {
@@ -1083,10 +1141,15 @@ export function TakeAssessment({
 
       {/* Floating Recording Status Indicator & Live Webcam Preview */}
       {deliveryMode !== "FORMATIVE" && setupCompleted && (
-        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 rounded-xl bg-slate-900/95 p-3 text-xs text-white border border-slate-800 shadow-2xl w-56 transition-all duration-300">
-          {/* Header bar */}
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-1.5">
+        <div 
+          onMouseDown={onMouseDown}
+          onTouchStart={onTouchStart}
+          style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
+          className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 rounded-xl bg-slate-900/95 p-3 text-xs text-white border border-slate-800 shadow-2xl w-56 transition-all duration-300 select-none"
+        >
+          {/* Header bar (Drag Handle) */}
+          <div className="drag-handle cursor-move flex items-center justify-between border-b border-slate-800 pb-2">
+            <div className="flex items-center gap-1.5 pointer-events-none">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
