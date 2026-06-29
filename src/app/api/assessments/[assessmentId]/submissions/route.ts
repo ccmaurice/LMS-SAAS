@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/api/guard";
 import { canStudentTakeAssessment, getAssessmentInOrg } from "@/lib/assessments/access";
 import { findActiveDraft, resolveStudentStartAttempt } from "@/lib/assessments/retake";
 import { isStaffRole } from "@/lib/courses/access";
+import { prisma } from "@/lib/db";
 
 function clampAttempts(n: number): number {
   if (!Number.isFinite(n)) return 1;
