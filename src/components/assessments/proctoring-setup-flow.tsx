@@ -4,9 +4,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toCanvas } from "qrcode";
 import { Button } from "@/components/ui/button";
-import { Camera, CheckCircle2, Loader2, UserCheck } from "lucide-react";
+import { Camera, CheckCircle2, Loader2 } from "lucide-react";
 
-type SetupStep = "welcome" | "room_scan" | "id_check" | "mobile_pair" | "complete";
+type SetupStep = "welcome" | "room_scan" | "mobile_pair" | "complete";
 
 function getFriendlyErrorMessage(error: unknown): string {
   if (!error) return "Could not access camera or microphone.";
@@ -61,11 +61,6 @@ export function ProctoringSetupFlow({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [videoMounted, setVideoMounted] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  
-  // ID Verification state
-  const [idCapturedImage, setIdCapturedImage] = useState<string | null>(null);
-  const [verifyingId, setVerifyingId] = useState(false);
-  const [idMatchResult, setIdMatchResult] = useState<{ match: boolean; confidence: number } | null>(null);
   
   // Environment scan state
   const [roomScanCompleted, setRoomScanCompleted] = useState(false);
@@ -135,27 +130,7 @@ export function ProctoringSetupFlow({
     }
   }, [localStream, videoMounted]);
 
-  // Capture ID snapshot
-  function captureIdSnapshot() {
-    if (videoRef.current) {
-      const canvas = document.createElement("canvas");
-      canvas.width = videoRef.current.videoWidth || 640;
-      canvas.height = videoRef.current.videoHeight || 480;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg");
-        setIdCapturedImage(dataUrl);
-        
-        // Simulate ID face comparison check
-        setVerifyingId(true);
-        setTimeout(() => {
-          setVerifyingId(false);
-          setIdMatchResult({ match: true, confidence: Math.floor(88 + Math.random() * 11) });
-        }, 2000);
-      }
-    }
-  }
+
 
   // Start polling/handshake for WebRTC
   const startWebrctNegotiation = useCallback((code: string) => {
@@ -331,15 +306,13 @@ export function ProctoringSetupFlow({
         </div>
       )}
 
-      {(step === "room_scan" || step === "id_check") && (
+      {step === "room_scan" && (
         <div className="space-y-4 text-center">
           <h2 className="text-lg font-semibold animate-in fade-in duration-300">
-            {step === "room_scan" ? "Step 1: 360-Degree Room Scan" : "Step 2: ID Card Verification"}
+            Step 1: 360-Degree Room Scan
           </h2>
           <p className="text-xs text-muted-foreground animate-in fade-in duration-300">
-            {step === "room_scan"
-              ? "Slowly pan your webcam 360 degrees to show your physical test-taking space."
-              : "Hold your school ID or driver's license in front of the webcam and snapshot it."}
+            Slowly pan your webcam 360 degrees to show your physical test-taking space.
           </p>
 
           <div className="relative aspect-video rounded-lg overflow-hidden bg-black border border-border">
@@ -348,91 +321,41 @@ export function ProctoringSetupFlow({
               autoPlay
               playsInline
               muted
-              className={`w-full h-full object-cover ${
-                idCapturedImage && step === "id_check" ? "hidden" : ""
-              }`}
+              className="w-full h-full object-cover"
             />
-            {idCapturedImage && step === "id_check" && (
-              <img src={idCapturedImage} alt="Captured ID Card" className="w-full h-full object-cover animate-in fade-in duration-350" />
-            )}
-            {step === "room_scan" && roomScanCompleted && (
+            {roomScanCompleted && (
               <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-primary gap-2 animate-in fade-in duration-300">
                 <CheckCircle2 className="w-6 h-6" />
                 <span className="font-semibold text-sm">Room Scan Confirmed</span>
               </div>
             )}
-            {step === "id_check" && verifyingId && (
-              <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 animate-in fade-in duration-300">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <span className="text-xs font-semibold text-white">Analyzing ID Card...</span>
-              </div>
-            )}
-            {step === "id_check" && idMatchResult && (
-              <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-primary gap-2 p-4 animate-in fade-in duration-300">
-                <UserCheck className="w-8 h-8 text-emerald-500" />
-                <span className="font-bold text-white text-sm">Verification Succeeded</span>
-                <span className="text-xs text-emerald-400">Match Confidence: {idMatchResult.confidence}%</span>
-              </div>
-            )}
           </div>
 
-          {step === "room_scan" ? (
-            <div className="pt-1">
-              {!roomScanCompleted ? (
-                <Button
-                  onClick={() => setRoomScanCompleted(true)}
-                  className="w-full font-semibold"
-                  disabled={!!cameraError || !localStream}
-                >
-                  Confirm Room Scan
-                </Button>
-              ) : (
-                <Button
-                  onClick={() => setStep("id_check")}
-                  className="w-full font-semibold"
-                  disabled={!!cameraError || !localStream}
-                >
-                  Proceed to ID Verification
-                </Button>
-              )}
-            </div>
-          ) : (
-            <div className="pt-1">
-              {!idCapturedImage ? (
-                <Button
-                  onClick={captureIdSnapshot}
-                  className="w-full font-semibold"
-                  disabled={!!cameraError || !localStream}
-                >
-                  Capture ID Snapshot
-                </Button>
-              ) : (
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIdCapturedImage(null)}
-                    className="flex-1 font-semibold"
-                    disabled={verifyingId}
-                  >
-                    Retake
-                  </Button>
-                  <Button
-                    onClick={() => setStep("mobile_pair")}
-                    className="flex-1 font-semibold"
-                    disabled={verifyingId || !idMatchResult}
-                  >
-                    Next Step
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
+          <div className="pt-1">
+            {!roomScanCompleted ? (
+              <Button
+                onClick={() => setRoomScanCompleted(true)}
+                className="w-full font-semibold"
+                disabled={!!cameraError || !localStream}
+              >
+                Confirm Room Scan
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setStep("mobile_pair")}
+                className="w-full font-semibold"
+                disabled={!!cameraError || !localStream}
+              >
+                Proceed to Mobile Pairing
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
       {step === "mobile_pair" && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-center">Step 3: Secondary Camera Pairing</h2>
+          <h2 className="text-lg font-semibold text-center">Step 2: Secondary Camera Pairing</h2>
           <p className="text-xs text-muted-foreground text-center">
             Scan the QR code with your mobile device or open the link to set up your keyboard & hands view.
           </p>
