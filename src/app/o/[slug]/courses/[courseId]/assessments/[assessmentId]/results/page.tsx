@@ -10,6 +10,9 @@ import { cn } from "@/lib/utils";
 import { AssessmentPrompt } from "@/components/assessments/assessment-prompt";
 import { StudentRetakePanel } from "@/components/assessments/student-retake-panel";
 import { getServerT } from "@/i18n/server";
+import { Check, X, AlertTriangle } from "lucide-react";
+import { parseMcqOptions } from "@/lib/assessments/mcq";
+import { parseDragDropFromQuestionSchema } from "@/lib/assessments/drag-drop-schema";
 
 function clampAttempts(n: number): number {
   if (!Number.isFinite(n)) return 1;
@@ -215,55 +218,294 @@ export default async function AssessmentResultsPage({
       ) : null}
 
       <ul className="space-y-6">
-        {submission.answers.map((a) => (
-          <li key={a.id} className="surface-bento border-border/60 p-5 dark:border-white/10">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("assessments.results.perAnswerMeta")
-                .replace("%s", a.question.type)
-                .replace("%s", String(a.manualScore != null ? a.manualScore : (a.score ?? "—")))
-                .replace("%s", String(a.question.points))}
-            </p>
-            <AssessmentPrompt text={a.question.prompt} className="mt-2 text-sm font-medium leading-relaxed" />
-            <p className="mt-3 whitespace-pre-wrap rounded-md bg-muted/30 px-3 py-2 text-sm text-foreground/90">
-              <span className="text-muted-foreground">
-                {viewerIsProxy ? t("assessments.results.studentAnswer") : t("assessments.results.yourAnswer")}:{" "}
-              </span>
-              {formatAnswerForDisplay(a.question.type, a.content, t)}
-            </p>
-            {showGradingKeys ? (
-              <div className="mt-4 border-t border-border/80 pt-4 text-xs text-muted-foreground dark:border-white/10">
-                {a.question.type === "MCQ" && a.question.options ? (
-                  <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/20 p-2">
-                    {t("assessments.results.keyPrefix")} {JSON.stringify(a.question.options, null, 2)}
-                  </pre>
-                ) : null}
-                {a.question.correctAnswer ? (
-                  <p className="mt-2">
-                    {t("assessments.results.expected")}{" "}
-                    <span className="text-foreground">{a.question.correctAnswer}</span>
-                  </p>
-                ) : null}
-                {a.question.type === "DRAG_DROP" && a.question.questionSchema ? (
-                  <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/20 p-2">
-                    {t("assessments.results.schemaPrefix")} {JSON.stringify(a.question.questionSchema, null, 2)}
-                  </pre>
-                ) : null}
-                {a.aiFeedback ? (
-                  <p className="mt-2 whitespace-pre-wrap text-foreground">
-                    {t("assessments.results.aiFeedback")} {a.aiFeedback}
-                  </p>
-                ) : null}
-                {a.manualComment ? (
-                  <p className="mt-2 text-foreground">
-                    {t("assessments.results.instructor")} {a.manualComment}
-                  </p>
-                ) : null}
-              </div>
-            ) : submission.status !== "DRAFT" && viewerIsProxy ? (
-              <p className="mt-3 text-xs text-muted-foreground">{t("assessments.results.guardianHidden")}</p>
-            ) : null}
-          </li>
-        ))}
+        {submission.answers.map((a) => {
+          let studentSelectedChoiceId: string | undefined;
+          let studentSelectedBool: boolean | undefined;
+          let studentDragDropAssignments: Record<string, string> = {};
+
+          try {
+            const j = JSON.parse(a.content || "{}");
+            if (a.question.type === "MCQ") {
+              studentSelectedChoiceId = j.choiceId ?? j.id;
+            } else if (a.question.type === "TRUE_FALSE") {
+              studentSelectedBool = j.value;
+            } else if (a.question.type === "DRAG_DROP") {
+              studentDragDropAssignments = j.assignments || {};
+            }
+          } catch {
+            /* ignore */
+          }
+
+          const mcqOpts = a.question.type === "MCQ" ? parseMcqOptions(a.question.options) : null;
+          const ddSchema = a.question.type === "DRAG_DROP" ? parseDragDropFromQuestionSchema(a.question.questionSchema) : null;
+
+          return (
+            <li key={a.id} className="surface-bento border-border/60 p-5 dark:border-white/10 text-left">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                {t("assessments.results.perAnswerMeta")
+                  .replace("%s", a.question.type)
+                  .replace("%s", String(a.manualScore != null ? a.manualScore : (a.score ?? "—")))
+                  .replace("%s", String(a.question.points))}
+              </p>
+              <AssessmentPrompt text={a.question.prompt} className="mt-2.5 text-sm font-bold leading-relaxed text-foreground" />
+
+              {/* 1. MCQ Options Render */}
+              {a.question.type === "MCQ" && mcqOpts && (
+                <div className="mt-4 space-y-2">
+                  <div className="space-y-2">
+                    {mcqOpts.choices.map((choice) => {
+                      const isSelected = choice.id === studentSelectedChoiceId;
+                      const isCorrect = choice.correct === true;
+                      
+                      let borderClass = "border-border/60 bg-muted/10";
+                      let textClass = "text-foreground";
+                      let badge = null;
+
+                      if (showGradingKeys) {
+                        if (isCorrect) {
+                          borderClass = "border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10";
+                          textClass = "text-emerald-600 dark:text-emerald-400 font-semibold";
+                          badge = (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                              <Check className="w-3 h-3" /> Correct Answer
+                            </span>
+                          );
+                        }
+                        if (isSelected && !isCorrect) {
+                          borderClass = "border-rose-500/30 bg-rose-500/5 dark:bg-rose-500/10";
+                          textClass = "text-rose-600 dark:text-rose-400 font-medium";
+                          badge = (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">
+                              <X className="w-3 h-3" /> Your Selection (Incorrect)
+                            </span>
+                          );
+                        } else if (isSelected && isCorrect) {
+                          badge = (
+                            <div className="flex gap-1.5">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                <Check className="w-3 h-3" /> Your Selection
+                              </span>
+                            </div>
+                          );
+                        }
+                      } else if (isSelected) {
+                        borderClass = "border-primary/30 bg-primary/5";
+                        badge = (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                            Your Selection
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={choice.id}
+                          className={cn(
+                            "flex items-center justify-between p-3 rounded-lg border text-sm transition-all",
+                            borderClass
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={cn(
+                                "w-5 h-5 rounded-full border flex items-center justify-center text-[10px] font-bold shrink-0",
+                                isSelected
+                                  ? "bg-primary border-primary text-primary-foreground"
+                                  : "border-muted-foreground/30 text-muted-foreground"
+                              )}
+                            >
+                              {choice.id.toUpperCase()}
+                            </div>
+                            <span className={textClass}>{choice.text}</span>
+                          </div>
+                          {badge}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. TRUE_FALSE Options Render */}
+              {a.question.type === "TRUE_FALSE" && (
+                <div className="mt-4 space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
+                    {[true, false].map((val) => {
+                      const label = val ? t("assessments.results.boolTrue") : t("assessments.results.boolFalse");
+                      const isSelected = studentSelectedBool === val;
+                      const expectedStr = a.question.correctAnswer?.trim().toLowerCase();
+                      const isCorrect = expectedStr === String(val);
+
+                      let borderClass = "border-border/60 bg-muted/10";
+                      let textClass = "text-foreground";
+                      let badge = null;
+
+                      if (showGradingKeys) {
+                        if (isCorrect) {
+                          borderClass = "border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-500/10";
+                          textClass = "text-emerald-600 dark:text-emerald-400 font-semibold";
+                          badge = (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                              <Check className="w-3 h-3" /> Correct
+                            </span>
+                          );
+                        }
+                        if (isSelected && !isCorrect) {
+                          borderClass = "border-rose-500/30 bg-rose-500/5 dark:bg-rose-500/10";
+                          textClass = "text-rose-600 dark:text-rose-400 font-medium";
+                          badge = (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded">
+                              <X className="w-3 h-3" /> Selected (Incorrect)
+                            </span>
+                          );
+                        } else if (isSelected && isCorrect) {
+                          badge = (
+                            <div className="flex gap-1.5">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                Selected &amp; Correct
+                              </span>
+                            </div>
+                          );
+                        }
+                      } else if (isSelected) {
+                        borderClass = "border-primary/30 bg-primary/5";
+                        badge = (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                            Selected
+                          </span>
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={String(val)}
+                          className={cn(
+                            "flex items-center justify-between p-3 rounded-lg border text-sm transition-all",
+                            borderClass
+                          )}
+                        >
+                          <span className={textClass}>{label}</span>
+                          {badge}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. DRAG_DROP Matching Report */}
+              {a.question.type === "DRAG_DROP" && ddSchema && (
+                <div className="mt-4 space-y-2">
+                  <div className="border border-border/85 rounded-lg overflow-hidden bg-muted/5 dark:bg-muted/10">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-muted/30 border-b border-border/80">
+                          <th className="p-3 font-semibold text-muted-foreground w-1/3">Target Slot</th>
+                          <th className="p-3 font-semibold text-muted-foreground w-1/3">Student Placement</th>
+                          {showGradingKeys && <th className="p-3 font-semibold text-muted-foreground w-1/3">Expected Matching</th>}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/60">
+                        {ddSchema.targets.map((target) => {
+                          const studentItemId = studentDragDropAssignments[target.id];
+                          const studentItem = ddSchema.bank.find((b) => b.id === studentItemId);
+                          
+                          const expectedItemId = ddSchema.correct?.[target.id];
+                          const expectedItem = ddSchema.bank.find((b) => b.id === expectedItemId);
+
+                          const isCorrect = expectedItemId ? studentItemId === expectedItemId : false;
+
+                          let statusCell = null;
+                          if (studentItem) {
+                            if (showGradingKeys) {
+                              statusCell = (
+                                <span className={cn(
+                                  "inline-flex items-center gap-1 font-bold",
+                                  isCorrect ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                                )}>
+                                  {isCorrect ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                                  {studentItem.text}
+                                </span>
+                              );
+                            } else {
+                              statusCell = <span className="text-foreground font-semibold">{studentItem.text}</span>;
+                            }
+                          } else {
+                            statusCell = <span className="text-muted-foreground italic">None placed</span>;
+                          }
+
+                          return (
+                            <tr key={target.id} className="hover:bg-muted/5 transition-all">
+                              <td className="p-3 font-medium text-foreground">{target.label}</td>
+                              <td className="p-3">{statusCell}</td>
+                              {showGradingKeys && (
+                                <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">
+                                  {expectedItem ? expectedItem.text : <span className="text-muted-foreground italic">—</span>}
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Text/Formula Responses */}
+              {a.question.type !== "MCQ" && a.question.type !== "TRUE_FALSE" && a.question.type !== "DRAG_DROP" && (
+                <div className="mt-3.5 p-3.5 rounded-lg border border-border/80 bg-muted/20 text-sm">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                    {viewerIsProxy ? t("assessments.results.studentAnswer") : t("assessments.results.yourAnswer")}
+                  </div>
+                  <div className="whitespace-pre-wrap text-foreground font-semibold pl-3 border-l-2 border-primary/45">
+                    {formatAnswerForDisplay(a.question.type, a.content, t)}
+                  </div>
+                </div>
+              )}
+
+              {/* 5. Additional Keys & AI feedback */}
+              {showGradingKeys ? (
+                <div className="space-y-3 mt-4 pt-4 border-t border-border/80 dark:border-white/10">
+                  {a.question.correctAnswer && a.question.type !== "MCQ" && a.question.type !== "TRUE_FALSE" && (
+                    <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-sm">
+                      <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider mb-1">
+                        {t("assessments.results.expected")}
+                      </div>
+                      <div className="text-emerald-600 dark:text-emerald-400 font-bold pl-3 border-l-2 border-emerald-500/40">
+                        {a.question.correctAnswer}
+                      </div>
+                    </div>
+                  )}
+
+                  {a.aiFeedback && (
+                    <div className="p-3 rounded-lg border border-purple-500/20 bg-purple-500/5 text-sm">
+                      <div className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase tracking-wider mb-1">
+                        {t("assessments.results.aiFeedback")}
+                      </div>
+                      <div className="text-foreground pl-3 border-l-2 border-purple-500/40 whitespace-pre-wrap leading-relaxed">
+                        {a.aiFeedback}
+                      </div>
+                    </div>
+                  )}
+
+                  {a.manualComment && (
+                    <div className="p-3 rounded-lg border border-teal-500/20 bg-teal-500/5 text-sm">
+                      <div className="text-xs font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider mb-1">
+                        {t("assessments.results.instructor")}
+                      </div>
+                      <div className="text-foreground pl-3 border-l-2 border-teal-500/40">
+                        {a.manualComment}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : submission.status !== "DRAFT" && viewerIsProxy ? (
+                <p className="mt-3 text-xs text-muted-foreground">{t("assessments.results.guardianHidden")}</p>
+              ) : null}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
