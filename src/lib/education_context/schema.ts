@@ -23,6 +23,7 @@ export const organizationSettingsSchema = z
     certificateSignerName: z.string().max(120).optional(),
     certificateSignerTitle: z.string().max(200).optional(),
     certificateSignatureImageUrl: z.string().max(2000).optional(),
+    certificateSealImageUrl: z.string().max(2000).optional(),
     /** Sentence between recipient name and course title, e.g. "has successfully completed the course". */
     certificateCompletionPhrase: z.string().max(280).optional(),
   })
@@ -76,6 +77,11 @@ export function mergeOrganizationSettings(
     const t = patch.certificateSignatureImageUrl.trim();
     if (t) next.certificateSignatureImageUrl = t;
     else delete next.certificateSignatureImageUrl;
+  }
+  if (patch.certificateSealImageUrl !== undefined) {
+    const t = patch.certificateSealImageUrl.trim();
+    if (t) next.certificateSealImageUrl = t;
+    else delete next.certificateSealImageUrl;
   }
   if (patch.certificateCompletionPhrase !== undefined) {
     const t = patch.certificateCompletionPhrase.trim();

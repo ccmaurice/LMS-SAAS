@@ -34,6 +34,11 @@ export function orgCertificateSignatureSettingPath(orgId: string, ext: string): 
   return path.posix.join("orgs", orgId, `signature${ext}`);
 }
 
+/** Completion certificate official seal (`organizationSettings.certificateSealImageUrl`). */
+export function orgCertificateSealSettingPath(orgId: string, ext: string): string {
+  return path.posix.join("orgs", orgId, `seal${ext}`);
+}
+
 export function isSafeOrgHeroSettingKey(key: string, orgId: string): boolean {
   if (key.includes("..") || key.length > 500) return false;
   const re = new RegExp(`^orgs/${escapeOrgId(orgId)}/hero\\.(jpe?g|png|webp|gif)$`, "i");
@@ -49,6 +54,12 @@ export function isSafeOrgLogoSettingKey(key: string, orgId: string): boolean {
 export function isSafeOrgCertificateSignatureSettingKey(key: string, orgId: string): boolean {
   if (key.includes("..") || key.length > 500) return false;
   const re = new RegExp(`^orgs/${escapeOrgId(orgId)}/signature\\.(jpe?g|png|webp|gif)$`, "i");
+  return re.test(key);
+}
+
+export function isSafeOrgCertificateSealSettingKey(key: string, orgId: string): boolean {
+  if (key.includes("..") || key.length > 500) return false;
+  const re = new RegExp(`^orgs/${escapeOrgId(orgId)}/seal\\.(jpe?g|png|webp|gif)$`, "i");
   return re.test(key);
 }
 
@@ -123,6 +134,10 @@ export function isSafeOrgLogoSettingStoredValue(key: string, orgId: string): boo
 
 export function isSafeOrgCertificateSignatureStoredValue(key: string, orgId: string): boolean {
   return isBlobStoredRef(key) || isSafeOrgCertificateSignatureSettingKey(key, orgId);
+}
+
+export function isSafeOrgCertificateSealStoredValue(key: string, orgId: string): boolean {
+  return isBlobStoredRef(key) || isSafeOrgCertificateSealSettingKey(key, orgId);
 }
 
 export function isSafeOrgPublicCardImageStoredValue(key: string, orgId: string): boolean {

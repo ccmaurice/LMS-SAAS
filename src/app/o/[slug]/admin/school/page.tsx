@@ -73,6 +73,7 @@ export default async function AdminSchoolPage({ params }: { params: Promise<{ sl
             certificateSignerName: orgSettings.certificateSignerName,
             certificateSignerTitle: orgSettings.certificateSignerTitle,
             certificateSignatureImageUrl: orgSettings.certificateSignatureImageUrl,
+            certificateSealImageUrl: orgSettings.certificateSealImageUrl,
             certificateCompletionPhrase: orgSettings.certificateCompletionPhrase,
           }}
         />

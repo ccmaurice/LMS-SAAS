@@ -5,6 +5,7 @@ import { requireUser, requireRoles } from "@/lib/api/guard";
 import { isValidHex6 } from "@/lib/org-branding";
 import {
   isSafeOrgCertificateSignatureSettingKey,
+  isSafeOrgCertificateSealSettingKey,
   isSafeOrgHeroSettingKey,
   isSafeOrgHeroSettingStoredValue,
   isSafeOrgLogoSettingKey,
@@ -172,6 +173,23 @@ export async function PATCH(req: Request) {
           {
             error:
               "Certificate signature image must be an https URL, empty, or your uploaded signature file",
+          },
+          { status: 400 },
+        );
+      }
+    }
+    const seal = parsed.data.organizationSettings.certificateSealImageUrl;
+    if (seal !== undefined) {
+      const t = seal.trim();
+      if (
+        t &&
+        !/^https?:\/\//i.test(t) &&
+        !isSafeOrgCertificateSealSettingKey(t, orgId)
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Certificate seal image must be an https URL, empty, or your uploaded seal file",
           },
           { status: 400 },
         );

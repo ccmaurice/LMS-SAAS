@@ -163,6 +163,7 @@ export default async function CourseCertificatePage({
           certificateSignerName: orgSettings.certificateSignerName,
           certificateSignerTitle: orgSettings.certificateSignerTitle,
           certificateSignatureImageUrl: orgSettings.certificateSignatureImageUrl,
+          certificateSealImageUrl: orgSettings.certificateSealImageUrl,
           certificateCompletionPhrase: orgSettings.certificateCompletionPhrase,
         }}
       />

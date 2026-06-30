@@ -3,11 +3,18 @@ import type { ReactNode } from "react";
 export default function CourseCertificateLayout({ children }: { children: ReactNode }) {
   return (
     <>
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+      <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,450;0,550;0,650;0,700;1,400;1,550&family=Pinyon+Script&display=swap"
+        rel="stylesheet"
+      />
       <style>{`
         @media print {
           @page {
             size: A4 landscape;
-            margin: 0;
+            margin: 8mm;
           }
           
           /* Hide all surrounding layouts, headers, sidebars, and panels on print */
@@ -21,13 +28,13 @@ export default function CourseCertificateLayout({ children }: { children: ReactN
             visibility: visible !important;
           }
           
-          /* Force certificate container to cover exactly one A4 page */
+          /* Force certificate container to cover exactly the page printable area */
           .certificate-print {
-            position: fixed !important;
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
-            width: 297mm !important;
-            height: 210mm !important;
+            width: 100% !important;
+            height: 100% !important;
             max-width: none !important;
             max-height: none !important;
             margin: 0 !important;
@@ -40,7 +47,7 @@ export default function CourseCertificateLayout({ children }: { children: ReactN
             z-index: 9999999 !important;
           }
 
-          /* Stretch the ornate frame to fill the A4 landscape printable area */
+          /* Stretch the ornate frame to fill the printable area */
           .certificate-ornate-frame {
             width: 100% !important;
             height: 100% !important;
@@ -56,7 +63,7 @@ export default function CourseCertificateLayout({ children }: { children: ReactN
             flex-direction: column !important;
             justify-content: space-between !important;
             box-sizing: border-box !important;
-            padding: 12mm 16mm 14mm 16mm !important;
+            padding: 8mm 12mm 10mm 12mm !important;
           }
 
           svg.certificate-border-svg {

@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { STANDARD_4_POINT_GPA_BANDS } from "@/lib/grading_engine/letter-gpa";
 import { academicCalendarCopy } from "@/lib/education_context/academic-period-labels";
 import { certificateSignatureImageDisplayUrl } from "@/lib/org/certificate-signature-display-url";
+import { certificateSealImageDisplayUrl } from "@/lib/org/certificate-seal-display-url";
 
 type GpaBandRow = { minPercent: number; gpa: number };
 
@@ -30,6 +31,7 @@ type Org = {
   certificateSignerName?: string;
   certificateSignerTitle?: string;
   certificateSignatureImageUrl?: string;
+  certificateSealImageUrl?: string;
   certificateCompletionPhrase?: string;
 };
 
@@ -55,6 +57,7 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
   const fileRef = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
   const signatureFileRef = useRef<HTMLInputElement>(null);
+  const sealFileRef = useRef<HTMLInputElement>(null);
   const [reportOn, setReportOn] = useState(initial.reportCardsPublished);
   const [certOn, setCertOn] = useState(initial.certificatesPublished);
   const [template, setTemplate] = useState(initial.themeTemplate);
@@ -73,9 +76,11 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
   const [uploading, setUploading] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingSignature, setUploadingSignature] = useState(false);
+  const [uploadingSeal, setUploadingSeal] = useState(false);
   const [certSignerName, setCertSignerName] = useState(initial.certificateSignerName ?? "");
   const [certSignerTitle, setCertSignerTitle] = useState(initial.certificateSignerTitle ?? "");
   const [certSignatureUrl, setCertSignatureUrl] = useState(initial.certificateSignatureImageUrl ?? "");
+  const [certSealUrl, setCertSealUrl] = useState(initial.certificateSealImageUrl ?? "");
   const [certPhrase, setCertPhrase] = useState(initial.certificateCompletionPhrase ?? "");
 
   const cal = academicCalendarCopy(educationLevel);
@@ -99,6 +104,7 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
           : null;
 
   const signaturePreview = certificateSignatureImageDisplayUrl(slug, certSignatureUrl);
+  const sealPreview = certificateSealImageDisplayUrl(slug, certSealUrl);
 
   async function save() {
     let gpaBandsPayload: GpaBandRow[] | undefined;
@@ -132,6 +138,7 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
             certificateSignerName: certSignerName.trim(),
             certificateSignerTitle: certSignerTitle.trim(),
             certificateSignatureImageUrl: certSignatureUrl.trim(),
+            certificateSealImageUrl: certSealUrl.trim(),
             certificateCompletionPhrase: certPhrase.trim(),
           },
         }),
@@ -199,6 +206,30 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
     } finally {
       setUploadingSignature(false);
       if (signatureFileRef.current) signatureFileRef.current.value = "";
+    }
+  }
+
+  async function uploadSeal(file: File) {
+    setUploadingSeal(true);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const res = await fetch("/api/admin/organization/certificate-seal", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      });
+      const data = (await res.json()) as { error?: string; certificateSealImageUrl?: string };
+      if (!res.ok) {
+        toast.error(data.error ?? "Upload failed");
+        return;
+      }
+      if (data.certificateSealImageUrl) setCertSealUrl(data.certificateSealImageUrl);
+      toast.success("Certificate seal uploaded");
+      router.refresh();
+    } finally {
+      setUploadingSeal(false);
+      if (sealFileRef.current) sealFileRef.current.value = "";
     }
   }
 
@@ -538,6 +569,53 @@ export function SchoolSettingsForm({ slug, initial }: { slug: string; initial: O
               <img src={signaturePreview} alt="" className="mx-auto max-h-24 object-contain" />
             </div>
           ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="cert-seal-url">Official Seal image URL (optional)</Label>
+          <Input
+            id="cert-seal-url"
+            placeholder="https://… (PNG works best)"
+            value={certSealUrl}
+            onChange={(e) => setCertSealUrl(e.target.value)}
+            maxLength={2000}
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              ref={sealFileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void uploadSeal(f);
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={uploadingSeal}
+              onClick={() => sealFileRef.current?.click()}
+            >
+              {uploadingSeal ? "Uploading…" : "Upload seal from device"}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Upload stores the image on this server and fills the field. Paste an external https image URL instead if preferred.
+          </p>
+          {sealPreview ? (
+            <div className="overflow-hidden rounded-lg border border-border/60 bg-white p-3 dark:border-white/10 w-24 h-24 flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={sealPreview} alt="Seal Preview" className="max-h-20 max-w-20 object-contain" />
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-border/60 bg-white p-3 dark:border-white/10 w-24 h-24 flex flex-col items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/default-seal.png" alt="Default Seal" className="max-h-20 max-w-20 object-contain" />
+              <span className="text-[8px] text-muted-foreground mt-1">Default Seal</span>
+            </div>
+          )}
         </div>
       </section>
 
