@@ -152,7 +152,12 @@ export async function CourseCompletionCertificateView({
 
           {/* Center Column: Accredited Official Gold Seal */}
           <div className="hidden sm:flex flex-col items-center justify-center shrink-0 print:flex">
-            <svg className="w-18 h-18 text-[#D4AF37] drop-shadow-md" fill="currentColor" viewBox="0 0 100 100">
+            <svg
+              className="text-[#D4AF37] drop-shadow-md shrink-0"
+              fill="currentColor"
+              viewBox="0 0 100 100"
+              style={{ width: "72px", height: "72px" }}
+            >
               <path d="M50 5 L55 12 L63 10 L65 18 L73 17 L72 25 L79 26 L76 34 L82 37 L77 44 L81 48 L75 54 L77 62 L70 65 L70 73 L62 74 L60 82 L52 81 L48 87 L41 84 L36 90 L30 85 L24 89 L20 83 L14 85 L12 78 L6 78 L6 70 L2 68 L4 60 L1 55 L5 50 L2 45 L7 40 L5 32 L11 29 L11 21 L18 20 L20 12 L28 13 L33 7 L40 10 L45 4 Z" />
               <circle cx="50" cy="50" r="36" fill="#AA7C11" />
               <circle cx="50" cy="50" r="34" fill="#FAF9F6" />
