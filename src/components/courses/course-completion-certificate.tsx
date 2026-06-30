@@ -172,12 +172,12 @@ export async function CourseCompletionCertificateView({
             <CertificateVerifyQr
               verifyUrl={verifyUrl}
               qrDark={themeInkHex}
-              captionClassName="mt-1 w-full text-center text-[10px] font-bold uppercase tracking-wider text-[#C5A880] sm:text-right print:text-right"
-              className="w-full rounded-md border border-solid bg-white p-1.5 sm:w-auto sm:max-w-[180px] hover:shadow-sm transition-all"
+              captionClassName="mt-1 w-full text-center text-[10px] font-bold uppercase tracking-wider text-[#C5A880] sm:text-right print:text-right print:text-[8px] print:mt-0.5"
+              className="w-full rounded-md border border-solid bg-white p-1.5 sm:w-auto sm:max-w-[180px] print:max-w-[92px] print:p-1 hover:shadow-sm transition-all"
               qrWrapStyle={{ borderColor: `${themeInkHex}30` }}
             />
             <p
-              className="mt-2 font-mono text-[10px] tracking-wide font-semibold text-neutral-500"
+              className="mt-2 font-mono text-[10px] tracking-wide font-semibold text-neutral-500 print:text-[8px] print:mt-0.5"
             >
               {credentialId}
             </p>

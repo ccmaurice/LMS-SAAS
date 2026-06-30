@@ -32,7 +32,7 @@ export async function CertificateVerifyQr({
   return (
     <div className={className} style={qrWrapStyle}>
       {/* eslint-disable-next-line @next/next/no-img-element -- data URL from server-generated QR */}
-      <img src={dataUrl} alt="" width={168} height={168} className="mx-auto print:h-[132px] print:w-[132px]" />
+      <img src={dataUrl} alt="" width={168} height={168} className="mx-auto print:h-[80px] print:w-[80px]" />
       <p
         className={
           captionClassName ??
