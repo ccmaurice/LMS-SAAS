@@ -86,7 +86,7 @@ export default function CourseCertificateLayout({ children }: { children: ReactN
             flex-direction: column !important;
             justify-content: space-between !important;
             box-sizing: border-box !important;
-            padding: 8mm 12mm 10mm 12mm !important;
+            padding: 22mm 20mm 20mm 20mm !important;
           }
 
           svg.certificate-border-svg {

@@ -80,7 +80,7 @@ export async function CourseCompletionCertificateView({
         {/* Header: Logo and School Name */}
         <header className="flex flex-col items-center justify-center gap-2">
           {orgLogoUrl && (
-            <OrgBrandMark url={orgLogoUrl} size="md" className="max-h-12 object-contain print:max-h-11 mb-1" />
+            <OrgBrandMark url={orgLogoUrl} size="lg" className="h-16 w-16 max-h-16 max-w-16 object-contain print:h-14 print:w-14 print:max-h-14 print:max-w-14 mb-1" />
           )}
           <p className="text-center font-cinzel text-xs font-bold uppercase tracking-[0.25em] text-[#C5A880] sm:text-sm">
             {orgName}
