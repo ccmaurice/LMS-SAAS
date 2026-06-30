@@ -25,7 +25,7 @@ export function CertificateOrnateFrame({
       )}
     >
       <svg
-        className="pointer-events-none absolute inset-0 size-full"
+        className="certificate-border-svg pointer-events-none absolute inset-0 size-full"
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 1000 700"
         preserveAspectRatio="none"

@@ -59,7 +59,7 @@ export default function CourseCertificateLayout({ children }: { children: ReactN
             padding: 12mm 16mm 14mm 16mm !important;
           }
 
-          .certificate-ornate-frame svg {
+          svg.certificate-border-svg {
             width: 100% !important;
             height: 100% !important;
             position: absolute !important;
