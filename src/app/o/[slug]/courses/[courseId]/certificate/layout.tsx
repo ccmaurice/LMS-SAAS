@@ -17,7 +17,16 @@ export default function CourseCertificateLayout({ children }: { children: ReactN
             margin: 8mm;
           }
           
-          /* Hide all surrounding layouts, headers, sidebars, and panels on print */
+          /* Hide all surrounding sidebar, header, and print-hidden components */
+          #org-sidebar,
+          header,
+          .print\\:hidden,
+          button,
+          a {
+            display: none !important;
+          }
+          
+          /* Hide all general body elements by default */
           body * {
             visibility: hidden !important;
           }
@@ -27,10 +36,31 @@ export default function CourseCertificateLayout({ children }: { children: ReactN
           .certificate-print * {
             visibility: visible !important;
           }
+
+          /* Disable transforms, position relative locks, animations, and height constraints on all parent containers */
+          html,
+          body,
+          main,
+          div:has(.certificate-print),
+          section:has(.certificate-print),
+          article:has(.certificate-print) {
+            position: static !important;
+            transform: none !important;
+            filter: none !important;
+            backdrop-filter: none !important;
+            perspective: none !important;
+            overflow: visible !important;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
           
           /* Force certificate container to cover exactly the page printable area */
           .certificate-print {
-            position: absolute !important;
+            position: fixed !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
