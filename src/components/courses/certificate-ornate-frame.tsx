@@ -52,6 +52,9 @@ export function CertificateOrnateFrame({
           </pattern>
         </defs>
 
+        {/* Solid cream background to ensure it prints even when "Background graphics" is disabled */}
+        <rect width="1000" height="700" fill="#FAF9F6" />
+
         {/* Textured background */}
         <rect width="1000" height="700" fill="url(#cert-watermark)" />
 

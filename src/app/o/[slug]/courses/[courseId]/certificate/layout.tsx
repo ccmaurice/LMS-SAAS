@@ -17,13 +17,18 @@ export default function CourseCertificateLayout({ children }: { children: ReactN
             margin: 8mm;
           }
           
-          /* Hide all surrounding sidebar, header, and print-hidden components */
+          /* Hide all surrounding sidebar and print-hidden components (do NOT hide certificate header) */
           #org-sidebar,
-          header,
-          .print\\:hidden,
-          button,
-          a {
+          .print\\:hidden {
             display: none !important;
+          }
+
+          /* Force high print opacity on gold border lines, corner ornaments, and decorative polygons */
+          svg.certificate-border-svg g,
+          svg.certificate-border-svg path,
+          svg.certificate-border-svg rect,
+          svg.certificate-border-svg polygon {
+            opacity: 1 !important;
           }
           
           /* Reset parent layout containers to let the certificate scale naturally */
