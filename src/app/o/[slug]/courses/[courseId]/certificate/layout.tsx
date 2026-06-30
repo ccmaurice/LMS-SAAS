@@ -26,41 +26,29 @@ export default function CourseCertificateLayout({ children }: { children: ReactN
             display: none !important;
           }
           
-          /* Hide all general body elements by default */
-          body * {
-            visibility: hidden !important;
-          }
-          
-          /* Show only the certificate card and its components */
-          .certificate-print,
-          .certificate-print * {
-            visibility: visible !important;
-          }
-
-          /* Disable transforms, position relative locks, animations, and height constraints on all parent containers */
+          /* Reset parent layout containers to let the certificate scale naturally */
           html,
           body,
+          .relative.flex.min-h-full,
+          .relative.z-10.flex.min-h-0,
           main,
-          div:has(.certificate-print),
-          section:has(.certificate-print),
-          article:has(.certificate-print) {
-            position: static !important;
-            transform: none !important;
-            filter: none !important;
-            backdrop-filter: none !important;
-            perspective: none !important;
-            overflow: visible !important;
-            height: auto !important;
-            min-height: 0 !important;
+          main > div,
+          main > div > div {
             margin: 0 !important;
             padding: 0 !important;
-            border: none !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            overflow: visible !important;
             box-shadow: none !important;
+            border: none !important;
+            background: none !important;
+            transform: none !important;
           }
           
           /* Force certificate container to cover exactly the page printable area */
           .certificate-print {
-            position: fixed !important;
+            display: block !important;
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
             width: 100% !important;
