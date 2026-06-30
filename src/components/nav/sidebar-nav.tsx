@@ -21,6 +21,7 @@ import {
   PenSquare,
   ScrollText,
   Settings,
+  ShieldAlert,
   UserCog,
   Users,
 } from "lucide-react";
@@ -56,6 +57,7 @@ function navItemsForOrg(educationLevel: EducationLevel): NavItem[] {
     { href: "library", labelKey: "nav.library", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Library },
     { href: "blog", labelKey: "nav.blog", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Newspaper },
     { href: "assessments", labelKey: "nav.assessments", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: ClipboardList },
+    { href: "proctoring", labelKey: "nav.proctoring", roles: ["ADMIN", "TEACHER"], icon: ShieldAlert },
     { href: "report-card", labelKey: "nav.reportCard", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: FileChartColumn },
     { href: "transcript", labelKey: "nav.transcript", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: ScrollText },
     { href: "certificates", labelKey: "nav.certificates", roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"], icon: Award },
