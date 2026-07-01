@@ -17,6 +17,10 @@ import {
   LayoutGrid,
   Activity,
   Download,
+  Volume2,
+  VolumeX,
+  Mic,
+  MicOff,
 } from "lucide-react";
 
 type ProctorEvent = {
@@ -58,6 +62,12 @@ export function IntegrityProctorDashboardClient({
 
   // Custom mock chat alerts sent by proctor
   const [proctorChats, setProctorChats] = useState<{ id: string; msg: string; time: string }[]>([]);
+
+  // Audio listening and recording states
+  const [listeningTo, setListeningTo] = useState<Record<string, boolean>>({});
+  const [audioRecordingStates, setAudioRecordingStates] = useState<Record<string, { active: boolean; duration: number }>>({});
+  const audioChunksRef = useRef<Record<string, string[]>>({});
+  const lastPlayedAudioTimestamps = useRef<Record<string, number>>({});
 
   // Preset warnings
   const PRESET_WARNINGS = [
@@ -155,13 +165,42 @@ export function IntegrityProctorDashboardClient({
         const res = await fetch("/api/proctor/signal?action=get_feeds");
         if (res.ok) {
           const data = await res.json();
-          const map: Record<string, { primaryFeed?: string; secondaryFeed?: string }> = {};
+          const map: Record<string, { primaryFeed?: string; secondaryFeed?: string; audioFeed?: string; audioTimestamp?: number }> = {};
           if (data.feeds) {
             for (const f of data.feeds) {
               map[f.studentEmail] = {
                 primaryFeed: f.primaryFeed,
                 secondaryFeed: f.secondaryFeed,
+                audioFeed: f.audioFeed,
+                audioTimestamp: f.audioTimestamp,
               };
+
+              // Process audio playback & recording chunks
+              if (f.audioFeed && f.audioTimestamp) {
+                const lastPlayed = lastPlayedAudioTimestamps.current[f.studentEmail] || 0;
+                const chunkTimestamp = f.audioTimestamp;
+
+                if (chunkTimestamp > lastPlayed) {
+                  lastPlayedAudioTimestamps.current[f.studentEmail] = chunkTimestamp;
+
+                  // 1. Play if listening is enabled
+                  if (listeningTo[f.studentEmail]) {
+                    const audioUri = `data:audio/webm;base64,${f.audioFeed}`;
+                    const audio = new Audio(audioUri);
+                    audio.play().catch((err) => {
+                      console.warn("Failed to play student audio chunk:", err);
+                    });
+                  }
+
+                  // 2. Accumulate chunk if recording is active
+                  if (audioRecordingStates[f.studentEmail]?.active) {
+                    if (!audioChunksRef.current[f.studentEmail]) {
+                      audioChunksRef.current[f.studentEmail] = [];
+                    }
+                    audioChunksRef.current[f.studentEmail].push(f.audioFeed);
+                  }
+                }
+              }
             }
           }
           setLiveFeeds(map);
@@ -172,7 +211,105 @@ export function IntegrityProctorDashboardClient({
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [monitoringActive]);
+  }, [monitoringActive, listeningTo, audioRecordingStates]);
+
+  // Audio duration counter increment effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setAudioRecordingStates((prev) => {
+        const updated = { ...prev };
+        let changed = false;
+        for (const email in updated) {
+          if (updated[email]?.active) {
+            updated[email] = {
+              ...updated[email],
+              duration: updated[email].duration + 1,
+            };
+            changed = true;
+          }
+        }
+        return changed ? updated : prev;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const toggleListening = (studentEmail: string) => {
+    setListeningTo((prev) => ({
+      ...prev,
+      [studentEmail]: !prev[studentEmail],
+    }));
+  };
+
+  const toggleAudioRecording = (studentEmail: string) => {
+    const isRecording = audioRecordingStates[studentEmail]?.active;
+    if (!isRecording) {
+      audioChunksRef.current[studentEmail] = [];
+      setAudioRecordingStates((prev) => ({
+        ...prev,
+        [studentEmail]: { active: true, duration: 0 },
+      }));
+    } else {
+      setAudioRecordingStates((prev) => ({
+        ...prev,
+        [studentEmail]: { active: false, duration: 0 },
+      }));
+      downloadAudioRecording(studentEmail);
+    }
+  };
+
+  const downloadAudioRecording = (studentEmail: string) => {
+    const chunks = audioChunksRef.current[studentEmail];
+    if (!chunks || chunks.length === 0) return;
+
+    try {
+      const byteArrays = chunks.map((base64) => {
+        const binaryString = window.atob(base64);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+      });
+
+      const totalLength = byteArrays.reduce((acc, arr) => acc + arr.length, 0);
+      const mergedArray = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const arr of byteArrays) {
+        mergedArray.set(arr, offset);
+        offset += arr.length;
+      }
+
+      const blob = new Blob([mergedArray], { type: "audio/webm" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `evidence_audio_${studentEmail.replace(/[@.]/g, "_")}.webm`;
+      link.click();
+
+      // Log incident
+      const now = new Date();
+      const newEv: ProctorEvent = {
+        id: Math.random().toString(),
+        eventType: "evidence_audio",
+        createdAt: now,
+        dismissedAt: null,
+        user: studentsList.find((s) => s.email === studentEmail) || {
+          name: studentEmail,
+          email: studentEmail,
+        },
+        payload: {
+          description: `Invigilator manually recorded a ${Math.round(totalLength / 16000)}s audio clip as evidence`,
+          severity: "red",
+        },
+      };
+      setEvents((prev) => [newEv, ...prev]);
+    } catch (err) {
+      console.error("Failed to compile or download audio recording:", err);
+    }
+  };
 
   // Log snapshot captures in candidate's incident logs
   const logSnapshotIncident = (studentEmail: string, dataUrl?: string) => {
@@ -289,7 +426,10 @@ export function IntegrityProctorDashboardClient({
   };
 
   // Dispatch real-time invigilator prompts to candidate page
-  const sendProctorCommand = async (studentEmail: string, command: "prompt_camera" | "force_camera") => {
+  const sendProctorCommand = async (
+    studentEmail: string,
+    command: "prompt_camera" | "force_camera" | "prompt_audio" | "force_audio"
+  ) => {
     try {
       const res = await fetch("/api/proctor/signal", {
         method: "POST",
@@ -302,9 +442,25 @@ export function IntegrityProctorDashboardClient({
       });
       if (res.ok) {
         const now = new Date();
+        let eventType = "proctor_prompt_camera";
+        let description = "";
+        if (command === "prompt_camera") {
+          eventType = "proctor_prompt_camera";
+          description = "Sent prompt to student to turn on camera";
+        } else if (command === "force_camera") {
+          eventType = "proctor_force_camera";
+          description = "Forced camera activation request on student screen";
+        } else if (command === "prompt_audio") {
+          eventType = "proctor_prompt_audio";
+          description = "Sent prompt to student to turn on microphone/audio";
+        } else if (command === "force_audio") {
+          eventType = "proctor_force_audio";
+          description = "Forced microphone/audio activation request on student screen";
+        }
+
         const newEv: ProctorEvent = {
           id: Math.random().toString(),
-          eventType: command === "prompt_camera" ? "proctor_prompt_camera" : "proctor_force_camera",
+          eventType,
           createdAt: now,
           dismissedAt: null,
           user: studentsList.find((s) => s.email === studentEmail) || {
@@ -312,9 +468,7 @@ export function IntegrityProctorDashboardClient({
             email: studentEmail,
           },
           payload: {
-            description: command === "prompt_camera" 
-              ? "Sent prompt to student to turn on camera and audio" 
-              : "Forced camera activation request on student screen",
+            description,
             severity: "yellow",
           },
         };
@@ -564,40 +718,101 @@ export function IntegrityProctorDashboardClient({
                   </div>
 
                   {/* Proctor Request Bar */}
-                  <div className="px-3 py-2 bg-muted/10 flex gap-2 border-t border-border/40">
+                  <div className="px-3 py-2 bg-muted/10 grid grid-cols-2 gap-2 border-t border-border/40">
                     <button
                       onClick={() => sendProctorCommand(stud.email, "prompt_camera")}
-                      className="flex-1 text-[9px] font-semibold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded py-1 transition-all"
+                      className="w-full text-[9px] font-semibold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded py-1 transition-all"
                     >
                       Prompt Camera
                     </button>
                     <button
                       onClick={() => sendProctorCommand(stud.email, "force_camera")}
-                      className="flex-1 text-[9px] font-semibold text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded py-1 transition-all"
+                      className="w-full text-[9px] font-semibold text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded py-1 transition-all"
                     >
                       Force Camera
+                    </button>
+                    <button
+                      onClick={() => sendProctorCommand(stud.email, "prompt_audio")}
+                      className="w-full text-[9px] font-semibold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 rounded py-1 transition-all"
+                    >
+                      Prompt Audio
+                    </button>
+                    <button
+                      onClick={() => sendProctorCommand(stud.email, "force_audio")}
+                      className="w-full text-[9px] font-semibold text-rose-500 hover:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded py-1 transition-all"
+                    >
+                      Force Audio
                     </button>
                   </div>
 
                   {/* Invigilator Evidence Capture Panel */}
-                  <div className="p-3 bg-muted/20 flex gap-2 border-t border-border/60">
-                    <Button
-                      onClick={() => takeSnapshot(stud.email)}
-                      disabled={!monitoringActive}
-                      className="flex-1 bg-primary text-primary-foreground font-bold hover:bg-primary/95 text-[10px] flex items-center justify-center gap-1 h-8"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      Snapshot
-                    </Button>
-                    <Button
-                      onClick={() => recordClip(stud.email)}
-                      disabled={!monitoringActive || isRecording}
-                      variant="outline"
-                      className="flex-1 border-border/80 text-[10px] font-bold flex items-center justify-center gap-1 h-8"
-                    >
-                      <Video className="w-3.5 h-3.5 text-rose-500" />
-                      Record Clip
-                    </Button>
+                  <div className="p-3 bg-muted/20 flex flex-col gap-2 border-t border-border/60">
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => takeSnapshot(stud.email)}
+                        disabled={!monitoringActive}
+                        className="flex-1 bg-primary text-primary-foreground font-bold hover:bg-primary/95 text-[10px] flex items-center justify-center gap-1 h-8"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        Snapshot
+                      </Button>
+                      <Button
+                        onClick={() => recordClip(stud.email)}
+                        disabled={!monitoringActive || isRecording}
+                        variant="outline"
+                        className="flex-1 border-border/80 text-[10px] font-bold flex items-center justify-center gap-1 h-8"
+                      >
+                        <Video className="w-3.5 h-3.5 text-rose-500" />
+                        Record Clip
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => toggleListening(stud.email)}
+                        disabled={!monitoringActive}
+                        variant={listeningTo[stud.email] ? "default" : "outline"}
+                        className={`flex-1 text-[10px] font-bold flex items-center justify-center gap-1 h-8 ${
+                          listeningTo[stud.email]
+                            ? "bg-emerald-600 hover:bg-emerald-505 text-white border-none"
+                            : "border-border/80"
+                        }`}
+                      >
+                        {listeningTo[stud.email] ? (
+                          <>
+                            <Volume2 className="w-3.5 h-3.5 animate-pulse" />
+                            Listening
+                          </>
+                        ) : (
+                          <>
+                            <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />
+                            Listen Mic
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => toggleAudioRecording(stud.email)}
+                        disabled={!monitoringActive}
+                        variant="outline"
+                        className={`flex-1 text-[10px] font-bold flex items-center justify-center gap-1 h-8 ${
+                          audioRecordingStates[stud.email]?.active
+                            ? "bg-rose-600 hover:bg-rose-500 text-white border-none animate-pulse"
+                            : "border-border/80"
+                        }`}
+                      >
+                        {audioRecordingStates[stud.email]?.active ? (
+                          <>
+                            <Mic className="w-3.5 h-3.5 text-white" />
+                            Recording ({audioRecordingStates[stud.email]?.duration}s)
+                          </>
+                        ) : (
+                          <>
+                            <MicOff className="w-3.5 h-3.5 text-rose-500" />
+                            Record Audio
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               );
@@ -807,16 +1022,72 @@ export function IntegrityProctorDashboardClient({
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <button
-                            onClick={() => sendProctorCommand(selectedStudent, "prompt_camera")}
+                            onClick={() => sendProctorCommand(selectedStudent || "", "prompt_camera")}
                             className="px-2.5 py-1.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 transition-all text-[9px] font-bold"
                           >
                             Prompt Camera
                           </button>
                           <button
-                            onClick={() => sendProctorCommand(selectedStudent, "force_camera")}
+                            onClick={() => sendProctorCommand(selectedStudent || "", "force_camera")}
                             className="px-2.5 py-1.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all text-[9px] font-bold"
                           >
                             Force Camera
+                          </button>
+                          <button
+                            onClick={() => sendProctorCommand(selectedStudent || "", "prompt_audio")}
+                            className="px-2.5 py-1.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20 transition-all text-[9px] font-bold"
+                          >
+                            Prompt Audio
+                          </button>
+                          <button
+                            onClick={() => sendProctorCommand(selectedStudent || "", "force_audio")}
+                            className="px-2.5 py-1.5 rounded bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20 transition-all text-[9px] font-bold"
+                          >
+                            Force Audio
+                          </button>
+                        </div>
+
+                        {/* Direct Stream Capture & Monitoring */}
+                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 mt-2">
+                          <button
+                            onClick={() => toggleListening(selectedStudent || "")}
+                            className={`px-2.5 py-1.5 rounded transition-all text-[9px] font-bold flex items-center justify-center gap-1 ${
+                              listeningTo[selectedStudent || ""]
+                                ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                            }`}
+                          >
+                            {listeningTo[selectedStudent || ""] ? (
+                              <>
+                                <Volume2 className="w-3.5 h-3.5 animate-pulse" />
+                                Listening
+                              </>
+                            ) : (
+                              <>
+                                <VolumeX className="w-3.5 h-3.5 text-muted-foreground" />
+                                Listen Mic
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => toggleAudioRecording(selectedStudent || "")}
+                            className={`px-2.5 py-1.5 rounded transition-all text-[9px] font-bold flex items-center justify-center gap-1 ${
+                              audioRecordingStates[selectedStudent || ""]?.active
+                                ? "bg-rose-600 hover:bg-rose-500 text-white animate-pulse"
+                                : "bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700"
+                            }`}
+                          >
+                            {audioRecordingStates[selectedStudent || ""]?.active ? (
+                              <>
+                                <Mic className="w-3.5 h-3.5 text-white" />
+                                Rec ({audioRecordingStates[selectedStudent || ""]?.duration}s)
+                              </>
+                            ) : (
+                              <>
+                                <MicOff className="w-3.5 h-3.5 text-rose-500" />
+                                Record Audio
+                              </>
+                            )}
                           </button>
                         </div>
                       </div>

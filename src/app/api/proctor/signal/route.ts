@@ -14,7 +14,7 @@ const activeRooms = new Map<string, RoomState>();
 
 type ProctorCommand = {
   studentEmail: string;
-  command: "prompt_camera" | "force_camera";
+  command: "prompt_camera" | "force_camera" | "prompt_audio" | "force_audio";
   timestamp: number;
 };
 
@@ -24,6 +24,8 @@ type StudentFeed = {
   studentEmail: string;
   primaryFeed?: string;   // base64 jpeg
   secondaryFeed?: string; // base64 jpeg
+  audioFeed?: string;     // base64 audio
+  audioTimestamp?: number;
   timestamp: number;
 };
 
@@ -97,7 +99,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { action, code, role, sdp, candidate, studentEmail, command, primaryFeed, secondaryFeed } = body;
+  const { action, code, role, sdp, candidate, studentEmail, command, primaryFeed, secondaryFeed, audioFeed } = body;
 
   // 0. Upload live camera frames (from student page or mobile device)
   if (action === "upload_feed") {
@@ -117,12 +119,18 @@ export async function POST(req: Request) {
       const feed = activeFeeds[index];
       if (primaryFeed !== undefined) feed.primaryFeed = primaryFeed;
       if (secondaryFeed !== undefined) feed.secondaryFeed = secondaryFeed;
+      if (audioFeed !== undefined) {
+        feed.audioFeed = audioFeed;
+        feed.audioTimestamp = now;
+      }
       feed.timestamp = now;
     } else {
       activeFeeds.push({
         studentEmail: email,
         primaryFeed,
         secondaryFeed,
+        audioFeed,
+        audioTimestamp: audioFeed ? now : undefined,
         timestamp: now,
       });
     }

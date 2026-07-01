@@ -549,6 +549,58 @@ export function TakeAssessment({
     return () => clearInterval(interval);
   }, [localStream, studentEmail, deliveryMode, locked]);
 
+  // 3b. Periodically capture audio chunks from localStream and upload to signaling server
+  useEffect(() => {
+    if (!localStream || !studentEmail || deliveryMode === "FORMATIVE" || locked) return;
+
+    const audioTracks = localStream.getAudioTracks();
+    if (audioTracks.length === 0) return;
+
+    let mediaRecorder: MediaRecorder | null = null;
+    try {
+      const audioStream = new MediaStream(audioTracks);
+      const options = MediaRecorder.isTypeSupported("audio/webm") ? { mimeType: "audio/webm" } : undefined;
+      mediaRecorder = new MediaRecorder(audioStream, options);
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const result = reader.result as string;
+            const base64Audio = result.split(",")[1];
+            if (base64Audio) {
+              void fetch("/api/proctor/signal", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "upload_feed",
+                  studentEmail,
+                  audioFeed: base64Audio,
+                }),
+              }).catch(() => {});
+            }
+          };
+          reader.readAsDataURL(e.data);
+        }
+      };
+
+      // Start recording with 3000ms slices
+      mediaRecorder.start(3000);
+    } catch (err) {
+      console.warn("Failed to initialize MediaRecorder for audio transmission:", err);
+    }
+
+    return () => {
+      if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        try {
+          mediaRecorder.stop();
+        } catch {
+          // ignore
+        }
+      }
+    };
+  }, [localStream, studentEmail, deliveryMode, locked]);
+
   // 4. Poll for proctor commands / prompts (supports remote force reactivation)
   useEffect(() => {
     if (deliveryMode === "FORMATIVE" || !studentEmail || locked || !submissionId) return;
@@ -590,6 +642,40 @@ export function TakeAssessment({
                 }
               } catch (err) {
                 console.error("Forced camera stream activation failed:", err);
+              }
+            }
+          } else if (data.command === "prompt_audio") {
+            alert("PROCTOR ALERT: The invigilator has requested that you check your microphone/audio immediately. Please ensure your microphone is enabled and capturing sound.");
+          } else if (data.command === "force_audio") {
+            alert("PROCTOR WARNING: The invigilator has triggered a forced microphone activation request. Reactivating microphone feed...");
+            if (localStream) {
+              localStream.getAudioTracks().forEach((track) => {
+                track.enabled = true;
+              });
+              setMicActive(true);
+            } else {
+              try {
+                const constraintsQueue = [
+                  { video: true, audio: true },
+                  { video: { width: { ideal: 320 }, height: { ideal: 240 } }, audio: true },
+                  { video: false, audio: true },
+                ];
+                let successStream: MediaStream | null = null;
+                for (const constraints of constraintsQueue) {
+                  try {
+                    successStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    break;
+                  } catch {
+                    // Try next constraints
+                  }
+                }
+                if (successStream) {
+                  setLocalStream(successStream);
+                  setMicActive(true);
+                  setCameraActive(successStream.getVideoTracks().length > 0);
+                }
+              } catch (err) {
+                console.error("Forced microphone stream activation failed:", err);
               }
             }
           }
