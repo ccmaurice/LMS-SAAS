@@ -563,6 +563,20 @@ export function TakeAssessment({
       mediaRecorder = new MediaRecorder(audioStream, options);
 
       mediaRecorder.ondataavailable = (e) => {
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (!audioTrack || !audioTrack.enabled) {
+          void fetch("/api/proctor/signal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "upload_feed",
+              studentEmail,
+              audioFeed: "disabled",
+            }),
+          }).catch(() => {});
+          return;
+        }
+
         if (e.data && e.data.size > 0) {
           const reader = new FileReader();
           reader.onloadend = () => {
@@ -952,6 +966,17 @@ export function TakeAssessment({
       localStream.getVideoTracks().forEach((track) => {
         track.enabled = !track.enabled;
         setCameraActive(track.enabled);
+        
+        // Instantly notify signaling server of status change
+        void fetch("/api/proctor/signal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "upload_feed",
+            studentEmail,
+            primaryFeed: track.enabled ? "" : "disabled",
+          }),
+        }).catch(() => {});
       });
     }
   };
@@ -961,6 +986,17 @@ export function TakeAssessment({
       localStream.getAudioTracks().forEach((track) => {
         track.enabled = !track.enabled;
         setMicActive(track.enabled);
+        
+        // Instantly notify signaling server of status change
+        void fetch("/api/proctor/signal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "upload_feed",
+            studentEmail,
+            audioFeed: track.enabled ? "enabled" : "disabled",
+          }),
+        }).catch(() => {});
       });
     }
   };

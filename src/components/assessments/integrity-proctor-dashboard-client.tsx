@@ -52,7 +52,7 @@ export function IntegrityProctorDashboardClient({
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [monitoringActive, setMonitoringActive] = useState(true);
   const [liveFeeds, setLiveFeeds] = useState<
-    Record<string, { primaryFeed?: string; secondaryFeed?: string }>
+    Record<string, { primaryFeed?: string; secondaryFeed?: string; audioFeed?: string; audioTimestamp?: number }>
   >({});
   const [recordingStates, setRecordingStates] = useState<
     Record<string, { active: boolean; remaining: number }>
@@ -646,13 +646,27 @@ export function IntegrityProctorDashboardClient({
                       />
                     )}
 
-                    {monitoringActive && liveFeeds[stud.email]?.primaryFeed === "disabled" && (
-                      <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center text-center p-4 space-y-1.5 z-10">
-                        <VideoOff className="w-8 h-8 text-rose-500/80 animate-pulse" />
-                        <span className="text-[10px] text-rose-400 font-semibold">
-                          Camera feed disabled by candidate
-                        </span>
-                      </div>
+                    {monitoringActive && (
+                      <>
+                        {liveFeeds[stud.email]?.primaryFeed === "disabled" && liveFeeds[stud.email]?.audioFeed === "disabled" ? (
+                          <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center text-center p-4 space-y-2 z-10">
+                            <div className="flex gap-4 text-rose-500/80 animate-pulse">
+                              <VideoOff className="w-8 h-8" />
+                              <MicOff className="w-8 h-8" />
+                            </div>
+                            <span className="text-[10px] text-rose-400 font-semibold leading-relaxed">
+                              Camera & Microphone feeds<br />disabled by candidate
+                            </span>
+                          </div>
+                        ) : liveFeeds[stud.email]?.primaryFeed === "disabled" ? (
+                          <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center text-center p-4 space-y-1.5 z-10">
+                            <VideoOff className="w-8 h-8 text-rose-500/80 animate-pulse" />
+                            <span className="text-[10px] text-rose-400 font-semibold">
+                              Camera feed disabled by candidate
+                            </span>
+                          </div>
+                        ) : null}
+                      </>
                     )}
 
                     {monitoringActive && (
@@ -662,6 +676,14 @@ export function IntegrityProctorDashboardClient({
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-950 animate-pulse" />
                           LIVE FEED
                         </div>
+
+                        {/* Microphone Muted Badge */}
+                        {liveFeeds[stud.email]?.audioFeed === "disabled" && liveFeeds[stud.email]?.primaryFeed !== "disabled" && (
+                          <div className="absolute top-2 left-2 bg-rose-600/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1.5 z-10 animate-pulse">
+                            <MicOff className="w-3 h-3 animate-bounce text-rose-200" />
+                            MIC MUTED / OFFLINE
+                          </div>
+                        )}
 
                         {/* Face bounding box overlay (only when camera is active) */}
                         {liveFeeds[stud.email]?.primaryFeed !== "disabled" && (
@@ -680,7 +702,9 @@ export function IntegrityProctorDashboardClient({
                         {/* Telemetry data overlay */}
                         <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center text-[7px] text-emerald-400 font-mono pointer-events-none bg-slate-950/85 px-2 py-1 rounded border border-emerald-500/20 z-10">
                           <span>GAZE: SECURE</span>
-                          <span>MIC: ACTIVE</span>
+                          <span className={liveFeeds[stud.email]?.audioFeed === "disabled" ? "text-rose-500 font-bold animate-pulse" : ""}>
+                            MIC: {liveFeeds[stud.email]?.audioFeed === "disabled" ? "MUTED" : "ACTIVE"}
+                          </span>
                           <span>SECURE PORT: WebRTC</span>
                         </div>
 
