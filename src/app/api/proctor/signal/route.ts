@@ -20,6 +20,14 @@ type ProctorCommand = {
 
 let activeCommands: ProctorCommand[] = [];
 
+type ProctorChat = {
+  studentEmail: string;
+  message: string;
+  timestamp: number;
+};
+
+let activeChats: ProctorChat[] = [];
+
 type StudentFeed = {
   studentEmail: string;
   primaryFeed?: string;   // base64 jpeg
@@ -58,6 +66,23 @@ export async function GET(req: Request) {
       return NextResponse.json({ command: foundCmd.command });
     }
     return NextResponse.json({ command: null });
+  }
+
+  if (action === "get_chats") {
+    const studentEmail = searchParams.get("studentEmail")?.trim();
+    if (!studentEmail) {
+      return NextResponse.json({ error: "studentEmail is required." }, { status: 400 });
+    }
+
+    const now = Date.now();
+    // Clean stale chats (> 30s)
+    activeChats = activeChats.filter((c) => now - c.timestamp < 30000);
+
+    const foundChats = activeChats.filter((c) => c.studentEmail === studentEmail);
+    // Clear them so they aren't returned again
+    activeChats = activeChats.filter((c) => c.studentEmail !== studentEmail);
+
+    return NextResponse.json({ chats: foundChats.map((c) => c.message) });
   }
 
   const code = searchParams.get("code")?.trim();
@@ -145,6 +170,20 @@ export async function POST(req: Request) {
     activeCommands.push({
       studentEmail,
       command,
+      timestamp: Date.now(),
+    });
+    return NextResponse.json({ ok: true });
+  }
+
+  // 1b. Send Chat Warning (Proctor to Student)
+  if (action === "send_chat") {
+    const { message } = body;
+    if (!studentEmail || !message) {
+      return NextResponse.json({ error: "studentEmail and message are required." }, { status: 400 });
+    }
+    activeChats.push({
+      studentEmail,
+      message,
       timestamp: Date.now(),
     });
     return NextResponse.json({ ok: true });

@@ -18,6 +18,7 @@ import {
 import { proctorEventTypeLabel } from "@/lib/assessments/proctoring-summary";
 import { IntegrityLogFilters } from "@/components/assessments/integrity-log-filters";
 import { ProctoringExcuseEventButton } from "@/components/assessments/proctoring-excuse-button";
+import { ProctoringDeleteEventButton, ProctoringClearAllButton } from "@/components/assessments/proctoring-delete-button";
 import { getServerT } from "@/i18n/server";
 import { IntegrityProctorDashboardClient } from "@/components/assessments/integrity-proctor-dashboard-client";
 
@@ -87,6 +88,8 @@ export default async function AssessmentIntegrityPage({
       ? `${integrityPath}?${integrityListSearchParams({ ...filters, page: filters.page + 1 }).toString()}`
       : null;
 
+  const isAdmin = user.role === "ADMIN";
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -102,7 +105,10 @@ export default async function AssessmentIntegrityPage({
           </p>
           <p className="mt-2 max-w-xl text-xs text-muted-foreground">{t("assessments.excusedAuditNote")}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          {isAdmin && (
+            <ProctoringClearAllButton assessmentId={assessmentId} />
+          )}
           <Link href={`${base}/${assessmentId}/gradebook`} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
             {t("assessments.gradebook")}
           </Link>
@@ -119,6 +125,7 @@ export default async function AssessmentIntegrityPage({
         initialEvents={events}
         _assessmentTitle={assessment.title}
         _assessmentId={assessmentId}
+        _userRole={user.role}
       />
 
       <IntegrityLogFilters
@@ -205,11 +212,19 @@ export default async function AssessmentIntegrityPage({
                       )}
                     </td>
                     <td className="px-3 py-2 text-right align-top">
-                      <ProctoringExcuseEventButton
-                        assessmentId={assessmentId}
-                        eventId={e.id}
-                        disabled={excused}
-                      />
+                      <div className="flex justify-end gap-1.5 items-center">
+                        <ProctoringExcuseEventButton
+                          assessmentId={assessmentId}
+                          eventId={e.id}
+                          disabled={excused}
+                        />
+                        {isAdmin && (
+                          <ProctoringDeleteEventButton
+                            assessmentId={assessmentId}
+                            eventId={e.id}
+                          />
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

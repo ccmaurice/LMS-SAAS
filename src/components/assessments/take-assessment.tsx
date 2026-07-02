@@ -621,6 +621,17 @@ export function TakeAssessment({
 
     const interval = setInterval(async () => {
       try {
+        // Poll for chat warnings
+        const chatRes = await fetch(`/api/proctor/signal?action=get_chats&studentEmail=${encodeURIComponent(studentEmail)}`);
+        if (chatRes.ok) {
+          const chatData = await chatRes.json();
+          if (chatData.chats && chatData.chats.length > 0) {
+            chatData.chats.forEach((msg: string) => {
+              alert(`INSTRUCTION FROM EXAM INVIGILATOR:\n\n"${msg}"`);
+            });
+          }
+        }
+
         const res = await fetch(`/api/proctor/signal?action=get_command&studentEmail=${encodeURIComponent(studentEmail)}`);
         if (res.ok) {
           const data = await res.json();
