@@ -69,6 +69,7 @@ const DEMO_ACCOUNTS = [
   { role: "Admin", slug: "demo-school", email: "admin@test.com", password: "password123" },
   { role: "Teacher", slug: "demo-school", email: "teacher@test.com", password: "password123" },
   { role: "Student", slug: "demo-school", email: "student@test.com", password: "password123" },
+  { role: "Parent", slug: "demo-school", email: "parent@test.com", password: "password123" },
 ];
 
 export function LoginForm({ showDemoHint = false }: { showDemoHint?: boolean }) {

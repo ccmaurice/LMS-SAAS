@@ -44,6 +44,7 @@ function MobileBroadcastContent() {
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeInstructionTab, setActiveInstructionTab] = useState<"android" | "ios">("android");
+  const [cameraType, setCameraType] = useState<"user" | "environment">("environment");
 
   // Auto-detect mobile OS on mount
   useEffect(() => {
@@ -59,6 +60,39 @@ function MobileBroadcastContent() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+
+  async function switchCamera() {
+    const nextType = cameraType === "user" ? "environment" : "user";
+    setCameraType(nextType);
+
+    if (stream) {
+      // Stop current tracks
+      stream.getVideoTracks().forEach((track) => track.stop());
+
+      try {
+        const nextStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: nextType, width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false,
+        });
+        setStream(nextStream);
+
+        // Replace the track in WebRTC sender
+        if (peerConnectionRef.current) {
+          const senders = peerConnectionRef.current.getSenders();
+          const videoSender = senders.find((s) => s.track && s.track.kind === "video");
+          if (videoSender) {
+            const newTrack = nextStream.getVideoTracks()[0];
+            if (newTrack) {
+              await videoSender.replaceTrack(newTrack);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to switch camera device:", err);
+        setError("Failed to access camera after toggle. Check permissions.");
+      }
+    }
+  }
 
   // Streaming duration timer
   useEffect(() => {
@@ -109,8 +143,8 @@ function MobileBroadcastContent() {
     try {
       // 1. Get back-camera feed (with constraint cascade for maximum compatibility)
       const constraintsQueue = [
-        { video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
-        { video: { facingMode: "environment" }, audio: false },
+        { video: { facingMode: cameraType, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false },
+        { video: { facingMode: cameraType }, audio: false },
         { video: true, audio: false },
       ];
 
@@ -406,6 +440,17 @@ function MobileBroadcastContent() {
           <div className="text-center text-sm font-semibold tracking-wider text-teal-300">
             Stream duration: {formatTime(duration)}
           </div>
+        )}
+
+        {stream && (
+          <Button
+            type="button"
+            onClick={switchCamera}
+            className="w-full bg-slate-800 text-white font-semibold hover:bg-slate-700 flex items-center justify-center gap-2 mb-2"
+          >
+            <Camera className="w-4 h-4 text-teal-400" />
+            Switch to {cameraType === "user" ? "Rear Camera" : "Front Camera"}
+          </Button>
         )}
 
         {!broadcasting ? (

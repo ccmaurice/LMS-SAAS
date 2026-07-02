@@ -30,7 +30,8 @@ import {
   Trash2,
   ListFilter,
   CheckCircle2,
-  Sliders
+  Sliders,
+  PhoneOff
 } from "lucide-react";
 
 type ProctorEvent = {
@@ -58,6 +59,7 @@ export function IntegrityProctorDashboardClient({
   const [selectedStudent, setSelectedStudent] = useState<string | null>(
     initialEvents[0]?.user.email || null
   );
+  const [zoomedStudent, setZoomedStudent] = useState<string | null>(null);
   
   // Navigation tabs: live, history, alerts, reports, settings
   const [activeTab, setActiveTab] = useState<"live" | "history" | "alerts" | "reports" | "settings">("live");
@@ -864,19 +866,29 @@ export function IntegrityProctorDashboardClient({
                     >
                       {/* Candidate Card Header */}
                       <div className="p-3 bg-[#1F2023] border-b border-zinc-850 flex justify-between items-center">
-                        <div className="truncate pr-2">
+                        <div className="truncate pr-2 flex-1">
                           <div className="font-bold text-xs text-white truncate">{stud.name || "Real Candidate"}</div>
                           <div className="text-[9px] text-zinc-500 truncate">{stud.email}</div>
                         </div>
-                        <span className={cn(
-                          "px-2 py-0.5 rounded-full border font-bold text-[8px] uppercase tracking-wider flex items-center gap-1 shrink-0",
-                          hasAlert 
-                            ? "bg-red-500/10 text-red-500 border-red-500/25 animate-pulse"
-                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        )}>
-                          <span className={cn("w-1 h-1 rounded-full bg-emerald-400 animate-pulse", hasAlert && "bg-red-500")} />
-                          {hasAlert ? "OFFLINE/MUTED" : "Live"}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-full border font-bold text-[8px] uppercase tracking-wider flex items-center gap-1",
+                            hasAlert 
+                              ? "bg-red-500/10 text-red-500 border-red-500/25 animate-pulse"
+                              : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                          )}>
+                            <span className={cn("w-1 h-1 rounded-full bg-emerald-400 animate-pulse", hasAlert && "bg-red-500")} />
+                            {hasAlert ? "OFFLINE" : "Live"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setZoomedStudent(stud.email)}
+                            className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-all"
+                            title="Expand Dual Camera View"
+                          >
+                            <Maximize2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Video Viewport relative block */}
@@ -1087,22 +1099,74 @@ export function IntegrityProctorDashboardClient({
                         <div className="relative aspect-video rounded-xl overflow-hidden bg-[#090A0B] border border-zinc-850 flex items-center justify-center group shadow-2xl">
                           {/* Screen share view */}
                           <div className="absolute inset-0 flex items-center justify-center p-4">
-                            <Monitor className="w-16 h-16 text-zinc-800 absolute group-hover:scale-105 transition-transform" />
+                            <Monitor className="w-12 h-12 text-zinc-800 absolute group-hover:scale-105 transition-transform" />
                             <img
                               src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80"
                               alt="Student Screen Share"
                               className="w-full h-full object-cover opacity-80 rounded border border-zinc-800"
                             />
                           </div>
+                          <div className="absolute top-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-white font-bold">
+                            MONITORED WORKSPACE SCREEN
+                          </div>
+                        </div>
 
-                          {/* PIP frame: Webcam Face View */}
-                          <div className="absolute bottom-4 right-4 w-32 aspect-video bg-black rounded-lg overflow-hidden border-2 border-red-500 shadow-2xl flex items-center justify-center cursor-move transition-transform hover:scale-105">
-                            <div className="w-full h-full bg-[#090A0B] flex items-center justify-center text-xs text-zinc-500 uppercase">
-                              Camera view
+                        {/* Dual Camera Angles Side-by-Side */}
+                        <div className="grid grid-cols-2 gap-4">
+                          {/* Front Webcam feed */}
+                          <div className="relative aspect-video rounded-xl overflow-hidden bg-[#090A0B] border border-zinc-850 flex items-center justify-center">
+                            <div className="absolute top-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-white z-10 font-bold">
+                              PRIMARY WEBCAM: FRONT
                             </div>
-                            <div className="absolute bottom-1 left-1 bg-black/60 px-1 py-0.5 rounded text-[8px] text-white">
-                              Webcam
+                            {monitoringActive ? (
+                              liveFeeds[selectedStudent]?.primaryFeed === "disabled" ? (
+                                <div className="absolute inset-0 bg-red-955/40 flex flex-col items-center justify-center text-center p-2 z-10 animate-pulse">
+                                  <VideoOff className="w-6 h-6 text-red-500 mb-1" />
+                                  <span className="text-[8px] text-red-300 font-extrabold uppercase">Camera disabled</span>
+                                </div>
+                              ) : liveFeeds[selectedStudent]?.primaryFeed ? (
+                                <img
+                                  src={liveFeeds[selectedStudent].primaryFeed}
+                                  alt="Front View"
+                                  className="w-full h-full object-cover scale-x-[-1]"
+                                />
+                              ) : (
+                                <video
+                                  ref={(el) => {
+                                    videoRefs.current[selectedStudent] = el;
+                                    if (el && liveStream && el.srcObject !== liveStream) {
+                                      el.srcObject = liveStream;
+                                    }
+                                  }}
+                                  autoPlay
+                                  playsInline
+                                  muted
+                                  className="w-full h-full object-cover scale-x-[-1]"
+                                />
+                              )
+                            ) : (
+                              <span className="text-xs text-zinc-650">Front Feed Offline</span>
+                            )}
+                          </div>
+
+                          {/* Secondary Mobile support camera */}
+                          <div className="relative aspect-video rounded-xl overflow-hidden bg-[#090A0B] border border-zinc-850 flex items-center justify-center">
+                            <div className="absolute top-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-white z-10 font-bold">
+                              SUPPORT CAMERA: DESK VIEW
                             </div>
+                            {monitoringActive && liveFeeds[selectedStudent]?.secondaryFeed ? (
+                              <img
+                                src={liveFeeds[selectedStudent].secondaryFeed}
+                                alt="Support View"
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="text-center p-2">
+                                <PhoneOff className="w-6 h-6 text-zinc-700 mx-auto mb-1" />
+                                <span className="text-[10px] text-zinc-550 block">Support Feed Offline</span>
+                                <span className="text-[8px] text-zinc-655 block mt-0.5">Pair mobile support camera</span>
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -1437,6 +1501,74 @@ export function IntegrityProctorDashboardClient({
 
         </main>
       </div>
+
+      {/* Expanded Multi-Angle Fullscreen Modal */}
+      {zoomedStudent && (
+        <div className="fixed inset-0 z-50 bg-[#090A0B]/95 flex items-center justify-center p-6 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#141519] border border-zinc-800 rounded-2xl w-full max-w-4xl p-6 relative flex flex-col gap-6 shadow-2xl">
+            <button
+              onClick={() => setZoomedStudent(null)}
+              className="absolute top-4 right-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full px-4 py-2 transition-all text-xs font-bold"
+            >
+              Close View
+            </button>
+            <div>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                Expanded Multi-Angle Monitoring: {studentsList.find(s => s.email === zoomedStudent)?.name || zoomedStudent}
+              </h2>
+              <p className="text-xs text-zinc-400 mt-1">Simultaneous front webcam and desktop support angle view.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 flex-1">
+              {/* Primary Front Camera view */}
+              <div className="relative aspect-video bg-[#090A0B] border border-zinc-800 rounded-xl overflow-hidden flex items-center justify-center">
+                <div className="absolute top-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-white z-10 font-bold">
+                  PRIMARY CAMERA: FRONT VIEW
+                </div>
+                {liveFeeds[zoomedStudent]?.primaryFeed === "disabled" ? (
+                  <div className="absolute inset-0 bg-red-955/40 flex flex-col items-center justify-center text-center p-4 space-y-2 z-10 animate-pulse">
+                    <VideoOff className="w-8 h-8 text-red-500" />
+                    <span className="text-[10px] text-red-300 font-extrabold uppercase tracking-wider leading-relaxed">
+                      Camera disabled<br />by candidate
+                    </span>
+                  </div>
+                ) : liveFeeds[zoomedStudent]?.primaryFeed ? (
+                  <img src={liveFeeds[zoomedStudent]?.primaryFeed} alt="Front View" className="w-full h-full object-cover scale-x-[-1]" />
+                ) : liveStream ? (
+                  <video
+                    ref={(el) => {
+                      if (el) el.srcObject = liveStream;
+                    }}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover scale-x-[-1]"
+                  />
+                ) : (
+                  <div className="text-zinc-600 text-xs font-semibold">Front Feed Offline</div>
+                )}
+              </div>
+
+              {/* Secondary Mobile support camera view */}
+              <div className="relative aspect-video bg-[#090A0B] border border-zinc-800 rounded-xl overflow-hidden flex items-center justify-center">
+                <div className="absolute top-2 left-2 bg-black/75 px-2 py-0.5 rounded text-[10px] text-white z-10 font-bold">
+                  SUPPORT CAMERA: DESK VIEW
+                </div>
+                {liveFeeds[zoomedStudent]?.secondaryFeed ? (
+                  <img src={liveFeeds[zoomedStudent]?.secondaryFeed} alt="Desk View" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="text-center p-4">
+                    <PhoneOff className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+                    <div className="text-zinc-550 text-xs font-semibold animate-pulse">Desk View Offline</div>
+                    <div className="text-[10px] text-zinc-650 mt-1">Connect mobile support camera</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
